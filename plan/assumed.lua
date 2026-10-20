@@ -64,7 +64,7 @@ function Assumed.rebase(state, detected)
     end
 end
 
--- Gives the assumed input of Plan.calculate.
+-- Gives the assumed field of the Plan.calculate request.
 function Assumed.remaining(state)
     local remaining = {}
     for _, entry in ipairs(state.entries) do
