@@ -35,6 +35,13 @@ describe("Plan.calculate", function()
         expectEqual(plan.leftovers, { { item = "BREAD", count = 1 } })
     end)
 
+    it("gives each Step its Recipe and its extra Output", function()
+        local plan = bakeBread({ DOUGH = 10 })
+
+        expectEqual(plan.steps[1].recipe.verb, "Bake")
+        expectEqual(plan.steps[1].extra, 1)
+    end)
+
     it("lists an other Output that the Plan does not use as a Leftover", function()
         local plan = Plan.calculate({
             targets = { { item = "COCONUT_MILK", count = 3 } },

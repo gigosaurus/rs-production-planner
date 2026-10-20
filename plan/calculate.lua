@@ -68,7 +68,7 @@ end
 
 -- Marks each Waiting step with the position of the Flagged step that causes it.
 -- A Flagged step is never also Waiting.
-local function markWaiting(request, steps, recipeOf)
+local function markWaiting(request, steps)
     local isTarget = {}
     for _, target in ipairs(request.targets) do
         isTarget[target.item] = true
@@ -83,7 +83,7 @@ local function markWaiting(request, steps, recipeOf)
         if step.item == item then
             return true
         end
-        for _, other in ipairs(recipeOf[step].otherOutputs or {}) do
+        for _, other in ipairs(step.recipe.otherOutputs or {}) do
             if other.item == item then
                 return true
             end
@@ -118,7 +118,7 @@ local function markWaiting(request, steps, recipeOf)
         for _, step in ipairs(steps) do
             local earliest, allFlaggedOrWaiting = nil, true
             for position, user in ipairs(steps) do
-                for _, input in ipairs(recipeOf[user].inputs) do
+                for _, input in ipairs(user.recipe.inputs) do
                     if makes(step, input.item) then
                         local by = causeOf(position, user)
                         if by then
@@ -137,7 +137,7 @@ local function markWaiting(request, steps, recipeOf)
         -- A Step is Waiting when it uses an item that a Flagged or Waiting step makes.
         for _, step in ipairs(steps) do
             if #step.flags == 0 then
-                for _, input in ipairs(recipeOf[step].inputs) do
+                for _, input in ipairs(step.recipe.inputs) do
                     for position, maker in ipairs(steps) do
                         local by = makes(maker, input.item) and causeOf(position, maker)
                         if by then
@@ -151,12 +151,12 @@ local function markWaiting(request, steps, recipeOf)
 end
 
 -- Finds the Next step. This is the first Step that the player can usefully do now.
-local function findNext(request, steps, recipeOf)
+local function findNext(request, steps)
     for position, step in ipairs(steps) do
         -- One inventory is the Batch hint, or less when fewer actions remain.
         local actions = math.min(step.batchHint or step.actions, step.actions)
         local ready = #step.flags == 0 and not step.waitsOn
-        for _, input in ipairs(recipeOf[step].inputs) do
+        for _, input in ipairs(step.recipe.inputs) do
             local free = (request.detected[input.item] or 0) - ((request.reserves or {})[input.item] or 0)
             if free < input.count * actions then
                 ready = false
@@ -267,11 +267,16 @@ local function deepestLevel(levels)
     return deepest
 end
 
-local function newStep(request, item, recipe, actions)
+-- Makes the Step that makes need of item with recipe.
+-- extra is the Output above the need, because the Step does whole actions. It is a Leftover.
+local function newStep(request, item, recipe, need)
+    local actions = math.ceil(need / recipe.output)
     local step = {
         item = item,
+        recipe = recipe,
         verb = recipe.verb,
         actions = actions,
+        extra = actions * recipe.output - need,
         flags = flagsFor(request, recipe),
         batchHint = batchHintFor(request, recipe),
     }
@@ -287,9 +292,9 @@ local function newStep(request, item, recipe, actions)
 end
 
 -- Makes the Steps in production order. It totals the demand and the supply of each item at its Planning level.
--- It also gives the Recipe and the extra Output of each Step, the used supply of each item, and the Shortages.
+-- It also gives the used supply of each item, and the Shortages.
 local function stepsFor(request, levels, order)
-    local stepsByLevel, recipeOf, extraOf = {}, {}, {}
+    local stepsByLevel = {}
     local shortBy = {}
     -- supply is the other Outputs of Steps. usedSupply is the part of it that the Plan uses.
     local supply, usedSupply = {}, {}
@@ -324,17 +329,14 @@ local function stepsFor(request, levels, order)
                 local need = stillNeeded - (supply[item] or 0)
                 local recipe = recipeFor(request, item)
                 if need > 0 and recipe then
-                    local actions = math.ceil(need / recipe.output)
-                    local step = newStep(request, item, recipe, actions)
+                    local step = newStep(request, item, recipe, need)
                     local steps = stepsByLevel[level]
                     steps[#steps + 1] = step
-                    recipeOf[step] = recipe
-                    extraOf[step] = actions * recipe.output - need
                     for _, input in ipairs(recipe.inputs) do
-                        demand[input.item] = (demand[input.item] or 0) + input.count * actions
+                        demand[input.item] = (demand[input.item] or 0) + input.count * step.actions
                     end
                     for _, other in ipairs(recipe.otherOutputs or {}) do
-                        supply[other.item] = (supply[other.item] or 0) + other.count * actions
+                        supply[other.item] = (supply[other.item] or 0) + other.count * step.actions
                     end
                 elseif need > 0 then
                     shortBy[item] = need
@@ -350,17 +352,17 @@ local function stepsFor(request, levels, order)
             steps[#steps + 1] = step
         end
     end
-    return steps, recipeOf, extraOf, usedSupply, shortBy
+    return steps, usedSupply, shortBy
 end
 
-local function leftoversFor(steps, recipeOf, extraOf, usedSupply)
+local function leftoversFor(steps, usedSupply)
     local leftovers = {}
     for _, step in ipairs(steps) do
-        if extraOf[step] > 0 then
-            leftovers[#leftovers + 1] = { item = step.item, count = extraOf[step] }
+        if step.extra > 0 then
+            leftovers[#leftovers + 1] = { item = step.item, count = step.extra }
         end
         -- The used supply comes from the first Steps in production order.
-        for _, other in ipairs(recipeOf[step].otherOutputs or {}) do
+        for _, other in ipairs(step.recipe.otherOutputs or {}) do
             local made = other.count * step.actions
             local used = math.min(made, usedSupply[other.item] or 0)
             usedSupply[other.item] = (usedSupply[other.item] or 0) - used
@@ -374,7 +376,7 @@ end
 
 -- A Shortage takes the position of the first Step that uses it.
 -- A Shortage that no Step uses is a Target with no Recipe. It goes at the end.
-local function shortagesFor(steps, recipeOf, order, shortBy)
+local function shortagesFor(steps, order, shortBy)
     local shortages, listed = {}, {}
     local function listShortage(item)
         if shortBy[item] and not listed[item] then
@@ -383,7 +385,7 @@ local function shortagesFor(steps, recipeOf, order, shortBy)
         end
     end
     for _, step in ipairs(steps) do
-        for _, input in ipairs(recipeOf[step].inputs) do
+        for _, input in ipairs(step.recipe.inputs) do
             listShortage(input.item)
         end
     end
@@ -408,14 +410,14 @@ end
 
 function Plan.calculate(request)
     local levels, order = planningLevels(request)
-    local steps, recipeOf, extraOf, usedSupply, shortBy = stepsFor(request, levels, order)
-    markWaiting(request, steps, recipeOf)
+    local steps, usedSupply, shortBy = stepsFor(request, levels, order)
+    markWaiting(request, steps)
     return {
         targets = targetLines(request),
         steps = steps,
-        leftovers = leftoversFor(steps, recipeOf, extraOf, usedSupply),
-        shortages = shortagesFor(steps, recipeOf, order, shortBy),
-        next = findNext(request, steps, recipeOf),
+        leftovers = leftoversFor(steps, usedSupply),
+        shortages = shortagesFor(steps, order, shortBy),
+        next = findNext(request, steps),
         complete = isComplete(request),
     }
 end
