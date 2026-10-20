@@ -8,6 +8,10 @@ The project keeps issues as GitHub issues in `gigosaurus/rs-production-planner`.
 
 The default labels are needs-triage, needs-info, ready-for-agent, ready-for-human and wontfix. See `docs/agents/triage-labels.md`.
 
+### PR titles and labels
+
+PR titles must use the Conventional Commits format, for example `feat: count module`. A workflow applies the kind, size and area labels. See `docs/agents/pr-labels.md`.
+
 ### Domain docs
 
 The project has one context: one `GLOSSARY.md` at the root, and `docs/adr/`. See `docs/agents/domain.md`.
