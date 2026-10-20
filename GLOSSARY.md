@@ -12,6 +12,10 @@ _Avoid_: Project, job, order list
 An item and quantity that the player wants to have at the end.
 _Avoid_: Goal, request, order
 
+**Basis**:
+All the data that the plugin calculates a Plan from: the Targets, the Recipes, the stock counts, the Made counts, the skill levels, the Unlocks and the Target mode.
+_Avoid_: Request, input (an Input is a Recipe term)
+
 **Recipe**:
 One way to make items. It has Inputs, Outputs, requirements, an Action limit and an Action time.
 _Avoid_: Formula, craft
@@ -85,7 +89,7 @@ The number of a Target that the player made since the Plan changed to Make. The 
 _Avoid_: Progress, produced count, done count
 
 **Made count scope**:
-The setting of a Plan that decides which Made count the Plan uses. Its options are This character and All characters.
+The setting of a Plan that decides which Made counts the Plan uses. Its options are This character and All characters. All characters adds the Made counts of all characters together.
 _Avoid_: Count mode, tracking mode
 
 ## Counted stock
