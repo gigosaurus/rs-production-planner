@@ -45,16 +45,16 @@ end
 
 local function checkScope(scope)
     if scope ~= Made.CHARACTER and scope ~= Made.ALL then
-        error("unknown Made count scope: " .. tostring(scope), 3)
+        error("The Made count scope " .. tostring(scope) .. " is unknown.", 3)
     end
 end
 
 local function checkOffer(offer)
     if offer.type ~= Made.BUY and offer.type ~= Made.SELL then
-        error("unknown GE offer type: " .. tostring(offer.type), 4)
+        error("The GE offer type " .. tostring(offer.type) .. " is unknown.", 4)
     end
     if not STAGES[offer.stage] then
-        error("unknown GE offer stage: " .. tostring(offer.stage), 4)
+        error("The GE offer stage " .. tostring(offer.stage) .. " is unknown.", 4)
     end
 end
 

@@ -6,6 +6,7 @@ local function bakeBread(detected, assumed, reserves)
         recipes = {
             BREAD = { { verb = "Bake", output = 2, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
         },
+        targetMode = Plan.HAVE,
         detected = detected,
         assumed = assumed,
         reserves = reserves,
@@ -44,6 +45,7 @@ describe("Plan.calculate", function()
                         { verb = "Bake", output = 2, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
                     },
                 },
+                targetMode = Plan.HAVE,
                 detected = { DOUGH = 10, BREAD = bread },
             })
         end
@@ -78,6 +80,7 @@ describe("Plan.calculate", function()
                         { verb = "Bake", output = 2, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
                     },
                 },
+                targetMode = Plan.HAVE,
                 detected = { DOUGH = 10 },
             }
         end
@@ -102,6 +105,7 @@ describe("Plan.calculate", function()
                     },
                 },
             },
+            targetMode = Plan.HAVE,
             detected = { VIAL = 3, COCONUT_OPEN = 3 },
         })
 
@@ -123,6 +127,7 @@ describe("Plan.calculate", function()
             local plan = Plan.calculate({
                 targets = { { item = "COCONUT_MILK", count = 3 }, { item = "SHELL_BOWL", count = 3 } },
                 recipes = { COCONUT_MILK = { pourMilk }, SHELL_BOWL = { makeBowl } },
+                targetMode = Plan.HAVE,
                 detected = { VIAL = 3, COCONUT_OPEN = 3 },
             })
 
@@ -145,6 +150,7 @@ describe("Plan.calculate", function()
                     { item = "SHELL_BOWL", count = 4 },
                 },
                 recipes = { COCONUT_MILK = { pourMilk }, GRATED_COCONUT = { grateCoconut }, SHELL_BOWL = { makeBowl } },
+                targetMode = Plan.HAVE,
                 detected = { VIAL = 3, COCONUT_OPEN = 5 },
             })
 
@@ -155,6 +161,7 @@ describe("Plan.calculate", function()
             local plan = Plan.calculate({
                 targets = { { item = "SHELL_BOWL", count = 3 }, { item = "COCONUT_MILK", count = 3 } },
                 recipes = { COCONUT_MILK = { pourMilk }, SHELL_BOWL = { makeBowl } },
+                targetMode = Plan.HAVE,
                 detected = { VIAL = 3, COCONUT_OPEN = 3 },
             })
 
@@ -187,6 +194,7 @@ describe("Plan.calculate", function()
                     },
                     COCONUT_MILK = { pourMilk },
                 },
+                targetMode = Plan.HAVE,
                 detected = { VIAL = 3, COCONUT_OPEN = 3 },
             })
 
@@ -205,6 +213,7 @@ describe("Plan.calculate", function()
             local plan = Plan.calculate({
                 targets = { { item = "COCONUT_MILK", count = 3 }, { item = "SHELL_BOWL", count = 3 } },
                 recipes = { COCONUT_MILK = { flaggedPour }, SHELL_BOWL = { makeBowl } },
+                targetMode = Plan.HAVE,
                 detected = { VIAL = 3, COCONUT_OPEN = 3 },
                 levels = { COOKING = 10 },
             })
@@ -229,6 +238,7 @@ describe("Plan.calculate", function()
                     COCONUT_MILK = { pourMilk },
                     SHELL_BOWL = { makeBowl },
                 },
+                targetMode = Plan.HAVE,
                 detected = { VIAL = 3, COCONUT_OPEN = 3 },
                 levels = { COOKING = 10 },
             })
@@ -258,6 +268,7 @@ describe("Plan.calculate", function()
                     },
                     SHELL_BOWL = { makeBowl },
                 },
+                targetMode = Plan.HAVE,
                 detected = { VIAL = 3, COCONUT_OPEN = 5 },
             })
 
@@ -315,6 +326,7 @@ describe("Plan.calculate", function()
         local plan = Plan.calculate({
             targets = { { item = "BREAD", count = 5 }, { item = "CAKE", count = 1 } },
             recipes = {},
+            targetMode = Plan.HAVE,
             detected = { BREAD = 5 },
         })
 
@@ -336,6 +348,7 @@ describe("Plan.calculate", function()
                 B = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "A", count = 10 } } } },
                 C = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "A", count = 100 } } } },
             },
+            targetMode = Plan.HAVE,
             detected = { A = 1, ORE = 1000 },
         })
 
@@ -358,6 +371,7 @@ describe("Plan.calculate", function()
                     },
                 },
             },
+            targetMode = Plan.HAVE,
             detected = { C = 1, ORE = 10 },
         })
 
@@ -378,6 +392,7 @@ describe("Plan.calculate", function()
                 B = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "ORE", count = 1 } } } },
                 D = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "B", count = 10 } } } },
             },
+            targetMode = Plan.HAVE,
             detected = { B = 4 },
         })
 
@@ -392,6 +407,7 @@ describe("Plan.calculate", function()
                 BREAD = { { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
                 DOUGH = { { verb = "Mix", output = 1, actionLimit = 60, inputs = { { item = "FLOUR", count = 1 } } } },
             },
+            targetMode = Plan.HAVE,
             detected = { FLOUR = 1 },
         })
 
@@ -417,6 +433,7 @@ describe("Plan.calculate", function()
                 },
                 DOUGH = { { verb = "Mix", output = 1, actionLimit = 60, inputs = { { item = "FLOUR", count = 1 } } } },
             },
+            targetMode = Plan.HAVE,
             detected = {},
         })
 
@@ -430,6 +447,7 @@ describe("Plan.calculate", function()
             recipes = {
                 BREAD = { { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
             },
+            targetMode = Plan.HAVE,
             detected = {},
         })
 
@@ -443,6 +461,7 @@ describe("Plan.calculate", function()
                 BREAD = { { verb = "Bake", output = 2, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
                 DOUGH = { { verb = "Mix", output = 2, actionLimit = 60, inputs = { { item = "FLOUR", count = 1 } } } },
             },
+            targetMode = Plan.HAVE,
             detected = { FLOUR = 10 },
         })
 
@@ -463,6 +482,7 @@ describe("Plan.calculate", function()
                     },
                 },
             },
+            targetMode = Plan.HAVE,
             detected = { SNAPDRAGON = 1 },
             levels = { HERBLORE = 61, COOKING = 10 },
         })
@@ -484,6 +504,7 @@ describe("Plan.calculate", function()
                     },
                 },
             },
+            targetMode = Plan.HAVE,
             detected = { HERB = 1 },
             unlocks = { DRUIDIC_RITUAL = true },
         })
@@ -508,6 +529,7 @@ describe("Plan.calculate", function()
                     },
                 },
             },
+            targetMode = Plan.HAVE,
             detected = {},
         })
 
@@ -522,6 +544,7 @@ describe("Plan.calculate", function()
             recipes = {
                 BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
             },
+            targetMode = Plan.HAVE,
             detected = {},
         })
 
@@ -536,6 +559,7 @@ describe("Plan.calculate", function()
             recipes = {
                 BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
             },
+            targetMode = Plan.HAVE,
             detected = { BREAD = 1 },
         })
 
@@ -551,10 +575,59 @@ describe("Plan.calculate", function()
                 BREAD = { { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
                 CAKE = { { verb = "Bake", output = 1, inputs = { { item = "BATTER", count = 1 } } } },
             },
+            targetMode = Plan.HAVE,
             detected = {},
         })
 
         expectEqual(ok, true)
+    end)
+
+    describe("Basis check", function()
+        local function breadBasis()
+            return {
+                targets = { { item = "BREAD", count = 1 } },
+                recipes = {
+                    BREAD = {
+                        { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
+                    },
+                },
+                targetMode = Plan.HAVE,
+                detected = {},
+            }
+        end
+
+        -- A typo in the Target mode must not give a Plan in Have (issue 14).
+        it("stops with an error that names an unknown Target mode", function()
+            local basis = breadBasis()
+            basis.targetMode = "MAKES"
+            local ok, err = pcall(Plan.calculate, basis)
+
+            expectEqual(ok, false)
+            expectEqual(err, "The Target mode MAKES is unknown.")
+        end)
+
+        -- Each caller must give each required field (issue 14).
+        for _, field in ipairs({ "targets", "recipes", "detected", "targetMode" }) do
+            it("stops with an error when the Basis has no " .. field, function()
+                local basis = breadBasis()
+                basis[field] = nil
+                local ok, err = pcall(Plan.calculate, basis)
+
+                expectEqual(ok, false)
+                expectEqual(err, "The Basis has no " .. field .. ".")
+            end)
+        end
+
+        it("gives the line of the caller in the error", function()
+            local basis = breadBasis()
+            basis.targetMode = nil
+            local ok, err = pcall(function()
+                Plan.calculate(basis)
+            end)
+
+            expectEqual(ok, false)
+            expectEqual(err:find("calculate_spec.lua:%d+: The Basis has no targetMode%.") ~= nil, true)
+        end)
     end)
 
     describe("Batch hint", function()
@@ -564,6 +637,7 @@ describe("Plan.calculate", function()
                 recipes = {
                     POTION = { { verb = "Mix", output = 1, inputs = inputs, actionLimit = actionLimit or 60 } },
                 },
+                targetMode = Plan.HAVE,
                 detected = {},
                 stackable = stackable,
             })
@@ -615,6 +689,7 @@ describe("Plan.calculate", function()
                         },
                     },
                 },
+                targetMode = Plan.HAVE,
                 detected = { HERB_UNF = 30 },
             })
 
@@ -642,6 +717,7 @@ describe("Plan.calculate", function()
                     },
                 },
             }
+            stock.targetMode = Plan.HAVE
             return Plan.calculate(stock)
         end
 
@@ -705,6 +781,7 @@ describe("Plan.calculate", function()
                         },
                     },
                 },
+                targetMode = Plan.HAVE,
                 detected = { GRIMY_RANARR = 28, GRIMY_TOADFLAX = 28 },
                 levels = { HERBLORE = 10 },
             })
@@ -742,6 +819,7 @@ describe("Plan.calculate", function()
                         },
                     },
                 },
+                targetMode = Plan.HAVE,
                 detected = { SNAPDRAGON = 14, GRIMY_TOADFLAX = 28 },
                 levels = { HERBLORE = 61 },
             })
@@ -765,6 +843,7 @@ describe("Plan.calculate", function()
             local plan = Plan.calculate({
                 targets = { { item = "SUPER_RESTORE", count = 1 } },
                 recipes = { SUPER_RESTORE = { mixRestore }, SNAPDRAGON_UNF = { makeUnf } },
+                targetMode = Plan.HAVE,
                 detected = { SNAPDRAGON = 1 },
                 levels = { HERBLORE = 61 },
             })
@@ -789,6 +868,7 @@ describe("Plan.calculate", function()
                         },
                     },
                 },
+                targetMode = Plan.HAVE,
                 detected = { GRIMY_SNAPDRAGON = 1 },
                 levels = { HERBLORE = 61 },
             })
@@ -812,6 +892,7 @@ describe("Plan.calculate", function()
                     },
                     SNAPDRAGON_UNF = { makeUnf },
                 },
+                targetMode = Plan.HAVE,
                 detected = { SNAPDRAGON = 2 },
                 levels = { HERBLORE = 61 },
             })
@@ -841,6 +922,7 @@ describe("Plan.calculate", function()
                         },
                     },
                 },
+                targetMode = Plan.HAVE,
                 detected = { SNAPDRAGON_UNF = 1 },
                 levels = { HERBLORE = 61 },
             })
@@ -865,6 +947,7 @@ describe("Plan.calculate", function()
                     },
                     SNAPDRAGON_UNF = { makeUnf },
                 },
+                targetMode = Plan.HAVE,
                 detected = { SNAPDRAGON = 2 },
                 levels = { HERBLORE = 61 },
             })
@@ -905,6 +988,7 @@ describe("Plan.calculate", function()
                         },
                     },
                 },
+                targetMode = Plan.HAVE,
                 detected = { ORE = 2 },
                 levels = { HERBLORE = 61 },
             })
@@ -930,6 +1014,7 @@ describe("Plan.calculate", function()
                         },
                     },
                 },
+                targetMode = Plan.HAVE,
                 detected = { RAW_SHARK = 14 },
                 levels = { COOKING = 70 },
             })
@@ -967,6 +1052,7 @@ describe("Plan.calculate", function()
                         },
                     },
                 },
+                targetMode = Plan.HAVE,
                 detected = { SNAPDRAGON_UNF = 1 },
                 levels = { HERBLORE = 61 },
             })
@@ -1000,6 +1086,7 @@ describe("Plan.calculate", function()
                         { verb = "Blow", output = 1, actionLimit = 60, inputs = { { item = "GLASS", count = 1 } } },
                     },
                 },
+                targetMode = Plan.HAVE,
                 detected = { SNAPDRAGON_UNF = 1, GLASS = 1 },
                 levels = { HERBLORE = 61 },
             })
@@ -1015,7 +1102,7 @@ describe("Plan.calculate", function()
             recipes = {
                 BREAD = { { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
             },
-            targetMode = "HAVE",
+            targetMode = Plan.HAVE,
             made = { BREAD = 5 },
             detected = { BREAD = 2, DOUGH = 10 },
         })
@@ -1034,7 +1121,7 @@ describe("Plan.calculate", function()
                         { verb = "Bake", output = 2, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
                     },
                 },
-                targetMode = "MAKE",
+                targetMode = Plan.MAKE,
                 made = made,
                 detected = detected,
             })
@@ -1074,7 +1161,7 @@ describe("Plan.calculate", function()
                         { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
                     },
                 },
-                targetMode = "MAKE",
+                targetMode = Plan.MAKE,
                 made = {},
                 detected = { DOUGH = 10 },
                 reserves = { BREAD = 3 },
@@ -1094,7 +1181,7 @@ describe("Plan.calculate", function()
                         { verb = "Mix", output = 1, actionLimit = 60, inputs = { { item = "FLOUR", count = 1 } } },
                     },
                 },
-                targetMode = "MAKE",
+                targetMode = Plan.MAKE,
                 made = {},
                 detected = { DOUGH = 2, FLOUR = 1 },
             })
@@ -1138,7 +1225,7 @@ describe("Plan.calculate", function()
                             { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "SHARK", count = 1 } } },
                         },
                     },
-                    targetMode = "MAKE",
+                    targetMode = Plan.MAKE,
                     made = made,
                     detected = detected,
                 })

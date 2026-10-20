@@ -416,6 +416,6 @@ describe("Made count GE amount", function()
         local ok, message = pcall(Made.load, states, "Alice", { offer(1, Made.BUY, "ADED", "SHARK", 100, 5) })
 
         expectEqual(ok, false)
-        expectEqual(message:find("unknown GE offer stage: ADED", 1, true) ~= nil, true)
+        expectEqual(message:find("The GE offer stage ADED is unknown.", 1, true) ~= nil, true)
     end)
 end)
