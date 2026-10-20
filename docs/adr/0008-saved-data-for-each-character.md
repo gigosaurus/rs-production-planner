@@ -5,7 +5,7 @@ Supersedes ADR 0006.
 The plugin keys saved data by `displayName`. Data that is a fact about one character, or that the plugin measures on one character, is saved for each character:
 
 - Bank snapshot
-- Assumed stock
+- Assumed stock, and the last Detected counts that the plugin uses to measure its rises (ADR 0004)
 - Reserves
 - Unlocks
 - Account mode
@@ -19,7 +19,7 @@ Data that says what to make and how to plan it is global:
 - Made count scope
 - Planning mode
 
-One player can have a normal main and an ironman alt, with different quests and levels. Shared Account mode, Unlocks and Recipe overrides give a wrong Plan on one of them. Made counts must also be separate for each character (ADR 0009).
+One player can have a normal main and an ironman alt, with different quests and levels. Shared Account mode, Unlocks and Recipe overrides give a wrong Plan on one of them. Made counts must also be separate for each character.
 
 A character that the plugin has not seen starts with Account mode not ironman, and with no Assumed stock, Reserves, Unlocks or Recipe overrides. Its Made counts start at 0.
 

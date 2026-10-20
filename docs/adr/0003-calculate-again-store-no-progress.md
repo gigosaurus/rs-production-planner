@@ -4,7 +4,7 @@ Amended by ADR 0009 (Target mode Make).
 
 The plugin calculates the Plan again from the start each time Counted stock changes. Counted stock changes when the backpack, the bank, Assumed stock or Reserves change. The plugin does not record which Steps are done. Progress shows because the products of finished Steps are now in Counted stock.
 
-We chose this instead of a checklist that the player ticks. It cannot get out of step with the game. It also tells the player "you already have these intermediates, make these next" with no extra work. The plugin saves no progress. ADR 0008 lists the saved data.
+We chose this instead of a checklist that the player ticks. It cannot get out of step with the game. It also tells the player "you already have these intermediates, make these next" with no extra work. The plugin saves no progress.
 
 ## Consequences
 

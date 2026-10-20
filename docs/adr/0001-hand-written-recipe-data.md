@@ -1,5 +1,7 @@
 # The plugin contains hand-written recipe data
 
+Amended by ADR 0007.
+
 The game API does not describe recipes. The recipe data must come from another source.
 
 We put a hand-written Lua table in `resources/`. We write it from the public RuneScape Wiki. Then we check it in-game. We do not get recipes from the wiki at runtime. We do not read undocumented `DBRow` tables.
