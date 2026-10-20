@@ -35,6 +35,22 @@ describe("Plan.calculate", function()
         expectEqual(plan.leftovers, { { item = "BREAD", count = 1 } })
     end)
 
+    it("adds two Targets for the same item together", function()
+        local function plan(bread)
+            return Plan.calculate({
+                targets = { { item = "BREAD", count = 3 }, { item = "BREAD", count = 2 } },
+                recipes = {
+                    BREAD = { { verb = "Bake", output = 2, inputs = { { item = "DOUGH", count = 1 } } } },
+                },
+                detected = { DOUGH = 10, BREAD = bread },
+            })
+        end
+
+        expectEqual(plan(0).steps[1].actions, 3)
+        expectEqual(plan(4).complete, false)
+        expectEqual(plan(5).complete, true)
+    end)
+
     it("does not change the tables of the caller", function()
         local recipe = { verb = "Bake", output = 2, inputs = { { item = "DOUGH", count = 1 } } }
         local request = {

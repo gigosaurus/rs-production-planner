@@ -48,12 +48,17 @@ local function madeCount(request, item)
     return request.made[item] or 0
 end
 
-local function isComplete(request)
-    local wanted = {}
+-- Gives the total amount of each Target item. Two Targets can be for the same item.
+local function targetTotals(request)
+    local totals = {}
     for _, target in ipairs(request.targets) do
-        wanted[target.item] = (wanted[target.item] or 0) + target.count
+        totals[target.item] = (totals[target.item] or 0) + target.count
     end
-    for item, count in pairs(wanted) do
+    return totals
+end
+
+local function isComplete(request, totals)
+    for item, count in pairs(totals) do
         local covered = isMake(request) and madeCount(request, item) or countedStock(request, item)
         if covered < count then
             return false
@@ -100,12 +105,7 @@ end
 
 -- Marks each Waiting step with the position of the Flagged step that causes it.
 -- A Flagged step is never also Waiting.
-local function markWaiting(request, steps)
-    local isTarget = {}
-    for _, target in ipairs(request.targets) do
-        isTarget[target.item] = true
-    end
-
+local function markWaiting(steps, totals)
     local function causeOf(position, step)
         return #step.flags > 0 and position or step.waitsOn
     end
@@ -124,7 +124,7 @@ local function markWaiting(request, steps)
     end
 
     local function makesTarget(step)
-        for item in pairs(isTarget) do
+        for item in pairs(totals) do
             if makes(step, item) then
                 return true
             end
@@ -325,25 +325,21 @@ end
 
 -- Makes the Steps in production order. It totals the demand and the supply of each item at its Planning level.
 -- It also gives the used supply of each item, and the Shortages.
-local function stepsFor(request, levels, order)
+local function stepsFor(request, levels, order, totals)
     local stepsByLevel = {}
     local shortBy = {}
     -- supply is the other Outputs of Steps. usedSupply is the part of it that the Plan uses.
     local supply, usedSupply = {}, {}
     local deepest = deepestLevel(levels)
 
-    local demand, targetDemand = {}, {}
-    for _, target in ipairs(request.targets) do
-        demand[target.item] = (demand[target.item] or 0) + target.count
-        targetDemand[target.item] = (targetDemand[target.item] or 0) + target.count
-    end
+    local demand = copyOf(totals)
 
     -- In Make, the Made count covers a Target. Counted stock of the Target item does not (ADR 0009).
     local function stillNeededFor(item)
-        if isMake(request) and targetDemand[item] then
-            local targetPart = math.max(0, targetDemand[item] - madeCount(request, item))
+        if isMake(request) and totals[item] then
+            local targetPart = math.max(0, totals[item] - madeCount(request, item))
             -- Counted stock changes only the Intermediate part. Thus a Reserve of a Target item adds no need without it.
-            local intermediateDemand = demand[item] - targetDemand[item]
+            local intermediateDemand = demand[item] - totals[item]
             if intermediateDemand == 0 then
                 return targetPart
             end
@@ -443,15 +439,16 @@ end
 function Plan.calculate(request)
     request = withDefaults(request)
     local levels, order = planningLevels(request)
-    local steps, usedSupply, shortBy = stepsFor(request, levels, order)
-    markWaiting(request, steps)
+    local totals = targetTotals(request)
+    local steps, usedSupply, shortBy = stepsFor(request, levels, order, totals)
+    markWaiting(steps, totals)
     return {
         targets = targetLines(request),
         steps = steps,
         leftovers = leftoversFor(steps, usedSupply),
         shortages = shortagesFor(steps, order, shortBy),
         next = findNext(request, steps),
-        complete = isComplete(request),
+        complete = isComplete(request, totals),
     }
 end
 
