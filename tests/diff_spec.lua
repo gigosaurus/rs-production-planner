@@ -6,8 +6,12 @@ local function herbPlan(detected)
     return Plan.calculate({
         targets = { { item = "RANARR_UNF", count = 28 } },
         recipes = {
-            RANARR_UNF = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "CLEAN_RANARR", count = 1 } } } },
-            CLEAN_RANARR = { { verb = "Clean", output = 1, actionLimit = 60, inputs = { { item = "GRIMY_RANARR", count = 1 } } } },
+            RANARR_UNF = {
+                { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "CLEAN_RANARR", count = 1 } } },
+            },
+            CLEAN_RANARR = {
+                { verb = "Clean", output = 1, actionLimit = 60, inputs = { { item = "GRIMY_RANARR", count = 1 } } },
+            },
         },
         detected = detected,
     })
@@ -18,11 +22,18 @@ local function restorePlan(herblore)
     return Plan.calculate({
         targets = { { item = "SUPER_RESTORE", count = 14 } },
         recipes = {
-            SUPER_RESTORE = { {
-                verb = "Mix", output = 1, actionLimit = 60, inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
-                skills = { { skill = "HERBLORE", level = 63 } },
-            } },
-            SNAPDRAGON_UNF = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "SNAPDRAGON", count = 1 } } } },
+            SUPER_RESTORE = {
+                {
+                    verb = "Mix",
+                    output = 1,
+                    actionLimit = 60,
+                    inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
+                    skills = { { skill = "HERBLORE", level = 63 } },
+                },
+            },
+            SNAPDRAGON_UNF = {
+                { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "SNAPDRAGON", count = 1 } } },
+            },
         },
         detected = { SNAPDRAGON = 14 },
         levels = { HERBLORE = herblore },
@@ -62,20 +73,41 @@ describe("Plan.diff", function()
             return Plan.calculate({
                 targets = { { item = "SUPER_RESTORE", count = 14 }, { item = "CLEAN_TOADFLAX", count = 28 } },
                 recipes = {
-                    SUPER_RESTORE = { {
-                        verb = "Mix", output = 1, actionLimit = 60, inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
-                        skills = { { skill = "HERBLORE", level = 63 } },
-                    } },
-                    SNAPDRAGON_UNF = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "SNAPDRAGON", count = 1 } } } },
-                    CLEAN_TOADFLAX = { { verb = "Clean", output = 1, actionLimit = 60, inputs = { { item = "GRIMY_TOADFLAX", count = 1 } } } },
+                    SUPER_RESTORE = {
+                        {
+                            verb = "Mix",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
+                            skills = { { skill = "HERBLORE", level = 63 } },
+                        },
+                    },
+                    SNAPDRAGON_UNF = {
+                        {
+                            verb = "Make",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "SNAPDRAGON", count = 1 } },
+                        },
+                    },
+                    CLEAN_TOADFLAX = {
+                        {
+                            verb = "Clean",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "GRIMY_TOADFLAX", count = 1 } },
+                        },
+                    },
                 },
                 detected = { SNAPDRAGON = 14, GRIMY_TOADFLAX = 28 },
                 levels = { HERBLORE = herblore },
             })
         end
 
-        expectEqual(diff.compare(twoChains(61), twoChains(63)).next,
-            { from = "CLEAN_TOADFLAX", to = "SNAPDRAGON_UNF", backwards = true })
+        expectEqual(
+            diff.compare(twoChains(61), twoChains(63)).next,
+            { from = "CLEAN_TOADFLAX", to = "SNAPDRAGON_UNF", backwards = true }
+        )
     end)
 
     it("reports Shortages that disappeared", function()

@@ -23,7 +23,9 @@ local function isComplete(input)
     end
     for item, count in pairs(wanted) do
         local covered = isMake(input) and madeCount(input, item) or countedStock(input, item)
-        if covered < count then return false end
+        if covered < count then
+            return false
+        end
     end
     return true
 end
@@ -78,16 +80,22 @@ local function markWaiting(input, steps, recipeOf)
 
     -- A Step makes its own item and the other Outputs of its Recipe.
     local function makes(step, item)
-        if step.item == item then return true end
+        if step.item == item then
+            return true
+        end
         for _, other in ipairs(recipeOf[step].otherOutputs or {}) do
-            if other.item == item then return true end
+            if other.item == item then
+                return true
+            end
         end
         return false
     end
 
     local function makesTarget(step)
         for item in pairs(isTarget) do
-            if makes(step, item) then return true end
+            if makes(step, item) then
+                return true
+            end
         end
         return false
     end
@@ -171,16 +179,24 @@ local function planningLevels(input)
     -- Find each item in the Plan, through Inputs and other Outputs.
     local order, inPlan = {}, {}
     local function find(item)
-        if inPlan[item] then return end
+        if inPlan[item] then
+            return
+        end
         inPlan[item] = true
         order[#order + 1] = item
         local recipe = recipeFor(item)
         if recipe then
-            for _, recipeInput in ipairs(recipe.inputs) do find(recipeInput.item) end
-            for _, other in ipairs(recipe.otherOutputs or {}) do find(other.item) end
+            for _, recipeInput in ipairs(recipe.inputs) do
+                find(recipeInput.item)
+            end
+            for _, other in ipairs(recipe.otherOutputs or {}) do
+                find(other.item)
+            end
         end
     end
-    for _, target in ipairs(input.targets) do find(target.item) end
+    for _, target in ipairs(input.targets) do
+        find(target.item)
+    end
 
     local makers = {}
     for _, item in ipairs(order) do
@@ -197,11 +213,15 @@ local function planningLevels(input)
     -- They also put the Step that makes an other Output before the Steps that use it.
     local function links(item)
         local recipe, linked = recipeFor(item), {}
-        if not recipe then return linked end
+        if not recipe then
+            return linked
+        end
         for _, recipeInput in ipairs(recipe.inputs) do
             linked[#linked + 1] = recipeInput.item
             for _, maker in ipairs(makers[recipeInput.item] or {}) do
-                if maker ~= item then linked[#linked + 1] = maker end
+                if maker ~= item then
+                    linked[#linked + 1] = maker
+                end
             end
         end
         for _, other in ipairs(recipe.otherOutputs or {}) do
@@ -221,7 +241,9 @@ local function planningLevels(input)
                 error("The recipes contain a loop: " .. table.concat(loop, ", ") .. ".", 0)
             end
         end
-        if levels[item] and levels[item] >= depth then return end
+        if levels[item] and levels[item] >= depth then
+            return
+        end
         levels[item] = depth
         path[#path + 1] = item
         for _, linked in ipairs(links(item)) do
@@ -258,7 +280,9 @@ function Plan.calculate(input)
             local targetPart = math.max(0, targetDemand[item] - madeCount(input, item))
             -- Counted stock changes only the Intermediate part. Thus a Reserve of a Target item adds no need without it.
             local intermediateDemand = demand[item] - targetDemand[item]
-            if intermediateDemand == 0 then return targetPart end
+            if intermediateDemand == 0 then
+                return targetPart
+            end
             return targetPart + math.max(0, intermediateDemand - countedStock(input, item))
         end
         return (demand[item] or 0) - countedStock(input, item)
@@ -276,7 +300,13 @@ function Plan.calculate(input)
                     local recipe = recipes[1]
                     local actions = math.ceil(need / recipe.output)
                     local steps = stepsByLevel[level]
-                    local step = { item = item, verb = recipe.verb, actions = actions, flags = flagsFor(input, recipe), batchHint = batchHintFor(input, recipe) }
+                    local step = {
+                        item = item,
+                        verb = recipe.verb,
+                        actions = actions,
+                        flags = flagsFor(input, recipe),
+                        batchHint = batchHintFor(input, recipe),
+                    }
                     steps[#steps + 1] = step
                     recipeOf[step] = recipe
                     step.inputs = {}
@@ -348,14 +378,20 @@ function Plan.calculate(input)
     local targets = {}
     for _, target in ipairs(input.targets) do
         targets[#targets + 1] = {
-            item = target.item, count = target.count, have = countedStock(input, target.item),
+            item = target.item,
+            count = target.count,
+            have = countedStock(input, target.item),
             made = isMake(input) and madeCount(input, target.item) or nil,
         }
     end
 
     return {
-        targets = targets, steps = steps, leftovers = leftovers, shortages = shortages,
-        next = findNext(input, steps, recipeOf), complete = isComplete(input),
+        targets = targets,
+        steps = steps,
+        leftovers = leftovers,
+        shortages = shortages,
+        next = findNext(input, steps, recipeOf),
+        complete = isComplete(input),
     }
 end
 

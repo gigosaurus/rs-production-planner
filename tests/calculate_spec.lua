@@ -14,7 +14,9 @@ end
 
 local function stepFor(plan, item)
     for _, step in ipairs(plan.steps) do
-        if step.item == item then return step end
+        if step.item == item then
+            return step
+        end
     end
 end
 
@@ -37,10 +39,14 @@ describe("Plan.calculate", function()
         local plan = Plan.calculate({
             targets = { { item = "COCONUT_MILK", count = 3 } },
             recipes = {
-                COCONUT_MILK = { {
-                    verb = "Pour", output = 1, otherOutputs = { { item = "COCONUT_SHELL", count = 1 } },
-                    inputs = { { item = "VIAL", count = 1 }, { item = "COCONUT_OPEN", count = 1 } },
-                } },
+                COCONUT_MILK = {
+                    {
+                        verb = "Pour",
+                        output = 1,
+                        otherOutputs = { { item = "COCONUT_SHELL", count = 1 } },
+                        inputs = { { item = "VIAL", count = 1 }, { item = "COCONUT_OPEN", count = 1 } },
+                    },
+                },
             },
             detected = { VIAL = 3, COCONUT_OPEN = 3 },
         })
@@ -50,7 +56,9 @@ describe("Plan.calculate", function()
 
     describe("other Outputs as supply", function()
         local pourMilk = {
-            verb = "Pour", output = 1, otherOutputs = { { item = "COCONUT_SHELL", count = 1 } },
+            verb = "Pour",
+            output = 1,
+            otherOutputs = { { item = "COCONUT_SHELL", count = 1 } },
             inputs = { { item = "VIAL", count = 1 }, { item = "COCONUT_OPEN", count = 1 } },
         }
         local makeBowl = { verb = "Make", output = 1, inputs = { { item = "COCONUT_SHELL", count = 1 } } }
@@ -74,7 +82,9 @@ describe("Plan.calculate", function()
             })
 
             local order = {}
-            for i, step in ipairs(plan.steps) do order[i] = step.item end
+            for i, step in ipairs(plan.steps) do
+                order[i] = step.item
+            end
             expectEqual(order, { "COCONUT_MILK", "SHELL_BOWL" })
         end)
 
@@ -82,10 +92,13 @@ describe("Plan.calculate", function()
             local plan = Plan.calculate({
                 targets = { { item = "FRUIT_BOWL", count = 3 } },
                 recipes = {
-                    FRUIT_BOWL = { {
-                        verb = "Make", output = 1,
-                        inputs = { { item = "COCONUT_SHELL", count = 1 }, { item = "MILK_JUG", count = 1 } },
-                    } },
+                    FRUIT_BOWL = {
+                        {
+                            verb = "Make",
+                            output = 1,
+                            inputs = { { item = "COCONUT_SHELL", count = 1 }, { item = "MILK_JUG", count = 1 } },
+                        },
+                    },
                     MILK_JUG = { { verb = "Fill", output = 1, inputs = { { item = "COCONUT_MILK", count = 1 } } } },
                     COCONUT_MILK = { pourMilk },
                 },
@@ -97,7 +110,9 @@ describe("Plan.calculate", function()
 
         it("makes a Step Waiting when it uses an other Output of a Flagged step", function()
             local flaggedPour = {
-                verb = "Pour", output = 1, otherOutputs = { { item = "COCONUT_SHELL", count = 1 } },
+                verb = "Pour",
+                output = 1,
+                otherOutputs = { { item = "COCONUT_SHELL", count = 1 } },
                 inputs = { { item = "VIAL", count = 1 }, { item = "COCONUT_OPEN", count = 1 } },
                 skills = { { skill = "COOKING", level = 50 } },
             }
@@ -116,10 +131,14 @@ describe("Plan.calculate", function()
             local plan = Plan.calculate({
                 targets = { { item = "MILK_JUG", count = 3 }, { item = "SHELL_BOWL", count = 3 } },
                 recipes = {
-                    MILK_JUG = { {
-                        verb = "Fill", output = 1, inputs = { { item = "COCONUT_MILK", count = 1 } },
-                        skills = { { skill = "COOKING", level = 50 } },
-                    } },
+                    MILK_JUG = {
+                        {
+                            verb = "Fill",
+                            output = 1,
+                            inputs = { { item = "COCONUT_MILK", count = 1 } },
+                            skills = { { skill = "COOKING", level = 50 } },
+                        },
+                    },
                     COCONUT_MILK = { pourMilk },
                     SHELL_BOWL = { makeBowl },
                 },
@@ -212,7 +231,9 @@ describe("Plan.calculate", function()
 
         local stepsForC = 0
         for _, step in ipairs(plan.steps) do
-            if step.item == "C" then stepsForC = stepsForC + 1 end
+            if step.item == "C" then
+                stepsForC = stepsForC + 1
+            end
         end
         expectEqual(stepsForC, 1)
         expectEqual(stepFor(plan, "C").actions, 1)
@@ -243,7 +264,9 @@ describe("Plan.calculate", function()
         })
 
         local order = {}
-        for i, step in ipairs(plan.steps) do order[i] = step.item end
+        for i, step in ipairs(plan.steps) do
+            order[i] = step.item
+        end
         expectEqual(order, { "DOUGH", "BREAD" })
     end)
 
@@ -251,7 +274,13 @@ describe("Plan.calculate", function()
         local plan = Plan.calculate({
             targets = { { item = "BREAD", count = 1 } },
             recipes = {
-                BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 }, { item = "SALT", count = 1 } } } },
+                BREAD = {
+                    {
+                        verb = "Bake",
+                        output = 1,
+                        inputs = { { item = "DOUGH", count = 1 }, { item = "SALT", count = 1 } },
+                    },
+                },
                 DOUGH = { { verb = "Mix", output = 1, inputs = { { item = "FLOUR", count = 1 } } } },
             },
             detected = {},
@@ -277,10 +306,14 @@ describe("Plan.calculate", function()
         local plan = Plan.calculate({
             targets = { { item = "SUPER_RESTORE", count = 1 } },
             recipes = {
-                SUPER_RESTORE = { {
-                    verb = "Mix", output = 1, inputs = { { item = "SNAPDRAGON", count = 1 } },
-                    skills = { { skill = "HERBLORE", level = 63 }, { skill = "COOKING", level = 10 } },
-                } },
+                SUPER_RESTORE = {
+                    {
+                        verb = "Mix",
+                        output = 1,
+                        inputs = { { item = "SNAPDRAGON", count = 1 } },
+                        skills = { { skill = "HERBLORE", level = 63 }, { skill = "COOKING", level = 10 } },
+                    },
+                },
             },
             detected = { SNAPDRAGON = 1 },
             levels = { HERBLORE = 61, COOKING = 10 },
@@ -293,10 +326,14 @@ describe("Plan.calculate", function()
         local plan = Plan.calculate({
             targets = { { item = "TROLL_POTION", count = 1 } },
             recipes = {
-                TROLL_POTION = { {
-                    verb = "Mix", output = 1, inputs = { { item = "HERB", count = 1 } },
-                    unlocks = { "EADGARS_RUSE", "DRUIDIC_RITUAL" },
-                } },
+                TROLL_POTION = {
+                    {
+                        verb = "Mix",
+                        output = 1,
+                        inputs = { { item = "HERB", count = 1 } },
+                        unlocks = { "EADGARS_RUSE", "DRUIDIC_RITUAL" },
+                    },
+                },
             },
             detected = { HERB = 1 },
             unlocks = { DRUIDIC_RITUAL = true },
@@ -338,7 +375,11 @@ describe("Plan.calculate", function()
         end)
 
         it("keeps one slot for each stackable Input", function()
-            local hint = batchHint({ { item = "GRIMY_RANARR", count = 1 }, { item = "SWAMP_TAR", count = 15 } }, 60, { SWAMP_TAR = true })
+            local hint = batchHint(
+                { { item = "GRIMY_RANARR", count = 1 }, { item = "SWAMP_TAR", count = 15 } },
+                60,
+                { SWAMP_TAR = true }
+            )
 
             expectEqual(hint, 27)
         end)
@@ -350,8 +391,11 @@ describe("Plan.calculate", function()
         end)
 
         it("uses the Action limit when all Inputs are stackable", function()
-            local hint = batchHint({ { item = "FIRE_RUNE", count = 5 }, { item = "COSMIC_RUNE", count = 1 } }, 60,
-                { FIRE_RUNE = true, COSMIC_RUNE = true })
+            local hint = batchHint(
+                { { item = "FIRE_RUNE", count = 5 }, { item = "COSMIC_RUNE", count = 1 } },
+                60,
+                { FIRE_RUNE = true, COSMIC_RUNE = true }
+            )
 
             expectEqual(hint, 60)
         end)
@@ -359,10 +403,16 @@ describe("Plan.calculate", function()
         it("gives each Input for one inventory, with its Detected stock", function()
             local plan = Plan.calculate({
                 targets = { { item = "POTION", count = 100 } },
-                recipes = { POTION = { {
-                    verb = "Mix", output = 1, actionLimit = 60,
-                    inputs = { { item = "HERB_UNF", count = 1 }, { item = "SNAPE_GRASS", count = 1 } },
-                } } },
+                recipes = {
+                    POTION = {
+                        {
+                            verb = "Mix",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "HERB_UNF", count = 1 }, { item = "SNAPE_GRASS", count = 1 } },
+                        },
+                    },
+                },
                 detected = { HERB_UNF = 30 },
             })
 
@@ -378,8 +428,17 @@ describe("Plan.calculate", function()
         local function twoSteps(stock)
             stock.targets = { { item = "CLEAN_RANARR", count = 28 }, { item = "CLEAN_TOADFLAX", count = 28 } }
             stock.recipes = {
-                CLEAN_RANARR = { { verb = "Clean", output = 1, actionLimit = 60, inputs = { { item = "GRIMY_RANARR", count = 1 } } } },
-                CLEAN_TOADFLAX = { { verb = "Clean", output = 1, actionLimit = 60, inputs = { { item = "GRIMY_TOADFLAX", count = 1 } } } },
+                CLEAN_RANARR = {
+                    { verb = "Clean", output = 1, actionLimit = 60, inputs = { { item = "GRIMY_RANARR", count = 1 } } },
+                },
+                CLEAN_TOADFLAX = {
+                    {
+                        verb = "Clean",
+                        output = 1,
+                        actionLimit = 60,
+                        inputs = { { item = "GRIMY_TOADFLAX", count = 1 } },
+                    },
+                },
             }
             return Plan.calculate(stock)
         end
@@ -391,13 +450,15 @@ describe("Plan.calculate", function()
         end)
 
         it("does not count Reserves", function()
-            local plan = twoSteps({ detected = { GRIMY_RANARR = 28, GRIMY_TOADFLAX = 28 }, reserves = { GRIMY_RANARR = 1 } })
+            local plan =
+                twoSteps({ detected = { GRIMY_RANARR = 28, GRIMY_TOADFLAX = 28 }, reserves = { GRIMY_RANARR = 1 } })
 
             expectEqual(plan.steps[plan.next].item, "CLEAN_TOADFLAX")
         end)
 
         it("does not count Assumed stock", function()
-            local plan = twoSteps({ detected = { GRIMY_RANARR = 10, GRIMY_TOADFLAX = 28 }, assumed = { GRIMY_RANARR = 18 } })
+            local plan =
+                twoSteps({ detected = { GRIMY_RANARR = 10, GRIMY_TOADFLAX = 28 }, assumed = { GRIMY_RANARR = 18 } })
 
             expectEqual(plan.steps[plan.next].item, "CLEAN_TOADFLAX")
         end)
@@ -412,11 +473,23 @@ describe("Plan.calculate", function()
             local plan = Plan.calculate({
                 targets = { { item = "CLEAN_RANARR", count = 28 }, { item = "CLEAN_TOADFLAX", count = 28 } },
                 recipes = {
-                    CLEAN_RANARR = { {
-                        verb = "Clean", output = 1, actionLimit = 60, inputs = { { item = "GRIMY_RANARR", count = 1 } },
-                        skills = { { skill = "HERBLORE", level = 25 } },
-                    } },
-                    CLEAN_TOADFLAX = { { verb = "Clean", output = 1, actionLimit = 60, inputs = { { item = "GRIMY_TOADFLAX", count = 1 } } } },
+                    CLEAN_RANARR = {
+                        {
+                            verb = "Clean",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "GRIMY_RANARR", count = 1 } },
+                            skills = { { skill = "HERBLORE", level = 25 } },
+                        },
+                    },
+                    CLEAN_TOADFLAX = {
+                        {
+                            verb = "Clean",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "GRIMY_TOADFLAX", count = 1 } },
+                        },
+                    },
                 },
                 detected = { GRIMY_RANARR = 28, GRIMY_TOADFLAX = 28 },
                 levels = { HERBLORE = 10 },
@@ -429,12 +502,31 @@ describe("Plan.calculate", function()
             local plan = Plan.calculate({
                 targets = { { item = "SUPER_RESTORE", count = 14 }, { item = "CLEAN_TOADFLAX", count = 28 } },
                 recipes = {
-                    SUPER_RESTORE = { {
-                        verb = "Mix", output = 1, actionLimit = 60, inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
-                        skills = { { skill = "HERBLORE", level = 63 } },
-                    } },
-                    SNAPDRAGON_UNF = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "SNAPDRAGON", count = 1 } } } },
-                    CLEAN_TOADFLAX = { { verb = "Clean", output = 1, actionLimit = 60, inputs = { { item = "GRIMY_TOADFLAX", count = 1 } } } },
+                    SUPER_RESTORE = {
+                        {
+                            verb = "Mix",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
+                            skills = { { skill = "HERBLORE", level = 63 } },
+                        },
+                    },
+                    SNAPDRAGON_UNF = {
+                        {
+                            verb = "Make",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "SNAPDRAGON", count = 1 } },
+                        },
+                    },
+                    CLEAN_TOADFLAX = {
+                        {
+                            verb = "Clean",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "GRIMY_TOADFLAX", count = 1 } },
+                        },
+                    },
                 },
                 detected = { SNAPDRAGON = 14, GRIMY_TOADFLAX = 28 },
                 levels = { HERBLORE = 61 },
@@ -447,7 +539,9 @@ describe("Plan.calculate", function()
 
     describe("Waiting steps", function()
         local mixRestore = {
-            verb = "Mix", output = 1, inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
+            verb = "Mix",
+            output = 1,
+            inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
             skills = { { skill = "HERBLORE", level = 63 } },
         }
         local makeUnf = { verb = "Make", output = 1, inputs = { { item = "SNAPDRAGON", count = 1 } } }
@@ -471,7 +565,9 @@ describe("Plan.calculate", function()
                 recipes = {
                     SUPER_RESTORE = { mixRestore },
                     SNAPDRAGON_UNF = { makeUnf },
-                    SNAPDRAGON = { { verb = "Clean", output = 1, inputs = { { item = "GRIMY_SNAPDRAGON", count = 1 } } } },
+                    SNAPDRAGON = {
+                        { verb = "Clean", output = 1, inputs = { { item = "GRIMY_SNAPDRAGON", count = 1 } } },
+                    },
                 },
                 detected = { GRIMY_SNAPDRAGON = 1 },
                 levels = { HERBLORE = 61 },
@@ -500,11 +596,17 @@ describe("Plan.calculate", function()
             local plan = Plan.calculate({
                 targets = { { item = "SUPER_RESTORE_4", count = 1 } },
                 recipes = {
-                    SUPER_RESTORE_4 = { { verb = "Decant", output = 1, inputs = { { item = "SUPER_RESTORE_3", count = 1 } } } },
-                    SUPER_RESTORE_3 = { {
-                        verb = "Mix", output = 1, inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
-                        skills = { { skill = "HERBLORE", level = 63 } },
-                    } },
+                    SUPER_RESTORE_4 = {
+                        { verb = "Decant", output = 1, inputs = { { item = "SUPER_RESTORE_3", count = 1 } } },
+                    },
+                    SUPER_RESTORE_3 = {
+                        {
+                            verb = "Mix",
+                            output = 1,
+                            inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
+                            skills = { { skill = "HERBLORE", level = 63 } },
+                        },
+                    },
                 },
                 detected = { SNAPDRAGON_UNF = 1 },
                 levels = { HERBLORE = 61 },
@@ -519,10 +621,14 @@ describe("Plan.calculate", function()
                 targets = { { item = "SUPER_RESTORE", count = 1 }, { item = "OTHER_POTION", count = 1 } },
                 recipes = {
                     SUPER_RESTORE = { mixRestore },
-                    OTHER_POTION = { {
-                        verb = "Mix", output = 1, inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
-                        skills = { { skill = "HERBLORE", level = 70 } },
-                    } },
+                    OTHER_POTION = {
+                        {
+                            verb = "Mix",
+                            output = 1,
+                            inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
+                            skills = { { skill = "HERBLORE", level = 70 } },
+                        },
+                    },
                     SNAPDRAGON_UNF = { makeUnf },
                 },
                 detected = { SNAPDRAGON = 2 },
@@ -537,12 +643,20 @@ describe("Plan.calculate", function()
             local plan = Plan.calculate({
                 targets = { { item = "SUPER_RESTORE_FLASK", count = 1 } },
                 recipes = {
-                    SUPER_RESTORE_FLASK = { { verb = "Fill", output = 1, inputs = { { item = "SUPER_RESTORE_4", count = 1 } } } },
-                    SUPER_RESTORE_4 = { { verb = "Decant", output = 1, inputs = { { item = "SUPER_RESTORE_3", count = 1 } } } },
-                    SUPER_RESTORE_3 = { {
-                        verb = "Mix", output = 1, inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
-                        skills = { { skill = "HERBLORE", level = 63 } },
-                    } },
+                    SUPER_RESTORE_FLASK = {
+                        { verb = "Fill", output = 1, inputs = { { item = "SUPER_RESTORE_4", count = 1 } } },
+                    },
+                    SUPER_RESTORE_4 = {
+                        { verb = "Decant", output = 1, inputs = { { item = "SUPER_RESTORE_3", count = 1 } } },
+                    },
+                    SUPER_RESTORE_3 = {
+                        {
+                            verb = "Mix",
+                            output = 1,
+                            inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
+                            skills = { { skill = "HERBLORE", level = 63 } },
+                        },
+                    },
                 },
                 detected = { SNAPDRAGON_UNF = 1 },
                 levels = { HERBLORE = 61 },
@@ -556,14 +670,21 @@ describe("Plan.calculate", function()
             local plan = Plan.calculate({
                 targets = { { item = "SUPER_RESTORE_FLASK", count = 1 } },
                 recipes = {
-                    SUPER_RESTORE_FLASK = { {
-                        verb = "Fill", output = 1,
-                        inputs = { { item = "SUPER_RESTORE_3", count = 1 }, { item = "FLASK", count = 1 } },
-                    } },
-                    SUPER_RESTORE_3 = { {
-                        verb = "Mix", output = 1, inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
-                        skills = { { skill = "HERBLORE", level = 63 } },
-                    } },
+                    SUPER_RESTORE_FLASK = {
+                        {
+                            verb = "Fill",
+                            output = 1,
+                            inputs = { { item = "SUPER_RESTORE_3", count = 1 }, { item = "FLASK", count = 1 } },
+                        },
+                    },
+                    SUPER_RESTORE_3 = {
+                        {
+                            verb = "Mix",
+                            output = 1,
+                            inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
+                            skills = { { skill = "HERBLORE", level = 63 } },
+                        },
+                    },
                     FLASK = { { verb = "Blow", output = 1, inputs = { { item = "GLASS", count = 1 } } } },
                 },
                 detected = { SNAPDRAGON_UNF = 1, GLASS = 1 },

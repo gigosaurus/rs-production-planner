@@ -21,7 +21,9 @@ end
 
 local function positionOf(plan, item)
     for position, step in ipairs(plan.steps) do
-        if step.item == item then return position end
+        if step.item == item then
+            return position
+        end
     end
 end
 
@@ -80,8 +82,13 @@ function Diff.compare(before, after)
     end
 
     return {
-        finished = finished, back = back, ready = ready, next = nextChange, covered = covered,
-        targets = targets, complete = complete,
+        finished = finished,
+        back = back,
+        ready = ready,
+        next = nextChange,
+        covered = covered,
+        targets = targets,
+        complete = complete,
     }
 end
 
