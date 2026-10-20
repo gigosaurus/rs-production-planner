@@ -4,7 +4,7 @@ local function bakeBread(detected, assumed, reserves)
     return Plan.calculate({
         targets = { { item = "BREAD", count = 5 } },
         recipes = {
-            BREAD = { { verb = "Bake", output = 2, inputs = { { item = "DOUGH", count = 1 } } } },
+            BREAD = { { verb = "Bake", output = 2, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
         },
         detected = detected,
         assumed = assumed,
@@ -43,6 +43,7 @@ describe("Plan.calculate", function()
                     {
                         verb = "Pour",
                         output = 1,
+                        actionLimit = 60,
                         otherOutputs = { { item = "COCONUT_SHELL", count = 1 } },
                         inputs = { { item = "VIAL", count = 1 }, { item = "COCONUT_OPEN", count = 1 } },
                     },
@@ -58,10 +59,12 @@ describe("Plan.calculate", function()
         local pourMilk = {
             verb = "Pour",
             output = 1,
+            actionLimit = 60,
             otherOutputs = { { item = "COCONUT_SHELL", count = 1 } },
             inputs = { { item = "VIAL", count = 1 }, { item = "COCONUT_OPEN", count = 1 } },
         }
-        local makeBowl = { verb = "Make", output = 1, inputs = { { item = "COCONUT_SHELL", count = 1 } } }
+        local makeBowl =
+            { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "COCONUT_SHELL", count = 1 } } }
 
         it("subtracts an other Output from the demand for that item", function()
             local plan = Plan.calculate({
@@ -96,10 +99,18 @@ describe("Plan.calculate", function()
                         {
                             verb = "Make",
                             output = 1,
+                            actionLimit = 60,
                             inputs = { { item = "COCONUT_SHELL", count = 1 }, { item = "MILK_JUG", count = 1 } },
                         },
                     },
-                    MILK_JUG = { { verb = "Fill", output = 1, inputs = { { item = "COCONUT_MILK", count = 1 } } } },
+                    MILK_JUG = {
+                        {
+                            verb = "Fill",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "COCONUT_MILK", count = 1 } },
+                        },
+                    },
                     COCONUT_MILK = { pourMilk },
                 },
                 detected = { VIAL = 3, COCONUT_OPEN = 3 },
@@ -112,6 +123,7 @@ describe("Plan.calculate", function()
             local flaggedPour = {
                 verb = "Pour",
                 output = 1,
+                actionLimit = 60,
                 otherOutputs = { { item = "COCONUT_SHELL", count = 1 } },
                 inputs = { { item = "VIAL", count = 1 }, { item = "COCONUT_OPEN", count = 1 } },
                 skills = { { skill = "COOKING", level = 50 } },
@@ -135,6 +147,7 @@ describe("Plan.calculate", function()
                         {
                             verb = "Fill",
                             output = 1,
+                            actionLimit = 60,
                             inputs = { { item = "COCONUT_MILK", count = 1 } },
                             skills = { { skill = "COOKING", level = 50 } },
                         },
@@ -163,6 +176,7 @@ describe("Plan.calculate", function()
                         {
                             verb = "Scoop",
                             output = 2,
+                            actionLimit = 60,
                             otherOutputs = { { item = "COCONUT_SHELL", count = 1 } },
                             inputs = { { item = "COCONUT_OPEN", count = 1 } },
                         },
@@ -243,9 +257,9 @@ describe("Plan.calculate", function()
         local plan = Plan.calculate({
             targets = { { item = "B", count = 2 }, { item = "C", count = 3 } },
             recipes = {
-                A = { { verb = "Make", output = 1, inputs = { { item = "ORE", count = 1 } } } },
-                B = { { verb = "Make", output = 1, inputs = { { item = "A", count = 10 } } } },
-                C = { { verb = "Make", output = 1, inputs = { { item = "A", count = 100 } } } },
+                A = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "ORE", count = 1 } } } },
+                B = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "A", count = 10 } } } },
+                C = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "A", count = 100 } } } },
             },
             detected = { A = 1, ORE = 1000 },
         })
@@ -258,9 +272,16 @@ describe("Plan.calculate", function()
         local plan = Plan.calculate({
             targets = { { item = "D", count = 1 } },
             recipes = {
-                B = { { verb = "Make", output = 1, inputs = { { item = "C", count = 1 } } } },
-                C = { { verb = "Make", output = 1, inputs = { { item = "ORE", count = 1 } } } },
-                D = { { verb = "Make", output = 1, inputs = { { item = "B", count = 1 }, { item = "C", count = 1 } } } },
+                B = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "C", count = 1 } } } },
+                C = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "ORE", count = 1 } } } },
+                D = {
+                    {
+                        verb = "Make",
+                        output = 1,
+                        actionLimit = 60,
+                        inputs = { { item = "B", count = 1 }, { item = "C", count = 1 } },
+                    },
+                },
             },
             detected = { C = 1, ORE = 10 },
         })
@@ -279,8 +300,8 @@ describe("Plan.calculate", function()
         local plan = Plan.calculate({
             targets = { { item = "D", count = 1 } },
             recipes = {
-                B = { { verb = "Make", output = 1, inputs = { { item = "ORE", count = 1 } } } },
-                D = { { verb = "Make", output = 1, inputs = { { item = "B", count = 10 } } } },
+                B = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "ORE", count = 1 } } } },
+                D = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "B", count = 10 } } } },
             },
             detected = { B = 4 },
         })
@@ -293,8 +314,8 @@ describe("Plan.calculate", function()
         local plan = Plan.calculate({
             targets = { { item = "BREAD", count = 1 } },
             recipes = {
-                BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
-                DOUGH = { { verb = "Mix", output = 1, inputs = { { item = "FLOUR", count = 1 } } } },
+                BREAD = { { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
+                DOUGH = { { verb = "Mix", output = 1, actionLimit = 60, inputs = { { item = "FLOUR", count = 1 } } } },
             },
             detected = { FLOUR = 1 },
         })
@@ -315,10 +336,11 @@ describe("Plan.calculate", function()
                     {
                         verb = "Bake",
                         output = 1,
+                        actionLimit = 60,
                         inputs = { { item = "SALT", count = 1 }, { item = "DOUGH", count = 1 } },
                     },
                 },
-                DOUGH = { { verb = "Mix", output = 1, inputs = { { item = "FLOUR", count = 1 } } } },
+                DOUGH = { { verb = "Mix", output = 1, actionLimit = 60, inputs = { { item = "FLOUR", count = 1 } } } },
             },
             detected = {},
         })
@@ -331,7 +353,7 @@ describe("Plan.calculate", function()
         local plan = Plan.calculate({
             targets = { { item = "CAKE", count = 1 }, { item = "BREAD", count = 1 } },
             recipes = {
-                BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
+                BREAD = { { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
             },
             detected = {},
         })
@@ -343,8 +365,8 @@ describe("Plan.calculate", function()
         local plan = Plan.calculate({
             targets = { { item = "BREAD", count = 5 } },
             recipes = {
-                BREAD = { { verb = "Bake", output = 2, inputs = { { item = "DOUGH", count = 1 } } } },
-                DOUGH = { { verb = "Mix", output = 2, inputs = { { item = "FLOUR", count = 1 } } } },
+                BREAD = { { verb = "Bake", output = 2, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
+                DOUGH = { { verb = "Mix", output = 2, actionLimit = 60, inputs = { { item = "FLOUR", count = 1 } } } },
             },
             detected = { FLOUR = 10 },
         })
@@ -360,6 +382,7 @@ describe("Plan.calculate", function()
                     {
                         verb = "Mix",
                         output = 1,
+                        actionLimit = 60,
                         inputs = { { item = "SNAPDRAGON", count = 1 } },
                         skills = { { skill = "HERBLORE", level = 63 }, { skill = "COOKING", level = 10 } },
                     },
@@ -380,6 +403,7 @@ describe("Plan.calculate", function()
                     {
                         verb = "Mix",
                         output = 1,
+                        actionLimit = 60,
                         inputs = { { item = "HERB", count = 1 } },
                         unlocks = { "EADGARS_RUSE", "DRUIDIC_RITUAL" },
                     },
@@ -397,14 +421,37 @@ describe("Plan.calculate", function()
         local ok, err = pcall(Plan.calculate, {
             targets = { { item = "BUCKET_OF_WATER", count = 5 } },
             recipes = {
-                BUCKET_OF_WATER = { { verb = "Fill", output = 1, inputs = { { item = "BUCKET", count = 1 } } } },
-                BUCKET = { { verb = "Empty", output = 1, inputs = { { item = "BUCKET_OF_WATER", count = 1 } } } },
+                BUCKET_OF_WATER = {
+                    { verb = "Fill", output = 1, actionLimit = 60, inputs = { { item = "BUCKET", count = 1 } } },
+                },
+                BUCKET = {
+                    {
+                        verb = "Empty",
+                        output = 1,
+                        actionLimit = 60,
+                        inputs = { { item = "BUCKET_OF_WATER", count = 1 } },
+                    },
+                },
             },
             detected = {},
         })
 
         expectEqual(ok, false)
         expectEqual(err, "The recipes contain a loop: BUCKET_OF_WATER, BUCKET, BUCKET_OF_WATER.")
+    end)
+
+    -- Each Recipe must have an Action limit (issue 2, section 1).
+    it("stops with an error that names the item when its Recipe has no Action limit", function()
+        local ok, err = pcall(Plan.calculate, {
+            targets = { { item = "BREAD", count = 1 } },
+            recipes = {
+                BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
+            },
+            detected = {},
+        })
+
+        expectEqual(ok, false)
+        expectEqual(err, "The Recipe for BREAD has no Action limit.")
     end)
 
     describe("Batch hint", function()
@@ -597,10 +644,11 @@ describe("Plan.calculate", function()
         local mixRestore = {
             verb = "Mix",
             output = 1,
+            actionLimit = 60,
             inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
             skills = { { skill = "HERBLORE", level = 63 } },
         }
-        local makeUnf = { verb = "Make", output = 1, inputs = { { item = "SNAPDRAGON", count = 1 } } }
+        local makeUnf = { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "SNAPDRAGON", count = 1 } } }
 
         it("makes a Step Waiting when its Output goes only to a Flagged step", function()
             local plan = Plan.calculate({
@@ -622,7 +670,12 @@ describe("Plan.calculate", function()
                     SUPER_RESTORE = { mixRestore },
                     SNAPDRAGON_UNF = { makeUnf },
                     SNAPDRAGON = {
-                        { verb = "Clean", output = 1, inputs = { { item = "GRIMY_SNAPDRAGON", count = 1 } } },
+                        {
+                            verb = "Clean",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "GRIMY_SNAPDRAGON", count = 1 } },
+                        },
                     },
                 },
                 detected = { GRIMY_SNAPDRAGON = 1 },
@@ -638,7 +691,14 @@ describe("Plan.calculate", function()
                 targets = { { item = "SUPER_RESTORE", count = 1 }, { item = "OTHER_POTION", count = 1 } },
                 recipes = {
                     SUPER_RESTORE = { mixRestore },
-                    OTHER_POTION = { { verb = "Mix", output = 1, inputs = { { item = "SNAPDRAGON_UNF", count = 1 } } } },
+                    OTHER_POTION = {
+                        {
+                            verb = "Mix",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
+                        },
+                    },
                     SNAPDRAGON_UNF = { makeUnf },
                 },
                 detected = { SNAPDRAGON = 2 },
@@ -653,12 +713,18 @@ describe("Plan.calculate", function()
                 targets = { { item = "SUPER_RESTORE_4", count = 1 } },
                 recipes = {
                     SUPER_RESTORE_4 = {
-                        { verb = "Decant", output = 1, inputs = { { item = "SUPER_RESTORE_3", count = 1 } } },
+                        {
+                            verb = "Decant",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "SUPER_RESTORE_3", count = 1 } },
+                        },
                     },
                     SUPER_RESTORE_3 = {
                         {
                             verb = "Mix",
                             output = 1,
+                            actionLimit = 60,
                             inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
                             skills = { { skill = "HERBLORE", level = 63 } },
                         },
@@ -681,6 +747,7 @@ describe("Plan.calculate", function()
                         {
                             verb = "Mix",
                             output = 1,
+                            actionLimit = 60,
                             inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
                             skills = { { skill = "HERBLORE", level = 70 } },
                         },
@@ -704,6 +771,7 @@ describe("Plan.calculate", function()
                         {
                             verb = "Make",
                             output = 1,
+                            actionLimit = 60,
                             inputs = { { item = "C", count = 1 } },
                             skills = { { skill = "HERBLORE", level = 63 } },
                         },
@@ -712,6 +780,7 @@ describe("Plan.calculate", function()
                         {
                             verb = "Make",
                             output = 1,
+                            actionLimit = 60,
                             inputs = { { item = "ORE", count = 1 } },
                             skills = { { skill = "HERBLORE", level = 63 } },
                         },
@@ -720,6 +789,7 @@ describe("Plan.calculate", function()
                         {
                             verb = "Make",
                             output = 1,
+                            actionLimit = 60,
                             inputs = { { item = "B", count = 1 }, { item = "C", count = 1 } },
                         },
                     },
@@ -736,11 +806,14 @@ describe("Plan.calculate", function()
             local plan = Plan.calculate({
                 targets = { { item = "SHARK", count = 10 }, { item = "SHARK_SOUP", count = 4 } },
                 recipes = {
-                    SHARK = { { verb = "Cook", output = 1, inputs = { { item = "RAW_SHARK", count = 1 } } } },
+                    SHARK = {
+                        { verb = "Cook", output = 1, actionLimit = 60, inputs = { { item = "RAW_SHARK", count = 1 } } },
+                    },
                     SHARK_SOUP = {
                         {
                             verb = "Make",
                             output = 1,
+                            actionLimit = 60,
                             inputs = { { item = "SHARK", count = 1 } },
                             skills = { { skill = "COOKING", level = 80 } },
                         },
@@ -758,15 +831,26 @@ describe("Plan.calculate", function()
                 targets = { { item = "SUPER_RESTORE_FLASK", count = 1 } },
                 recipes = {
                     SUPER_RESTORE_FLASK = {
-                        { verb = "Fill", output = 1, inputs = { { item = "SUPER_RESTORE_4", count = 1 } } },
+                        {
+                            verb = "Fill",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "SUPER_RESTORE_4", count = 1 } },
+                        },
                     },
                     SUPER_RESTORE_4 = {
-                        { verb = "Decant", output = 1, inputs = { { item = "SUPER_RESTORE_3", count = 1 } } },
+                        {
+                            verb = "Decant",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "SUPER_RESTORE_3", count = 1 } },
+                        },
                     },
                     SUPER_RESTORE_3 = {
                         {
                             verb = "Mix",
                             output = 1,
+                            actionLimit = 60,
                             inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
                             skills = { { skill = "HERBLORE", level = 63 } },
                         },
@@ -788,6 +872,7 @@ describe("Plan.calculate", function()
                         {
                             verb = "Fill",
                             output = 1,
+                            actionLimit = 60,
                             inputs = { { item = "SUPER_RESTORE_3", count = 1 }, { item = "FLASK", count = 1 } },
                         },
                     },
@@ -795,11 +880,14 @@ describe("Plan.calculate", function()
                         {
                             verb = "Mix",
                             output = 1,
+                            actionLimit = 60,
                             inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
                             skills = { { skill = "HERBLORE", level = 63 } },
                         },
                     },
-                    FLASK = { { verb = "Blow", output = 1, inputs = { { item = "GLASS", count = 1 } } } },
+                    FLASK = {
+                        { verb = "Blow", output = 1, actionLimit = 60, inputs = { { item = "GLASS", count = 1 } } },
+                    },
                 },
                 detected = { SNAPDRAGON_UNF = 1, GLASS = 1 },
                 levels = { HERBLORE = 61 },
@@ -814,7 +902,7 @@ describe("Plan.calculate", function()
         local plan = Plan.calculate({
             targets = { { item = "BREAD", count = 5 } },
             recipes = {
-                BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
+                BREAD = { { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
             },
             targetMode = "HAVE",
             made = { BREAD = 5 },
@@ -831,7 +919,9 @@ describe("Plan.calculate", function()
             return Plan.calculate({
                 targets = { { item = "BREAD", count = 5 } },
                 recipes = {
-                    BREAD = { { verb = "Bake", output = 2, inputs = { { item = "DOUGH", count = 1 } } } },
+                    BREAD = {
+                        { verb = "Bake", output = 2, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
+                    },
                 },
                 targetMode = "MAKE",
                 made = made,
@@ -849,7 +939,9 @@ describe("Plan.calculate", function()
             local plan = Plan.calculate({
                 targets = { { item = "BREAD", count = 5 } },
                 recipes = {
-                    BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
+                    BREAD = {
+                        { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
+                    },
                 },
                 targetMode = "MAKE",
                 made = {},
@@ -864,7 +956,9 @@ describe("Plan.calculate", function()
             local plan = Plan.calculate({
                 targets = { { item = "BREAD", count = 5 } },
                 recipes = {
-                    BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
+                    BREAD = {
+                        { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
+                    },
                 },
                 targetMode = "MAKE",
                 made = {},
@@ -879,8 +973,12 @@ describe("Plan.calculate", function()
             local plan = Plan.calculate({
                 targets = { { item = "BREAD", count = 5 } },
                 recipes = {
-                    BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
-                    DOUGH = { { verb = "Mix", output = 1, inputs = { { item = "FLOUR", count = 1 } } } },
+                    BREAD = {
+                        { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
+                    },
+                    DOUGH = {
+                        { verb = "Mix", output = 1, actionLimit = 60, inputs = { { item = "FLOUR", count = 1 } } },
+                    },
                 },
                 targetMode = "MAKE",
                 made = {},
@@ -914,8 +1012,17 @@ describe("Plan.calculate", function()
                 return Plan.calculate({
                     targets = { { item = "SHARK", count = 10 }, { item = "SHARK_SOUP", count = 4 } },
                     recipes = {
-                        SHARK = { { verb = "Cook", output = 1, inputs = { { item = "RAW_SHARK", count = 1 } } } },
-                        SHARK_SOUP = { { verb = "Make", output = 1, inputs = { { item = "SHARK", count = 1 } } } },
+                        SHARK = {
+                            {
+                                verb = "Cook",
+                                output = 1,
+                                actionLimit = 60,
+                                inputs = { { item = "RAW_SHARK", count = 1 } },
+                            },
+                        },
+                        SHARK_SOUP = {
+                            { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "SHARK", count = 1 } } },
+                        },
                     },
                     targetMode = "MAKE",
                     made = made,

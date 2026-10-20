@@ -46,7 +46,7 @@ local function batchHintFor(input, recipe)
     if perAction == 0 then
         return recipe.actionLimit
     end
-    return math.min(slots // perAction, recipe.actionLimit or math.huge)
+    return math.min(slots // perAction, recipe.actionLimit)
 end
 
 -- Lists the requirements of a Recipe that the player does not meet.
@@ -298,6 +298,10 @@ function Plan.calculate(input)
                 local recipes = input.recipes[item]
                 if need > 0 and recipes then
                     local recipe = recipes[1]
+                    -- Each Recipe must have an Action limit (issue 2, section 1).
+                    if not recipe.actionLimit then
+                        error("The Recipe for " .. item .. " has no Action limit.", 0)
+                    end
                     local actions = math.ceil(need / recipe.output)
                     local steps = stepsByLevel[level]
                     local step = {
