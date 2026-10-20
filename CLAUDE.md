@@ -4,6 +4,8 @@
 
 The project keeps issues as GitHub issues in `gigosaurus/rs-production-planner`. See `docs/agents/issue-tracker.md`.
 
+Before you start work on an issue, assign it to `@me`. See "When you start work on an issue" in `docs/agents/issue-tracker.md`.
+
 ### Triage labels
 
 The default labels are needs-triage, needs-info, ready-for-agent, ready-for-human and wontfix. See `docs/agents/triage-labels.md`.
@@ -41,6 +43,11 @@ CI (`.github/workflows/checks.yml`) runs these checks on each pull request. Run 
 - `luacheck plan tests` (config: `.luacheckrc`)
 - `stylua plan tests` (config: `stylua.toml`). Run it two times. One pass does not always give stable output.
 - `scripts/check-manifests.sh`
+
+### Pull request titles
+The `pr-title` job (`.github/workflows/pr-labels.yml`) fails a pull request when its title does not start with `<type>: ` or `<type>(<scope>): `. The title becomes the squash commit on `main`.
+- Types: `feat`, `fix`, `docs`, `refactor`, `test`, `ci`, `chore`, `build`, `perf`, `style`, `revert`.
+- Example: `docs: assign an issue to @me before work starts`.
 
 ### Before you prepare a plugin for submission
 Read `pages/submission/guidelines.md`, `pages/submission/adequacy.md` and `pages/submission/process.md`. Then check the plugin against them.
