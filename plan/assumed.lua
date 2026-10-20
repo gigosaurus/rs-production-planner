@@ -11,8 +11,9 @@ end
 -- An item that is already assumed keeps its line and its baseline.
 -- The view must check the amount that the player types. A bad amount here is a fault in the code.
 function Assumed.add(state, item, amount, detected)
-    if amount <= 0 then
-        error("The Assumed amount of " .. item .. " must be more than 0.", 2)
+    -- amount % 1 is not 0 for a fraction, NaN and infinity.
+    if type(amount) ~= "number" or amount % 1 ~= 0 or amount <= 0 then
+        error("The Assumed amount of " .. tostring(item) .. " must be a whole number more than 0.", 2)
     end
     for _, entry in ipairs(state.entries) do
         if entry.item == item then
