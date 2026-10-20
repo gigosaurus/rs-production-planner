@@ -105,6 +105,20 @@ describe("Plan.diff", function()
         expectEqual(diff.compare(before, after).next, { from = "CLEAN_RANARR", to = "RANARR_UNF", backwards = false })
     end)
 
+    it("does not report the Next step when it does not change", function()
+        local before = herbPlan({ GRIMY_RANARR = 28 })
+        local after = herbPlan({ GRIMY_RANARR = 30 })
+
+        expectEqual(diff.compare(before, after).next, nil)
+    end)
+
+    it("reports when no Step is ready any more", function()
+        local before = herbPlan({ GRIMY_RANARR = 28 })
+        local after = herbPlan({ GRIMY_RANARR = 27 })
+
+        expectEqual(diff.compare(before, after).next, { from = "CLEAN_RANARR", backwards = false })
+    end)
+
     it("reports when the Next step moves backwards", function()
         local stock = { SNAPDRAGON = 14, GRIMY_TOADFLAX = 28 }
 
