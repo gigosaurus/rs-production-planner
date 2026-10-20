@@ -49,3 +49,9 @@ If the glossary does not have the concept that you need, this is a signal. Possi
 If your output contradicts an ADR, say so clearly. Do not override the ADR silently:
 
 > _This contradicts ADR 0003 (no stored progress). But it is worth opening again, because…_
+
+## Do not change ADRs
+
+An ADR is immutable after it merges. Edit it only for typos, broken links and other changes that keep the decision the same. To change a decision, write a new ADR. The new ADR names the ADR that it amends or supersedes.
+
+An ADR body refers only to earlier ADRs. Do not refer to a later ADR in the body.

@@ -6,4 +6,4 @@ The Plan counts all Dose sizes of one potion together, as doses. A Recipe Input 
 
 The plugin does not track empty vials. The Plan assumes that decanting is always possible. The Plan lists this as a Planning assumption. Flasks are not part of the pool. They are a separate product that the player makes from the pool.
 
-A Target of N potions of Dose size (k) is a Target of N × k doses of the pool. For example, 100× (4) is 400 doses. Made counts use the same rule (ADR 0009).
+A Target of N potions of Dose size (k) is a Target of N × k doses of the pool. For example, 100× (4) is 400 doses.
