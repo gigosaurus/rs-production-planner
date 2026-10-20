@@ -172,6 +172,23 @@ describe("Made count GE amount", function()
         expectEqual(Made.counts(state, "Alice", Made.CHARACTER), { SHARK = 2 })
     end)
 
+    it("starts a new offer when the soldCount of the slot falls", function()
+        local state = Made.new()
+        Made.start(state, "Alice", { SHARK = 10 })
+        Made.observe(state, "Alice", {
+            detected = { SHARK = 10 },
+            ge = { offer(1, Made.BUY, Made.ADDED, "SHARK", 100, 100) },
+        })
+        Made.observe(state, "Alice", { detected = { SHARK = 110 } })
+        Made.observe(state, "Alice", {
+            detected = { SHARK = 110 },
+            ge = { offer(1, Made.BUY, Made.ADDED, "SHARK", 100, 30) },
+        })
+        Made.observe(state, "Alice", { detected = { SHARK = 142 } })
+
+        expectEqual(Made.counts(state, "Alice", Made.CHARACTER), { SHARK = 2 })
+    end)
+
     it("adds nothing for items that a SELL offer sold", function()
         local state = Made.new()
         Made.start(state, "Alice", { SHARK = 10 })

@@ -60,8 +60,8 @@ local function observeOffer(data, offer, detected)
         error("unknown GE offer stage: " .. tostring(offer.stage), 3)
     end
     local slot = data.slots[offer.slot]
-    -- A slot with no saved data, or with a different item or type, has a new offer.
-    if not slot or slot.item ~= offer.item or slot.type ~= offer.type then
+    -- A slot has a new offer when it has no saved data, a different item or type, or a lower soldCount.
+    if not slot or slot.item ~= offer.item or slot.type ~= offer.type or offer.soldCount < slot.soldCount then
         slot = { soldCount = 0 }
     end
     local bought = offer.soldCount - slot.soldCount
