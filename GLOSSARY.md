@@ -58,6 +58,7 @@ _Avoid_: Surplus, excess, waste
 
 **Batch hint**:
 The number of actions of a Step that the player can do with one backpack load. The backpack space and the Action limit decide it.
+If one action does not fit in one backpack load, the Step has no Batch hint (nil). Then the Step has no amount for each Input for one inventory, and the Next step check uses all remaining actions.
 _Avoid_: Inventory size, load
 
 **Action limit**:
