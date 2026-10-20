@@ -9,7 +9,7 @@ The one current set of Targets, with the Steps, Shortages and Leftovers that the
 _Avoid_: Project, job, order list
 
 **Target**:
-An item and quantity that the player wants to have at the end. When two Targets are for the same item, the Plan aims for the larger quantity, not the sum. Progress on the item counts for each Target.
+An item and quantity that the player wants to have at the end. When two Targets are for the same item, the Plan aims for the larger quantity, not the sum. The same items count for each Target.
 _Avoid_: Goal, request, order
 
 **Basis**:
@@ -44,6 +44,10 @@ _Avoid_: Task, job, action (an action is one performance of a Recipe, not a Step
 The first Step in the production order that the player can usefully do now with the items they have.
 _Avoid_: Current step, active step
 
+**Former step**:
+A Step that was in the previous calculation of the Plan and is not in the new one. The player can have done it. Or the Plan does not need it now.
+_Avoid_: Finished step, completed step, removed step
+
 **Planning level**:
 The deepest point at which an item appears in the Plan. Inputs, other Outputs and the Steps that use other Outputs all count. It decides when the Plan totals the demand and the supply of the item. All items in one Loop have the same Planning level.
 _Avoid_: Depth (on its own, because an item can appear at more than one depth)
@@ -65,8 +69,7 @@ Output that the Plan does not need. It occurs when Steps are rounded up to whole
 _Avoid_: Surplus, excess, waste
 
 **Batch hint**:
-The number of actions of a Step that the player can do with one backpack load. The backpack space and the Action limit decide it.
-If one action does not fit in one backpack load, the Step has no Batch hint (nil). Then the Step has no amount for each Input for one inventory, and the Next step check uses all remaining actions.
+The number of actions of a Step that the player can do with one full Inventory. The Inventory space and the Action limit decide it. When one action does not fit in the Inventory, the Step has no Batch hint.
 _Avoid_: Inventory size, load
 
 **Action limit**:
@@ -105,11 +108,15 @@ _Avoid_: Count mode, tracking mode
 
 **Counted stock**:
 All the items that the Plan counts as owned: Detected stock plus Assumed stock, minus Reserves.
-_Avoid_: Stock (on its own), inventory (that is the in-game container), owned items, holdings
+_Avoid_: Stock (on its own), Inventory (that is the in-game container), owned items, holdings
 
 **Detected stock**:
-The item counts that the plugin reads from the game: the live backpack plus the Bank snapshot.
+The item counts that the plugin reads from the game: the live Inventory plus the Bank snapshot.
 _Avoid_: Real stock, actual stock
+
+**Inventory**:
+The in-game container that the player carries items in. It has 28 slots.
+_Avoid_: Backpack, stock, owned items
 
 **Bank snapshot**:
 The most recent copy of the contents of the bank of one named character. The plugin takes it while the bank is open.

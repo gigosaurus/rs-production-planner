@@ -40,7 +40,7 @@ function Assumed.remove(state, item)
     end
 end
 
--- detected is the Detected stock now: the backpack and the bank together.
+-- detected is the Detected stock now: the Inventory and the bank together.
 -- A rise since the last call uses up Assumed stock of that item.
 function Assumed.observe(state, detected)
     local arrived, fulfilled, kept = {}, {}, {}

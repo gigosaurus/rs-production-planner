@@ -173,7 +173,7 @@ describe("Plan.calculate", function()
             expectEqual(order, { "COCONUT_MILK", "SHELL_BOWL" })
         end)
 
-        it("uses an other Output from a Step that is deeper in the recipe tree", function()
+        it("uses an other Output from a Step at a deeper Planning level", function()
             local plan = Plan.calculate({
                 targets = { { item = "FRUIT_BOWL", count = 3 } },
                 recipes = {
@@ -513,8 +513,8 @@ describe("Plan.calculate", function()
         expectEqual(stepFor(plan, "TROLL_POTION").flags, { { unlock = "EADGARS_RUSE" } })
     end)
 
-    -- This is the interim behaviour in issue 07.
-    it("stops with an error that names the items in a recipe loop", function()
+    -- This is the interim behaviour in issue 7.
+    it("stops with an error that names the items in a Loop", function()
         local ok, err = pcall(Plan.calculate, {
             targets = { { item = "BUCKET_OF_WATER", count = 5 } },
             recipes = {
@@ -535,7 +535,7 @@ describe("Plan.calculate", function()
         })
 
         expectEqual(ok, false)
-        expectEqual(err, "The recipes contain a loop: BUCKET_OF_WATER, BUCKET, BUCKET_OF_WATER.")
+        expectEqual(err, "The Recipes contain a Loop: BUCKET_OF_WATER, BUCKET, BUCKET_OF_WATER.")
     end)
 
     -- Each Recipe must have an Action limit (issue 2, section 1).
@@ -566,6 +566,22 @@ describe("Plan.calculate", function()
 
         expectEqual(ok, false)
         expectEqual(err, "The Recipe for BREAD has no Action limit.")
+    end)
+
+    it("gives the line of the caller in a Recipe error", function()
+        local ok, err = pcall(function()
+            Plan.calculate({
+                targets = { { item = "BREAD", count = 1 } },
+                recipes = {
+                    BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
+                },
+                targetMode = Plan.HAVE,
+                detected = {},
+            })
+        end)
+
+        expectEqual(ok, false)
+        expectEqual(err:find("calculate_spec.lua:%d+: The Recipe for BREAD has no Action limit%.") ~= nil, true)
     end)
 
     -- The check covers only the Recipes that the Plan uses (issue 2, section 1).
@@ -645,7 +661,7 @@ describe("Plan.calculate", function()
             return plan.steps[1].batchHint
         end
 
-        it("divides the backpack by the non-stackable Inputs of one action", function()
+        it("divides the Inventory by the non-stackable Inputs of one action", function()
             local hint = batchHint({ { item = "HERB_UNF", count = 1 }, { item = "SNAPE_GRASS", count = 1 } }, 60)
 
             expectEqual(hint, 14)
@@ -661,7 +677,7 @@ describe("Plan.calculate", function()
             expectEqual(hint, 27)
         end)
 
-        it("uses the Action limit when it is lower than the backpack space", function()
+        it("uses the Action limit when it is lower than the Inventory space", function()
             local hint = batchHint({ { item = "GRIMY_RANARR", count = 1 } }, 10)
 
             expectEqual(hint, 10)
@@ -677,7 +693,7 @@ describe("Plan.calculate", function()
             expectEqual(hint, 60)
         end)
 
-        it("gives each Input for one inventory, with its Detected stock", function()
+        it("gives each Input for one full Inventory, with its Detected stock", function()
             local plan = Plan.calculate({
                 targets = { { item = "POTION", count = 100 } },
                 recipes = {
@@ -700,7 +716,7 @@ describe("Plan.calculate", function()
             })
         end)
 
-        it("is nil when one action needs more non-stackable Input than the backpack holds", function()
+        it("is nil when one action needs more non-stackable Input than the Inventory holds", function()
             local plan = Plan.calculate({
                 targets = { { item = "STATUE", count = 1 } },
                 recipes = {
@@ -716,7 +732,7 @@ describe("Plan.calculate", function()
             expectEqual(plan.steps[1].inputs, { { item = "CLAY", detected = 0 } })
         end)
 
-        it("is nil when the stackable Inputs need more slots than the backpack holds", function()
+        it("is nil when the stackable Inputs need more slots than the Inventory holds", function()
             local inputs, stackable = {}, {}
             for index = 1, 29 do
                 local item = "RUNE_" .. index
@@ -760,7 +776,7 @@ describe("Plan.calculate", function()
             return Plan.calculate(stock)
         end
 
-        it("is the first Step with Detected stock for one inventory of each Input", function()
+        it("is the first Step with Detected stock for one full Inventory of each Input", function()
             local plan = twoSteps({ detected = { GRIMY_RANARR = 27, GRIMY_TOADFLAX = 28 } })
 
             expectEqual(plan.steps[plan.next].item, "CLEAN_TOADFLAX")
