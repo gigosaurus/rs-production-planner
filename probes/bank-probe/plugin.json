@@ -1,0 +1,9 @@
+{
+    "name": "Bank Probe",
+    "version": "0.1",
+    "contactEmailAddress": "example@example.com",
+    "requiredDependencies": {},
+    "optionalDependencies": {},
+    "requiredPermissions": [],
+    "optionalPermissions": []
+}

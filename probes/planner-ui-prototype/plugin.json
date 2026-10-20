@@ -1,0 +1,11 @@
+{
+    "name": "Planner UI Prototype",
+    "version": "0.1",
+    "contactEmailAddress": "example@example.com",
+    "requiredDependencies": {
+        "prettyui": 6398181
+    },
+    "optionalDependencies": {},
+    "requiredPermissions": [],
+    "optionalPermissions": ["chatAccess"]
+}
