@@ -109,7 +109,7 @@ function Made.observe(states, name, tick)
     end
 end
 
--- Gives the made input of Plan.calculate. scope is Made.CHARACTER or Made.ALL.
+-- Gives the made field of the Basis of Plan.calculate. scope is Made.CHARACTER or Made.ALL.
 -- All characters is the sum of the states that the plugin has now.
 function Made.counts(states, name, scope)
     checkScope(scope)
