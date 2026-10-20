@@ -179,4 +179,20 @@ describe("Diff.compare", function()
 
         expectEqual(diff.compare(before, after).targets, {})
     end)
+
+    it("reports two Targets for the same item one time", function()
+        local function breadPlan(bread)
+            return Plan.calculate({
+                targets = { { item = "BREAD", count = 3 }, { item = "BREAD", count = 2 } },
+                recipes = {
+                    BREAD = {
+                        { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
+                    },
+                },
+                detected = { BREAD = bread },
+            })
+        end
+
+        expectEqual(diff.compare(breadPlan(0), breadPlan(2)).targets, { { item = "BREAD", by = 2 } })
+    end)
 end)
