@@ -6,13 +6,24 @@ local function countedStock(input, item)
     return (input.detected[item] or 0) + ((input.assumed or {})[item] or 0) - ((input.reserves or {})[item] or 0)
 end
 
+local MAKE = "MAKE"
+
+local function isMake(input)
+    return input.targetMode == MAKE
+end
+
+local function madeCount(input, item)
+    return (input.made or {})[item] or 0
+end
+
 local function isComplete(input)
     local wanted = {}
     for _, target in ipairs(input.targets) do
         wanted[target.item] = (wanted[target.item] or 0) + target.count
     end
     for item, count in pairs(wanted) do
-        if countedStock(input, item) < count then return false end
+        local covered = isMake(input) and madeCount(input, item) or countedStock(input, item)
+        if covered < count then return false end
     end
     return true
 end
@@ -235,16 +246,29 @@ function Plan.calculate(input)
         deepest = math.max(deepest, level)
     end
 
-    local demand = {}
+    local demand, targetDemand = {}, {}
     for _, target in ipairs(input.targets) do
         demand[target.item] = (demand[target.item] or 0) + target.count
+        targetDemand[target.item] = (targetDemand[target.item] or 0) + target.count
+    end
+
+    -- In Make, the Made count covers a Target. Counted stock of the Target item does not (ADR 0009).
+    local function stillNeededFor(item)
+        if isMake(input) and targetDemand[item] then
+            local targetPart = math.max(0, targetDemand[item] - madeCount(input, item))
+            -- Counted stock changes only the Intermediate part. Thus a Reserve of a Target item adds no need without it.
+            local intermediateDemand = demand[item] - targetDemand[item]
+            if intermediateDemand == 0 then return targetPart end
+            return targetPart + math.max(0, intermediateDemand - countedStock(input, item))
+        end
+        return (demand[item] or 0) - countedStock(input, item)
     end
 
     for level = 0, deepest do
         stepsByLevel[level] = {}
         for _, item in ipairs(order) do
             if levels[item] == level then
-                local stillNeeded = (demand[item] or 0) - countedStock(input, item)
+                local stillNeeded = stillNeededFor(item)
                 usedSupply[item] = math.max(0, math.min(stillNeeded, supply[item] or 0))
                 local need = stillNeeded - (supply[item] or 0)
                 local recipes = input.recipes[item]
@@ -323,7 +347,10 @@ function Plan.calculate(input)
 
     local targets = {}
     for _, target in ipairs(input.targets) do
-        targets[#targets + 1] = { item = target.item, count = target.count, have = countedStock(input, target.item) }
+        targets[#targets + 1] = {
+            item = target.item, count = target.count, have = countedStock(input, target.item),
+            made = isMake(input) and madeCount(input, target.item) or nil,
+        }
     end
 
     return {

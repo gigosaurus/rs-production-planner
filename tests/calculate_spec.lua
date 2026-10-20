@@ -574,4 +574,143 @@ describe("Plan.calculate", function()
             expectEqual(stepFor(plan, "FLASK").waitsOn, 1)
         end)
     end)
+
+    it("uses Target mode Have when the Target mode is HAVE", function()
+        local plan = Plan.calculate({
+            targets = { { item = "BREAD", count = 5 } },
+            recipes = {
+                BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
+            },
+            targetMode = "HAVE",
+            made = { BREAD = 5 },
+            detected = { BREAD = 2, DOUGH = 10 },
+        })
+
+        expectEqual(stepFor(plan, "BREAD").actions, 3)
+        expectEqual(plan.complete, false)
+        expectEqual(plan.targets, { { item = "BREAD", count = 5, have = 2 } })
+    end)
+
+    describe("Target mode Make", function()
+        local function makeBread(made, detected)
+            return Plan.calculate({
+                targets = { { item = "BREAD", count = 5 } },
+                recipes = {
+                    BREAD = { { verb = "Bake", output = 2, inputs = { { item = "DOUGH", count = 1 } } } },
+                },
+                targetMode = "MAKE",
+                made = made,
+                detected = detected,
+            })
+        end
+
+        it("makes the Target minus its Made count, even with Counted stock of the Target", function()
+            local plan = makeBread({ BREAD = 1 }, { BREAD = 10, DOUGH = 10 })
+
+            expectEqual(stepFor(plan, "BREAD").actions, 2)
+        end)
+
+        it("does not decrease the need for the Target by its Assumed stock", function()
+            local plan = Plan.calculate({
+                targets = { { item = "BREAD", count = 5 } },
+                recipes = {
+                    BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
+                },
+                targetMode = "MAKE",
+                made = {},
+                detected = { DOUGH = 10 },
+                assumed = { BREAD = 3 },
+            })
+
+            expectEqual(stepFor(plan, "BREAD").actions, 5)
+        end)
+
+        it("does not add a Reserve of the Target to its need", function()
+            local plan = Plan.calculate({
+                targets = { { item = "BREAD", count = 5 } },
+                recipes = {
+                    BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
+                },
+                targetMode = "MAKE",
+                made = {},
+                detected = { DOUGH = 10 },
+                reserves = { BREAD = 3 },
+            })
+
+            expectEqual(stepFor(plan, "BREAD").actions, 5)
+        end)
+
+        it("decreases the demand for Intermediates and Raw materials by their Counted stock", function()
+            local plan = Plan.calculate({
+                targets = { { item = "BREAD", count = 5 } },
+                recipes = {
+                    BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
+                    DOUGH = { { verb = "Mix", output = 1, inputs = { { item = "FLOUR", count = 1 } } } },
+                },
+                targetMode = "MAKE",
+                made = {},
+                detected = { DOUGH = 2, FLOUR = 1 },
+            })
+
+            expectEqual(stepFor(plan, "DOUGH").actions, 3)
+            expectEqual(plan.shortages, { { item = "FLOUR", count = 2 } })
+        end)
+
+        it("is Complete when the Made count covers each Target", function()
+            local plan = makeBread({ BREAD = 5 }, {})
+
+            expectEqual(plan.complete, true)
+        end)
+
+        it("is not Complete when only Counted stock covers a Target", function()
+            local plan = makeBread({ BREAD = 4 }, { BREAD = 5 })
+
+            expectEqual(plan.complete, false)
+        end)
+
+        it("gives each Target with its Made count and its Counted stock", function()
+            local plan = makeBread({ BREAD = 4 }, { BREAD = 2 })
+
+            expectEqual(plan.targets, { { item = "BREAD", count = 5, made = 4, have = 2 } })
+        end)
+
+        describe("a Target item that is also an Intermediate", function()
+            local function makeSharkAndSoup(made, detected)
+                return Plan.calculate({
+                    targets = { { item = "SHARK", count = 10 }, { item = "SHARK_SOUP", count = 4 } },
+                    recipes = {
+                        SHARK = { { verb = "Cook", output = 1, inputs = { { item = "RAW_SHARK", count = 1 } } } },
+                        SHARK_SOUP = { { verb = "Make", output = 1, inputs = { { item = "SHARK", count = 1 } } } },
+                    },
+                    targetMode = "MAKE",
+                    made = made,
+                    detected = detected,
+                })
+            end
+
+            it("covers the Target part by the Made count and the Intermediate part by Counted stock", function()
+                local plan = makeSharkAndSoup({ SHARK = 3 }, { SHARK = 1 })
+
+                expectEqual(stepFor(plan, "SHARK").actions, 10)
+            end)
+
+            it("does not let a Made count above the Target cover the Intermediate part", function()
+                local plan = makeSharkAndSoup({ SHARK = 12 }, {})
+
+                expectEqual(stepFor(plan, "SHARK").actions, 4)
+            end)
+
+            it("does not let spare Counted stock cover the Target part", function()
+                local plan = makeSharkAndSoup({ SHARK = 3 }, { SHARK = 10 })
+
+                expectEqual(stepFor(plan, "SHARK").actions, 7)
+            end)
+
+            it("lets the same items count in the Made count and in Counted stock", function()
+                local plan = makeSharkAndSoup({ SHARK = 10 }, { SHARK = 10 })
+
+                expectEqual(stepFor(plan, "SHARK"), nil)
+            end)
+        end)
+    end)
 end)
