@@ -629,6 +629,44 @@ describe("Plan.calculate", function()
             expectEqual(ok, false)
             expectEqual(err:find("calculate_spec.lua:%d+: The Basis has no targetMode%.") ~= nil, true)
         end)
+
+        -- The player types the Target count. A bad count is a fault in the view (issue 43).
+        for _, case in ipairs({
+            { name = "0", count = 0 },
+            { name = "-5", count = -5 },
+            { name = "2.5", count = 2.5 },
+            { name = "nil", count = nil },
+            { name = 'the string "5"', count = "5" },
+        }) do
+            it("stops with an error for a Target count of " .. case.name, function()
+                local basis = breadBasis()
+                basis.targets[1].count = case.count
+                local ok, err = pcall(Plan.calculate, basis)
+
+                expectEqual(ok, false)
+                expectEqual(err, "The Target count of BREAD must be a whole number more than 0.")
+            end)
+        end
+
+        it("checks the count of each Target, not only the first", function()
+            local basis = breadBasis()
+            basis.targets[2] = { item = "CAKE", count = 0 }
+            local ok, err = pcall(Plan.calculate, basis)
+
+            expectEqual(ok, false)
+            expectEqual(err, "The Target count of CAKE must be a whole number more than 0.")
+        end)
+
+        it("gives the line of the caller in a Target count error", function()
+            local basis = breadBasis()
+            basis.targets[1].count = 0
+            local ok, err = pcall(function()
+                Plan.calculate(basis)
+            end)
+
+            expectEqual(ok, false)
+            expectEqual(err:find("calculate_spec.lua:%d+: The Target count of BREAD") ~= nil, true)
+        end)
     end)
 
     describe("Batch hint", function()

@@ -79,6 +79,11 @@ local function checkBasis(basis)
     if not Validate.isOneOf(basis.targetMode, TARGET_MODES) then
         error("The Target mode " .. tostring(basis.targetMode) .. " is unknown.", 3)
     end
+    for _, target in ipairs(basis.targets) do
+        if not Validate.isPositiveInteger(target.count) then
+            error("The Target count of " .. tostring(target.item) .. " must be a whole number more than 0.", 3)
+        end
+    end
 end
 
 local function madeCount(basis, item)
