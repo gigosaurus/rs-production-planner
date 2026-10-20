@@ -532,7 +532,9 @@ describe("Plan.calculate", function()
         local function batchHint(inputs, actionLimit, stackable)
             local plan = Plan.calculate({
                 targets = { { item = "POTION", count = 100 } },
-                recipes = { POTION = { { verb = "Mix", output = 1, inputs = inputs, actionLimit = actionLimit } } },
+                recipes = {
+                    POTION = { { verb = "Mix", output = 1, inputs = inputs, actionLimit = actionLimit or 60 } },
+                },
                 detected = {},
                 stackable = stackable,
             })
