@@ -6,6 +6,8 @@ A Plan has a Target mode: Have or Make. Have is ADR 0003. Make is for a player w
 
 In Make, each Target has a stored Made count. Remaining for a Target = Target − Made count. Counted stock of the Target item does not count. Intermediates and Raw materials still use live Counted stock. A Make Plan is Complete when each Made count reaches its Target. It then stays Complete. A Made count never falls on its own.
 
+A Target item can also be an Intermediate of a different Target. The Made count covers only the Target part. Live Counted stock covers the Intermediate part. Each rise adds to the Made count, also when a later Step uses the item. Make counts what the player made, not what the player has. For example, the Targets are 10× Shark and 4× Shark soup. The player cooks 4 Shark, makes 4 soup, then cooks 6 Shark. The Made count of Shark is 10, and the Plan is Complete. In Have, the same Plan needs 4 more Shark, because the player must have 10 Shark and 4 soup together.
+
 ## How the plugin finds the Made count
 
 Made count = rises in Detected stock of the Target item (backpack and bank together, as in ADR 0004), minus rises from known other sources. Falls are ignored. A rise does not count when:
@@ -16,8 +18,12 @@ Made count = rises in Detected stock of the Target item (backpack and bank toget
 
 Also:
 
-- The first Bank snapshot of a character is not a rise. It is the starting point for the bank part.
+- Items that the plugin did not see the player make are not made. The first read of an inventory is a starting point, not a rise. This applies to the first Bank snapshot of a character, to the first backpack read of a character, and to the Detected stock of a Target when the player adds it in Make.
 - For each character, the plugin saves the last Detected count of each Target. A rise between sessions counts on the next load.
+
+## Potion Targets
+
+A potion Target is a number of doses of its Dose pool (ADR 0005). Its Made count is also in doses. It counts rises in the total doses of the pool. A Decant step does not change the total, so it adds nothing. A new potion that the player makes from other Inputs adds its doses. The plugin shows the Target and the Made count in the Dose size of the Target. For example, a Target of 100× (4) is 400 doses, and shows as 100. A Target of 200× (2) is also 400 doses, and shows as 200.
 
 ## Made count scope
 

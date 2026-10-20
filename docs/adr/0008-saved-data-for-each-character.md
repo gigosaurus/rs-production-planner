@@ -5,7 +5,7 @@ Supersedes ADR 0006.
 The plugin keys saved data by `displayName`. Data that is a fact about one character, or that the plugin measures on one character, is saved for each character:
 
 - Bank snapshot
-- Assumed stock
+- Assumed stock, and the last Detected counts that the plugin uses to measure its rises (ADR 0004)
 - Reserves
 - Unlocks
 - Account mode
