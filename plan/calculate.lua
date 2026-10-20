@@ -259,16 +259,41 @@ local function planningLevels(request)
     return levels, order
 end
 
-function Plan.calculate(request)
-    local stepsByLevel, recipeOf, extraOf = {}, {}, {}
-    local shortBy = {}
-    -- supply is the other Outputs of Steps. usedSupply is the part of it that the Plan uses.
-    local supply, usedSupply = {}, {}
-    local levels, order = planningLevels(request)
+local function deepestLevel(levels)
     local deepest = 0
     for _, level in pairs(levels) do
         deepest = math.max(deepest, level)
     end
+    return deepest
+end
+
+local function newStep(request, item, recipe, actions)
+    local step = {
+        item = item,
+        verb = recipe.verb,
+        actions = actions,
+        flags = flagsFor(request, recipe),
+        batchHint = batchHintFor(request, recipe),
+    }
+    step.inputs = {}
+    for _, input in ipairs(recipe.inputs) do
+        step.inputs[#step.inputs + 1] = {
+            item = input.item,
+            perInventory = step.batchHint and input.count * step.batchHint,
+            detected = request.detected[input.item] or 0,
+        }
+    end
+    return step
+end
+
+-- Makes the Steps in production order. It totals the demand and the supply of each item at its Planning level.
+-- It also gives the Recipe and the extra Output of each Step, the used supply of each item, and the Shortages.
+local function stepsFor(request, levels, order)
+    local stepsByLevel, recipeOf, extraOf = {}, {}, {}
+    local shortBy = {}
+    -- supply is the other Outputs of Steps. usedSupply is the part of it that the Plan uses.
+    local supply, usedSupply = {}, {}
+    local deepest = deepestLevel(levels)
 
     local demand, targetDemand = {}, {}
     for _, target in ipairs(request.targets) do
@@ -300,24 +325,10 @@ function Plan.calculate(request)
                 local recipe = recipeFor(request, item)
                 if need > 0 and recipe then
                     local actions = math.ceil(need / recipe.output)
+                    local step = newStep(request, item, recipe, actions)
                     local steps = stepsByLevel[level]
-                    local step = {
-                        item = item,
-                        verb = recipe.verb,
-                        actions = actions,
-                        flags = flagsFor(request, recipe),
-                        batchHint = batchHintFor(request, recipe),
-                    }
                     steps[#steps + 1] = step
                     recipeOf[step] = recipe
-                    step.inputs = {}
-                    for _, input in ipairs(recipe.inputs) do
-                        step.inputs[#step.inputs + 1] = {
-                            item = input.item,
-                            perInventory = step.batchHint and input.count * step.batchHint,
-                            detected = request.detected[input.item] or 0,
-                        }
-                    end
                     extraOf[step] = actions * recipe.output - need
                     for _, input in ipairs(recipe.inputs) do
                         demand[input.item] = (demand[input.item] or 0) + input.count * actions
@@ -339,9 +350,10 @@ function Plan.calculate(request)
             steps[#steps + 1] = step
         end
     end
+    return steps, recipeOf, extraOf, usedSupply, shortBy
+end
 
-    markWaiting(request, steps, recipeOf)
-
+local function leftoversFor(steps, recipeOf, extraOf, usedSupply)
     local leftovers = {}
     for _, step in ipairs(steps) do
         if extraOf[step] > 0 then
@@ -357,9 +369,12 @@ function Plan.calculate(request)
             end
         end
     end
+    return leftovers
+end
 
-    -- A Shortage takes the position of the first Step that uses it.
-    -- A Shortage that no Step uses is a Target with no Recipe. It goes at the end.
+-- A Shortage takes the position of the first Step that uses it.
+-- A Shortage that no Step uses is a Target with no Recipe. It goes at the end.
+local function shortagesFor(steps, recipeOf, order, shortBy)
     local shortages, listed = {}, {}
     local function listShortage(item)
         if shortBy[item] and not listed[item] then
@@ -375,7 +390,10 @@ function Plan.calculate(request)
     for _, item in ipairs(order) do
         listShortage(item)
     end
+    return shortages
+end
 
+local function targetLines(request)
     local targets = {}
     for _, target in ipairs(request.targets) do
         targets[#targets + 1] = {
@@ -385,12 +403,18 @@ function Plan.calculate(request)
             made = isMake(request) and madeCount(request, target.item) or nil,
         }
     end
+    return targets
+end
 
+function Plan.calculate(request)
+    local levels, order = planningLevels(request)
+    local steps, recipeOf, extraOf, usedSupply, shortBy = stepsFor(request, levels, order)
+    markWaiting(request, steps, recipeOf)
     return {
-        targets = targets,
+        targets = targetLines(request),
         steps = steps,
-        leftovers = leftovers,
-        shortages = shortages,
+        leftovers = leftoversFor(steps, recipeOf, extraOf, usedSupply),
+        shortages = shortagesFor(steps, recipeOf, order, shortBy),
         next = findNext(request, steps, recipeOf),
         complete = isComplete(request),
     }
