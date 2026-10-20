@@ -54,6 +54,15 @@ describe("Assumed stock", function()
         expectEqual(Assumed.lines(state), { { item = "SNAPE_GRASS", remaining = 34, arrived = 36, entered = 70 } })
     end)
 
+    it("keeps the baseline of an item that is already assumed", function()
+        local state = Assumed.new()
+        Assumed.add(state, "SNAPE_GRASS", 50, { SNAPE_GRASS = 0 })
+        Assumed.add(state, "SNAPE_GRASS", 20, { SNAPE_GRASS = 10 })
+        Assumed.observe(state, { SNAPE_GRASS = 10 })
+
+        expectEqual(Assumed.lines(state)[1].remaining, 60)
+    end)
+
     it("removes a line", function()
         local state = Assumed.new()
         Assumed.add(state, "SNAPE_GRASS", 50, { SNAPE_GRASS = 0 })

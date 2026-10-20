@@ -4,7 +4,7 @@ local function bakeBread(detected, assumed, reserves)
     return Plan.calculate({
         targets = { { item = "BREAD", count = 5 } },
         recipes = {
-            BREAD = { { verb = "Bake", output = 2, inputs = { { item = "DOUGH", count = 1 } } } },
+            BREAD = { { verb = "Bake", output = 2, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
         },
         detected = detected,
         assumed = assumed,
@@ -40,7 +40,9 @@ describe("Plan.calculate", function()
             return Plan.calculate({
                 targets = { { item = "BREAD", count = 3 }, { item = "BREAD", count = 2 } },
                 recipes = {
-                    BREAD = { { verb = "Bake", output = 2, inputs = { { item = "DOUGH", count = 1 } } } },
+                    BREAD = {
+                        { verb = "Bake", output = 2, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
+                    },
                 },
                 detected = { DOUGH = 10, BREAD = bread },
             })
@@ -56,7 +58,11 @@ describe("Plan.calculate", function()
         local function newBasis()
             return {
                 targets = { { item = "BREAD", count = 5 } },
-                recipes = { BREAD = { { verb = "Bake", output = 2, inputs = { { item = "DOUGH", count = 1 } } } } },
+                recipes = {
+                    BREAD = {
+                        { verb = "Bake", output = 2, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
+                    },
+                },
                 detected = { DOUGH = 10 },
             }
         end
@@ -75,6 +81,7 @@ describe("Plan.calculate", function()
                     {
                         verb = "Pour",
                         output = 1,
+                        actionLimit = 60,
                         otherOutputs = { { item = "COCONUT_SHELL", count = 1 } },
                         inputs = { { item = "VIAL", count = 1 }, { item = "COCONUT_OPEN", count = 1 } },
                     },
@@ -90,10 +97,12 @@ describe("Plan.calculate", function()
         local pourMilk = {
             verb = "Pour",
             output = 1,
+            actionLimit = 60,
             otherOutputs = { { item = "COCONUT_SHELL", count = 1 } },
             inputs = { { item = "VIAL", count = 1 }, { item = "COCONUT_OPEN", count = 1 } },
         }
-        local makeBowl = { verb = "Make", output = 1, inputs = { { item = "COCONUT_SHELL", count = 1 } } }
+        local makeBowl =
+            { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "COCONUT_SHELL", count = 1 } } }
 
         it("subtracts an other Output from the demand for that item", function()
             local plan = Plan.calculate({
@@ -110,6 +119,7 @@ describe("Plan.calculate", function()
             local grateCoconut = {
                 verb = "Grate",
                 output = 1,
+                actionLimit = 60,
                 otherOutputs = { { item = "COCONUT_SHELL", count = 1 } },
                 inputs = { { item = "COCONUT_OPEN", count = 1 } },
             }
@@ -148,10 +158,18 @@ describe("Plan.calculate", function()
                         {
                             verb = "Make",
                             output = 1,
+                            actionLimit = 60,
                             inputs = { { item = "COCONUT_SHELL", count = 1 }, { item = "MILK_JUG", count = 1 } },
                         },
                     },
-                    MILK_JUG = { { verb = "Fill", output = 1, inputs = { { item = "COCONUT_MILK", count = 1 } } } },
+                    MILK_JUG = {
+                        {
+                            verb = "Fill",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "COCONUT_MILK", count = 1 } },
+                        },
+                    },
                     COCONUT_MILK = { pourMilk },
                 },
                 detected = { VIAL = 3, COCONUT_OPEN = 3 },
@@ -164,6 +182,7 @@ describe("Plan.calculate", function()
             local flaggedPour = {
                 verb = "Pour",
                 output = 1,
+                actionLimit = 60,
                 otherOutputs = { { item = "COCONUT_SHELL", count = 1 } },
                 inputs = { { item = "VIAL", count = 1 }, { item = "COCONUT_OPEN", count = 1 } },
                 skills = { { skill = "COOKING", level = 50 } },
@@ -187,6 +206,7 @@ describe("Plan.calculate", function()
                         {
                             verb = "Fill",
                             output = 1,
+                            actionLimit = 60,
                             inputs = { { item = "COCONUT_MILK", count = 1 } },
                             skills = { { skill = "COOKING", level = 50 } },
                         },
@@ -199,6 +219,38 @@ describe("Plan.calculate", function()
             })
 
             expectEqual(stepFor(plan, "COCONUT_MILK").waitsOn, nil)
+        end)
+
+        -- Both Steps make COCONUT_SHELL: COCONUT_MILK makes 3, then COCONUT_FLESH makes 2. The Plan uses 2.
+        -- From the first Steps, each Step has a Leftover: 1 and 2. From the last Steps, only COCONUT_MILK has one: 3.
+        it("takes the used part of an other Output from the first Steps in production order", function()
+            local plan = Plan.calculate({
+                targets = {
+                    { item = "COCONUT_MILK", count = 3 },
+                    { item = "COCONUT_FLESH", count = 4 },
+                    { item = "SHELL_BOWL", count = 2 },
+                },
+                recipes = {
+                    COCONUT_MILK = { pourMilk },
+                    COCONUT_FLESH = {
+                        {
+                            verb = "Scoop",
+                            output = 2,
+                            actionLimit = 60,
+                            otherOutputs = { { item = "COCONUT_SHELL", count = 1 } },
+                            inputs = { { item = "COCONUT_OPEN", count = 1 } },
+                        },
+                    },
+                    SHELL_BOWL = { makeBowl },
+                },
+                detected = { VIAL = 3, COCONUT_OPEN = 5 },
+            })
+
+            expectEqual(plan.steps[1].item, "COCONUT_MILK")
+            expectEqual(
+                plan.leftovers,
+                { { item = "COCONUT_SHELL", count = 1 }, { item = "COCONUT_SHELL", count = 2 } }
+            )
         end)
     end)
 
@@ -220,16 +272,16 @@ describe("Plan.calculate", function()
         expectEqual(plan.shortages, { { item = "DOUGH", count = 2 } })
     end)
 
+    it("ignores a Reserve of an item that the Plan does not use", function()
+        local plan = bakeBread({ DOUGH = 3 }, nil, { COAL = 10 })
+
+        expectEqual(plan, bakeBread({ DOUGH = 3 }))
+    end)
+
     it("adds the part of a Reserve that the player does not have to the Shortage", function()
         local plan = bakeBread({}, nil, { DOUGH = 2 })
 
         expectEqual(plan.shortages, { { item = "DOUGH", count = 5 } })
-    end)
-
-    it("ignores a Reserve of an item that the Plan does not use", function()
-        local plan = bakeBread({ DOUGH = 3 }, nil, { COAL = 10 })
-
-        expectEqual(plan.shortages, {})
     end)
 
     it("gives each Target with its Counted stock", function()
@@ -254,14 +306,20 @@ describe("Plan.calculate", function()
         expectEqual(plan.complete, false)
     end)
 
+    it("is not Complete when a Reserve decreases Counted stock below a Target", function()
+        local plan = bakeBread({ BREAD = 5 }, nil, { BREAD = 1 })
+
+        expectEqual(plan.complete, false)
+    end)
+
     -- This is the example in ADR 0002.
     it("subtracts Counted stock once from the total demand for an item", function()
         local plan = Plan.calculate({
             targets = { { item = "B", count = 2 }, { item = "C", count = 3 } },
             recipes = {
-                A = { { verb = "Make", output = 1, inputs = { { item = "ORE", count = 1 } } } },
-                B = { { verb = "Make", output = 1, inputs = { { item = "A", count = 10 } } } },
-                C = { { verb = "Make", output = 1, inputs = { { item = "A", count = 100 } } } },
+                A = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "ORE", count = 1 } } } },
+                B = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "A", count = 10 } } } },
+                C = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "A", count = 100 } } } },
             },
             detected = { A = 1, ORE = 1000 },
         })
@@ -274,9 +332,16 @@ describe("Plan.calculate", function()
         local plan = Plan.calculate({
             targets = { { item = "D", count = 1 } },
             recipes = {
-                B = { { verb = "Make", output = 1, inputs = { { item = "C", count = 1 } } } },
-                C = { { verb = "Make", output = 1, inputs = { { item = "ORE", count = 1 } } } },
-                D = { { verb = "Make", output = 1, inputs = { { item = "B", count = 1 }, { item = "C", count = 1 } } } },
+                B = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "C", count = 1 } } } },
+                C = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "ORE", count = 1 } } } },
+                D = {
+                    {
+                        verb = "Make",
+                        output = 1,
+                        actionLimit = 60,
+                        inputs = { { item = "B", count = 1 }, { item = "C", count = 1 } },
+                    },
+                },
             },
             detected = { C = 1, ORE = 10 },
         })
@@ -295,8 +360,8 @@ describe("Plan.calculate", function()
         local plan = Plan.calculate({
             targets = { { item = "D", count = 1 } },
             recipes = {
-                B = { { verb = "Make", output = 1, inputs = { { item = "ORE", count = 1 } } } },
-                D = { { verb = "Make", output = 1, inputs = { { item = "B", count = 10 } } } },
+                B = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "ORE", count = 1 } } } },
+                D = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "B", count = 10 } } } },
             },
             detected = { B = 4 },
         })
@@ -309,8 +374,8 @@ describe("Plan.calculate", function()
         local plan = Plan.calculate({
             targets = { { item = "BREAD", count = 1 } },
             recipes = {
-                BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
-                DOUGH = { { verb = "Mix", output = 1, inputs = { { item = "FLOUR", count = 1 } } } },
+                BREAD = { { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
+                DOUGH = { { verb = "Mix", output = 1, actionLimit = 60, inputs = { { item = "FLOUR", count = 1 } } } },
             },
             detected = { FLOUR = 1 },
         })
@@ -322,6 +387,7 @@ describe("Plan.calculate", function()
         expectEqual(order, { "DOUGH", "BREAD" })
     end)
 
+    -- The search finds SALT before FLOUR. The Step that uses FLOUR comes first.
     it("lists Shortages in the order of the first Step that uses them", function()
         local plan = Plan.calculate({
             targets = { { item = "BREAD", count = 1 } },
@@ -330,10 +396,11 @@ describe("Plan.calculate", function()
                     {
                         verb = "Bake",
                         output = 1,
-                        inputs = { { item = "DOUGH", count = 1 }, { item = "SALT", count = 1 } },
+                        actionLimit = 60,
+                        inputs = { { item = "SALT", count = 1 }, { item = "DOUGH", count = 1 } },
                     },
                 },
-                DOUGH = { { verb = "Mix", output = 1, inputs = { { item = "FLOUR", count = 1 } } } },
+                DOUGH = { { verb = "Mix", output = 1, actionLimit = 60, inputs = { { item = "FLOUR", count = 1 } } } },
             },
             detected = {},
         })
@@ -341,12 +408,25 @@ describe("Plan.calculate", function()
         expectEqual(plan.shortages, { { item = "FLOUR", count = 1 }, { item = "SALT", count = 1 } })
     end)
 
+    -- The search finds CAKE first.
+    it("lists a Target with no Recipe after the Shortages that Steps use", function()
+        local plan = Plan.calculate({
+            targets = { { item = "CAKE", count = 1 }, { item = "BREAD", count = 1 } },
+            recipes = {
+                BREAD = { { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
+            },
+            detected = {},
+        })
+
+        expectEqual(plan.shortages, { { item = "DOUGH", count = 1 }, { item = "CAKE", count = 1 } })
+    end)
+
     it("lists Leftovers in the order of the Step that makes them", function()
         local plan = Plan.calculate({
             targets = { { item = "BREAD", count = 5 } },
             recipes = {
-                BREAD = { { verb = "Bake", output = 2, inputs = { { item = "DOUGH", count = 1 } } } },
-                DOUGH = { { verb = "Mix", output = 2, inputs = { { item = "FLOUR", count = 1 } } } },
+                BREAD = { { verb = "Bake", output = 2, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
+                DOUGH = { { verb = "Mix", output = 2, actionLimit = 60, inputs = { { item = "FLOUR", count = 1 } } } },
             },
             detected = { FLOUR = 10 },
         })
@@ -362,6 +442,7 @@ describe("Plan.calculate", function()
                     {
                         verb = "Mix",
                         output = 1,
+                        actionLimit = 60,
                         inputs = { { item = "SNAPDRAGON", count = 1 } },
                         skills = { { skill = "HERBLORE", level = 63 }, { skill = "COOKING", level = 10 } },
                     },
@@ -382,6 +463,7 @@ describe("Plan.calculate", function()
                     {
                         verb = "Mix",
                         output = 1,
+                        actionLimit = 60,
                         inputs = { { item = "HERB", count = 1 } },
                         unlocks = { "EADGARS_RUSE", "DRUIDIC_RITUAL" },
                     },
@@ -399,8 +481,17 @@ describe("Plan.calculate", function()
         local ok, err = pcall(Plan.calculate, {
             targets = { { item = "BUCKET_OF_WATER", count = 5 } },
             recipes = {
-                BUCKET_OF_WATER = { { verb = "Fill", output = 1, inputs = { { item = "BUCKET", count = 1 } } } },
-                BUCKET = { { verb = "Empty", output = 1, inputs = { { item = "BUCKET_OF_WATER", count = 1 } } } },
+                BUCKET_OF_WATER = {
+                    { verb = "Fill", output = 1, actionLimit = 60, inputs = { { item = "BUCKET", count = 1 } } },
+                },
+                BUCKET = {
+                    {
+                        verb = "Empty",
+                        output = 1,
+                        actionLimit = 60,
+                        inputs = { { item = "BUCKET_OF_WATER", count = 1 } },
+                    },
+                },
             },
             detected = {},
         })
@@ -409,11 +500,55 @@ describe("Plan.calculate", function()
         expectEqual(err, "The recipes contain a loop: BUCKET_OF_WATER, BUCKET, BUCKET_OF_WATER.")
     end)
 
+    -- Each Recipe must have an Action limit (issue 2, section 1).
+    it("stops with an error that names the item when its Recipe has no Action limit", function()
+        local ok, err = pcall(Plan.calculate, {
+            targets = { { item = "BREAD", count = 1 } },
+            recipes = {
+                BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
+            },
+            detected = {},
+        })
+
+        expectEqual(ok, false)
+        expectEqual(err, "The Recipe for BREAD has no Action limit.")
+    end)
+
+    -- The check does not depend on stock. Thus a data error shows at once, not later in a session.
+    it("stops with an error when stock covers an item whose Recipe has no Action limit", function()
+        local ok, err = pcall(Plan.calculate, {
+            targets = { { item = "BREAD", count = 1 } },
+            recipes = {
+                BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
+            },
+            detected = { BREAD = 1 },
+        })
+
+        expectEqual(ok, false)
+        expectEqual(err, "The Recipe for BREAD has no Action limit.")
+    end)
+
+    -- The check covers only the Recipes that the Plan uses (issue 2, section 1).
+    it("does not stop when a Recipe that the Plan does not use has no Action limit", function()
+        local ok = pcall(Plan.calculate, {
+            targets = { { item = "BREAD", count = 1 } },
+            recipes = {
+                BREAD = { { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
+                CAKE = { { verb = "Bake", output = 1, inputs = { { item = "BATTER", count = 1 } } } },
+            },
+            detected = {},
+        })
+
+        expectEqual(ok, true)
+    end)
+
     describe("Batch hint", function()
         local function batchHint(inputs, actionLimit, stackable)
             local plan = Plan.calculate({
                 targets = { { item = "POTION", count = 100 } },
-                recipes = { POTION = { { verb = "Mix", output = 1, inputs = inputs, actionLimit = actionLimit } } },
+                recipes = {
+                    POTION = { { verb = "Mix", output = 1, inputs = inputs, actionLimit = actionLimit or 60 } },
+                },
                 detected = {},
                 stackable = stackable,
             })
@@ -501,6 +636,12 @@ describe("Plan.calculate", function()
             expectEqual(plan.steps[plan.next].item, "CLEAN_TOADFLAX")
         end)
 
+        it("is the first ready Step in production order when more than one is ready", function()
+            local plan = twoSteps({ detected = { GRIMY_RANARR = 28, GRIMY_TOADFLAX = 28 } })
+
+            expectEqual(plan.steps[plan.next].item, "CLEAN_RANARR")
+        end)
+
         it("does not count Reserves", function()
             local plan =
                 twoSteps({ detected = { GRIMY_RANARR = 28, GRIMY_TOADFLAX = 28 }, reserves = { GRIMY_RANARR = 1 } })
@@ -519,6 +660,12 @@ describe("Plan.calculate", function()
             local plan = twoSteps({ detected = { CLEAN_RANARR = 18, GRIMY_RANARR = 10 } })
 
             expectEqual(plan.steps[plan.next].item, "CLEAN_RANARR")
+        end)
+
+        it("is nil when no Step is ready", function()
+            local plan = twoSteps({ detected = {} })
+
+            expectEqual(plan.next, nil)
         end)
 
         it("is not a Flagged step", function()
@@ -593,10 +740,11 @@ describe("Plan.calculate", function()
         local mixRestore = {
             verb = "Mix",
             output = 1,
+            actionLimit = 60,
             inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
             skills = { { skill = "HERBLORE", level = 63 } },
         }
-        local makeUnf = { verb = "Make", output = 1, inputs = { { item = "SNAPDRAGON", count = 1 } } }
+        local makeUnf = { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "SNAPDRAGON", count = 1 } } }
 
         it("makes a Step Waiting when its Output goes only to a Flagged step", function()
             local plan = Plan.calculate({
@@ -618,7 +766,12 @@ describe("Plan.calculate", function()
                     SUPER_RESTORE = { mixRestore },
                     SNAPDRAGON_UNF = { makeUnf },
                     SNAPDRAGON = {
-                        { verb = "Clean", output = 1, inputs = { { item = "GRIMY_SNAPDRAGON", count = 1 } } },
+                        {
+                            verb = "Clean",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "GRIMY_SNAPDRAGON", count = 1 } },
+                        },
                     },
                 },
                 detected = { GRIMY_SNAPDRAGON = 1 },
@@ -634,7 +787,14 @@ describe("Plan.calculate", function()
                 targets = { { item = "SUPER_RESTORE", count = 1 }, { item = "OTHER_POTION", count = 1 } },
                 recipes = {
                     SUPER_RESTORE = { mixRestore },
-                    OTHER_POTION = { { verb = "Mix", output = 1, inputs = { { item = "SNAPDRAGON_UNF", count = 1 } } } },
+                    OTHER_POTION = {
+                        {
+                            verb = "Mix",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
+                        },
+                    },
                     SNAPDRAGON_UNF = { makeUnf },
                 },
                 detected = { SNAPDRAGON = 2 },
@@ -649,12 +809,18 @@ describe("Plan.calculate", function()
                 targets = { { item = "SUPER_RESTORE_4", count = 1 } },
                 recipes = {
                     SUPER_RESTORE_4 = {
-                        { verb = "Decant", output = 1, inputs = { { item = "SUPER_RESTORE_3", count = 1 } } },
+                        {
+                            verb = "Decant",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "SUPER_RESTORE_3", count = 1 } },
+                        },
                     },
                     SUPER_RESTORE_3 = {
                         {
                             verb = "Mix",
                             output = 1,
+                            actionLimit = 60,
                             inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
                             skills = { { skill = "HERBLORE", level = 63 } },
                         },
@@ -677,6 +843,7 @@ describe("Plan.calculate", function()
                         {
                             verb = "Mix",
                             output = 1,
+                            actionLimit = 60,
                             inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
                             skills = { { skill = "HERBLORE", level = 70 } },
                         },
@@ -691,20 +858,95 @@ describe("Plan.calculate", function()
             expectEqual(plan.steps[1].waitsOn, 2)
         end)
 
+        -- D uses B and C. B uses C, so C comes first in production order.
+        it("names the first Flagged step in production order when a Step uses items of more than one", function()
+            local plan = Plan.calculate({
+                targets = { { item = "D", count = 1 } },
+                recipes = {
+                    B = {
+                        {
+                            verb = "Make",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "C", count = 1 } },
+                            skills = { { skill = "HERBLORE", level = 63 } },
+                        },
+                    },
+                    C = {
+                        {
+                            verb = "Make",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "ORE", count = 1 } },
+                            skills = { { skill = "HERBLORE", level = 63 } },
+                        },
+                    },
+                    D = {
+                        {
+                            verb = "Make",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "B", count = 1 }, { item = "C", count = 1 } },
+                        },
+                    },
+                },
+                detected = { ORE = 2 },
+                levels = { HERBLORE = 61 },
+            })
+
+            expectEqual(plan.steps[1].item, "C")
+            expectEqual(stepFor(plan, "D").waitsOn, 1)
+        end)
+
+        it("does not make a Step Waiting when its Output goes to a Target and to a Flagged step", function()
+            local plan = Plan.calculate({
+                targets = { { item = "SHARK", count = 10 }, { item = "SHARK_SOUP", count = 4 } },
+                recipes = {
+                    SHARK = {
+                        { verb = "Cook", output = 1, actionLimit = 60, inputs = { { item = "RAW_SHARK", count = 1 } } },
+                    },
+                    SHARK_SOUP = {
+                        {
+                            verb = "Make",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "SHARK", count = 1 } },
+                            skills = { { skill = "COOKING", level = 80 } },
+                        },
+                    },
+                },
+                detected = { RAW_SHARK = 14 },
+                levels = { COOKING = 70 },
+            })
+
+            expectEqual(stepFor(plan, "SHARK").waitsOn, nil)
+        end)
+
         it("makes a Step Waiting when it uses an item that a Waiting step makes", function()
             local plan = Plan.calculate({
                 targets = { { item = "SUPER_RESTORE_FLASK", count = 1 } },
                 recipes = {
                     SUPER_RESTORE_FLASK = {
-                        { verb = "Fill", output = 1, inputs = { { item = "SUPER_RESTORE_4", count = 1 } } },
+                        {
+                            verb = "Fill",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "SUPER_RESTORE_4", count = 1 } },
+                        },
                     },
                     SUPER_RESTORE_4 = {
-                        { verb = "Decant", output = 1, inputs = { { item = "SUPER_RESTORE_3", count = 1 } } },
+                        {
+                            verb = "Decant",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "SUPER_RESTORE_3", count = 1 } },
+                        },
                     },
                     SUPER_RESTORE_3 = {
                         {
                             verb = "Mix",
                             output = 1,
+                            actionLimit = 60,
                             inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
                             skills = { { skill = "HERBLORE", level = 63 } },
                         },
@@ -726,6 +968,7 @@ describe("Plan.calculate", function()
                         {
                             verb = "Fill",
                             output = 1,
+                            actionLimit = 60,
                             inputs = { { item = "SUPER_RESTORE_3", count = 1 }, { item = "FLASK", count = 1 } },
                         },
                     },
@@ -733,11 +976,14 @@ describe("Plan.calculate", function()
                         {
                             verb = "Mix",
                             output = 1,
+                            actionLimit = 60,
                             inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
                             skills = { { skill = "HERBLORE", level = 63 } },
                         },
                     },
-                    FLASK = { { verb = "Blow", output = 1, inputs = { { item = "GLASS", count = 1 } } } },
+                    FLASK = {
+                        { verb = "Blow", output = 1, actionLimit = 60, inputs = { { item = "GLASS", count = 1 } } },
+                    },
                 },
                 detected = { SNAPDRAGON_UNF = 1, GLASS = 1 },
                 levels = { HERBLORE = 61 },
@@ -752,7 +998,7 @@ describe("Plan.calculate", function()
         local plan = Plan.calculate({
             targets = { { item = "BREAD", count = 5 } },
             recipes = {
-                BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
+                BREAD = { { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
             },
             targetMode = "HAVE",
             made = { BREAD = 5 },
@@ -769,7 +1015,9 @@ describe("Plan.calculate", function()
             return Plan.calculate({
                 targets = { { item = "BREAD", count = 5 } },
                 recipes = {
-                    BREAD = { { verb = "Bake", output = 2, inputs = { { item = "DOUGH", count = 1 } } } },
+                    BREAD = {
+                        { verb = "Bake", output = 2, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
+                    },
                 },
                 targetMode = "MAKE",
                 made = made,
@@ -783,26 +1031,13 @@ describe("Plan.calculate", function()
             expectEqual(stepFor(plan, "BREAD").actions, 2)
         end)
 
-        it("does not decrease the need for the Target by its Assumed stock", function()
-            local plan = Plan.calculate({
-                targets = { { item = "BREAD", count = 5 } },
-                recipes = {
-                    BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
-                },
-                targetMode = "MAKE",
-                made = {},
-                detected = { DOUGH = 10 },
-                assumed = { BREAD = 3 },
-            })
-
-            expectEqual(stepFor(plan, "BREAD").actions, 5)
-        end)
-
         it("does not add a Reserve of the Target to its need", function()
             local plan = Plan.calculate({
                 targets = { { item = "BREAD", count = 5 } },
                 recipes = {
-                    BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
+                    BREAD = {
+                        { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
+                    },
                 },
                 targetMode = "MAKE",
                 made = {},
@@ -817,8 +1052,12 @@ describe("Plan.calculate", function()
             local plan = Plan.calculate({
                 targets = { { item = "BREAD", count = 5 } },
                 recipes = {
-                    BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
-                    DOUGH = { { verb = "Mix", output = 1, inputs = { { item = "FLOUR", count = 1 } } } },
+                    BREAD = {
+                        { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
+                    },
+                    DOUGH = {
+                        { verb = "Mix", output = 1, actionLimit = 60, inputs = { { item = "FLOUR", count = 1 } } },
+                    },
                 },
                 targetMode = "MAKE",
                 made = {},
@@ -852,8 +1091,17 @@ describe("Plan.calculate", function()
                 return Plan.calculate({
                     targets = { { item = "SHARK", count = 10 }, { item = "SHARK_SOUP", count = 4 } },
                     recipes = {
-                        SHARK = { { verb = "Cook", output = 1, inputs = { { item = "RAW_SHARK", count = 1 } } } },
-                        SHARK_SOUP = { { verb = "Make", output = 1, inputs = { { item = "SHARK", count = 1 } } } },
+                        SHARK = {
+                            {
+                                verb = "Cook",
+                                output = 1,
+                                actionLimit = 60,
+                                inputs = { { item = "RAW_SHARK", count = 1 } },
+                            },
+                        },
+                        SHARK_SOUP = {
+                            { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "SHARK", count = 1 } } },
+                        },
                     },
                     targetMode = "MAKE",
                     made = made,

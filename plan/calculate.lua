@@ -99,7 +99,7 @@ local function batchHintFor(basis, recipe)
     if perAction == 0 then
         return recipe.actionLimit
     end
-    return math.min(slots // perAction, recipe.actionLimit or math.huge)
+    return math.min(slots // perAction, recipe.actionLimit)
 end
 
 -- Lists the requirements of a Recipe that the player does not meet.
@@ -205,7 +205,7 @@ end
 local function findNext(basis, steps)
     for position, step in ipairs(steps) do
         -- One inventory is the Batch hint, or less when fewer actions remain.
-        local actions = math.min(step.batchHint or step.actions, step.actions)
+        local actions = math.min(step.batchHint, step.actions)
         local ready = #step.flags == 0 and not step.waitsOn
         for _, input in ipairs(recipeFor(basis, step.item).inputs) do
             if freeDetected(basis, input.item) < input.count * actions then
@@ -231,6 +231,11 @@ local function planningLevels(basis)
         order[#order + 1] = item
         local recipe = recipeFor(basis, item)
         if recipe then
+            -- Each Recipe that the Plan uses must have an Action limit (issue 2, section 1).
+            -- The check does not depend on stock, so that a data error shows at once.
+            if not recipe.actionLimit then
+                error("The Recipe for " .. item .. " has no Action limit.", 0)
+            end
             for _, input in ipairs(recipe.inputs) do
                 find(input.item)
             end
@@ -325,7 +330,7 @@ local function newStep(basis, item, recipe, need)
     for _, input in ipairs(recipe.inputs) do
         step.inputs[#step.inputs + 1] = {
             item = input.item,
-            perInventory = step.batchHint and input.count * step.batchHint,
+            perInventory = input.count * step.batchHint,
             detected = basis.detected[input.item] or 0,
         }
     end
