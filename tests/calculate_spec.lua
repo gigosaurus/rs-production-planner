@@ -699,6 +699,44 @@ describe("Plan.calculate", function()
                 { item = "SNAPE_GRASS", perInventory = 14, detected = 0 },
             })
         end)
+
+        it("is nil when one action needs more non-stackable Input than the backpack holds", function()
+            local plan = Plan.calculate({
+                targets = { { item = "STATUE", count = 1 } },
+                recipes = {
+                    STATUE = {
+                        { verb = "Carve", output = 1, actionLimit = 60, inputs = { { item = "CLAY", count = 29 } } },
+                    },
+                },
+                targetMode = Plan.HAVE,
+                detected = {},
+            })
+
+            expectEqual(plan.steps[1].batchHint, nil)
+            expectEqual(plan.steps[1].inputs, { { item = "CLAY", detected = 0 } })
+        end)
+
+        it("is nil when the stackable Inputs need more slots than the backpack holds", function()
+            local inputs, stackable = {}, {}
+            for index = 1, 29 do
+                local item = "RUNE_" .. index
+                inputs[index] = { item = item, count = 1 }
+                stackable[item] = true
+            end
+
+            expectEqual(batchHint(inputs, 60, stackable), nil)
+        end)
+
+        it("is nil when the stackable Inputs leave no slot for the non-stackable Inputs", function()
+            local inputs, stackable = { { item = "GRIMY_RANARR", count = 1 } }, {}
+            for index = 1, 28 do
+                local item = "RUNE_" .. index
+                inputs[#inputs + 1] = { item = item, count = 1 }
+                stackable[item] = true
+            end
+
+            expectEqual(batchHint(inputs, 60, stackable), nil)
+        end)
     end)
 
     describe("Next step", function()
@@ -756,6 +794,32 @@ describe("Plan.calculate", function()
 
         it("is nil when no Step is ready", function()
             local plan = twoSteps({ detected = {} })
+
+            expectEqual(plan.next, nil)
+        end)
+
+        -- One action needs 29 Clay. Thus the Step has no Batch hint.
+        local function carveStatues(detected)
+            return Plan.calculate({
+                targets = { { item = "STATUE", count = 2 } },
+                recipes = {
+                    STATUE = {
+                        { verb = "Carve", output = 1, actionLimit = 60, inputs = { { item = "CLAY", count = 29 } } },
+                    },
+                },
+                targetMode = Plan.HAVE,
+                detected = detected,
+            })
+        end
+
+        it("needs all remaining actions when the Step has no Batch hint", function()
+            local plan = carveStatues({ CLAY = 58 })
+
+            expectEqual(plan.next, 1)
+        end)
+
+        it("is not a Step with no Batch hint and too few Inputs for all remaining actions", function()
+            local plan = carveStatues({ CLAY = 57 })
 
             expectEqual(plan.next, nil)
         end)

@@ -105,6 +105,7 @@ end
 local BACKPACK_SLOTS = 28
 
 -- Finds how many actions of a Recipe the player can do with one backpack load.
+-- It gives nil (no hint) when one action does not fit in one backpack load.
 local function batchHintFor(basis, recipe)
     -- A stackable Input takes one slot, whatever its amount.
     local slots, perAction = BACKPACK_SLOTS, 0
@@ -115,10 +116,17 @@ local function batchHintFor(basis, recipe)
             perAction = perAction + input.count
         end
     end
+    if slots < 0 then
+        return nil
+    end
     if perAction == 0 then
         return recipe.actionLimit
     end
-    return math.min(slots // perAction, recipe.actionLimit)
+    local fit = slots // perAction
+    if fit < 1 then
+        return nil
+    end
+    return math.min(fit, recipe.actionLimit)
 end
 
 -- Lists the requirements of a Recipe that the player does not meet.
@@ -223,8 +231,8 @@ end
 -- Finds the Next step. This is the first Step that the player can usefully do now.
 local function findNext(basis, steps)
     for position, step in ipairs(steps) do
-        -- One inventory is the Batch hint, or less when fewer actions remain.
-        local actions = math.min(step.batchHint, step.actions)
+        -- One inventory is the Batch hint, or less when fewer actions remain. With no Batch hint, it is all remaining actions.
+        local actions = math.min(step.batchHint or step.actions, step.actions)
         local ready = #step.flags == 0 and not step.waitsOn
         for _, input in ipairs(recipeFor(basis, step.item).inputs) do
             if freeDetected(basis, input.item) < input.count * actions then
@@ -349,7 +357,7 @@ local function newStep(basis, item, recipe, need)
     for _, input in ipairs(recipe.inputs) do
         step.inputs[#step.inputs + 1] = {
             item = input.item,
-            perInventory = input.count * step.batchHint,
+            perInventory = step.batchHint and input.count * step.batchHint,
             detected = basis.detected[input.item] or 0,
         }
     end
