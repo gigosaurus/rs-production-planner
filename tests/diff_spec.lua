@@ -192,6 +192,7 @@ describe("Diff.compare", function()
                         { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
                     },
                 },
+                targetMode = Plan.HAVE,
                 detected = { BREAD = bread },
             })
         end
@@ -208,6 +209,7 @@ describe("Diff.compare", function()
                         { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
                     },
                 },
+                targetMode = Plan.HAVE,
                 detected = { BREAD = bread },
             })
         end
@@ -245,6 +247,7 @@ describe("Diff.compare", function()
             local havePlan = Plan.calculate({
                 targets = { { item = "BREAD", count = 10 } },
                 recipes = {},
+                targetMode = Plan.HAVE,
                 detected = { BREAD = 50 },
             })
 
