@@ -7,22 +7,34 @@ local passed, failed = 0, {}
 local prefix = {}
 
 local function same(a, b)
-    if type(a) ~= "table" or type(b) ~= "table" then return a == b end
+    if type(a) ~= "table" or type(b) ~= "table" then
+        return a == b
+    end
     for k, v in pairs(a) do
-        if not same(v, b[k]) then return false end
+        if not same(v, b[k]) then
+            return false
+        end
     end
     for k in pairs(b) do
-        if a[k] == nil then return false end
+        if a[k] == nil then
+            return false
+        end
     end
     return true
 end
 
 local function show(v, indent)
     indent = indent or ""
-    if type(v) ~= "table" then return type(v) == "string" and string.format("%q", v) or tostring(v) end
+    if type(v) ~= "table" then
+        return type(v) == "string" and string.format("%q", v) or tostring(v)
+    end
     local keys = {}
-    for k in pairs(v) do keys[#keys + 1] = k end
-    table.sort(keys, function(x, y) return tostring(x) < tostring(y) end)
+    for k in pairs(v) do
+        keys[#keys + 1] = k
+    end
+    table.sort(keys, function(x, y)
+        return tostring(x) < tostring(y)
+    end)
     local lines = {}
     for _, k in ipairs(keys) do
         lines[#lines + 1] = indent .. "  " .. tostring(k) .. " = " .. show(v[k], indent .. "  ")
@@ -58,6 +70,8 @@ for path in specs:lines() do
 end
 specs:close()
 
-for _, f in ipairs(failed) do print("FAIL " .. f) end
+for _, f in ipairs(failed) do
+    print("FAIL " .. f)
+end
 print(string.format("%d passed, %d failed", passed, #failed))
 os.exit(#failed == 0 and 0 or 1)

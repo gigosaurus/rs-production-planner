@@ -18,7 +18,10 @@ function Assumed.add(state, item, amount, detected)
         end
     end
     state.entries[#state.entries + 1] = {
-        item = item, entered = amount, remaining = amount, baseline = detected[item] or 0,
+        item = item,
+        entered = amount,
+        remaining = amount,
+        baseline = detected[item] or 0,
     }
 end
 
@@ -74,8 +77,10 @@ function Assumed.lines(state)
     local lines = {}
     for _, entry in ipairs(state.entries) do
         lines[#lines + 1] = {
-            item = entry.item, remaining = entry.remaining,
-            arrived = entry.entered - entry.remaining, entered = entry.entered,
+            item = entry.item,
+            remaining = entry.remaining,
+            arrived = entry.entered - entry.remaining,
+            entered = entry.entered,
         }
     end
     return lines
