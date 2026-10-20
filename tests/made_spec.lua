@@ -113,27 +113,36 @@ describe("Made count", function()
         expectEqual(Made.counts(states, "Alice", Made.CHARACTER), { SHARK = 28 })
     end)
 
-    it("deletes the counts of a removed Target", function()
+    it("deletes the counts of an item that no Target is for", function()
         local states = {}
         Made.start(states, "Alice", { SHARK = 10, ROCKTAIL = 0 }, {})
         Made.observe(states, "Bob", { detected = { SHARK = 0 } })
         Made.observe(states, "Alice", { detected = { SHARK = 12, ROCKTAIL = 3 } })
         Made.observe(states, "Bob", { detected = { SHARK = 4 } })
-        Made.removeTarget(states, "SHARK")
+        Made.forgetUnused(states, { { item = "ROCKTAIL", count = 5 } })
 
         expectEqual(Made.counts(states, "Alice", Made.CHARACTER), { ROCKTAIL = 3 })
         expectEqual(Made.counts(states, "Bob", Made.CHARACTER), {})
         expectEqual(Made.counts(states, "Alice", Made.ALL), { ROCKTAIL = 3 })
     end)
 
-    it("starts a removed Target again when the player adds it again", function()
+    it("keeps the count of an item that a Target is still for", function()
+        local states = {}
+        Made.start(states, "Alice", { SHARK = 10 }, {})
+        Made.observe(states, "Alice", { detected = { SHARK = 12 } })
+        Made.forgetUnused(states, { { item = "SHARK", count = 100 } })
+
+        expectEqual(Made.counts(states, "Alice", Made.CHARACTER), { SHARK = 2 })
+    end)
+
+    it("starts a forgotten item again when the player adds a Target for it", function()
         local states = {}
         Made.start(states, "Alice", { SHARK = 10 }, {})
         Made.observe(states, "Alice", {
             detected = { SHARK = 10 },
             ge = { { slot = 1, type = Made.BUY, stage = Made.ADDED, item = "SHARK", itemCount = 100, soldCount = 5 } },
         })
-        Made.removeTarget(states, "SHARK")
+        Made.forgetUnused(states, {})
         Made.observe(states, "Alice", { detected = {} })
         Made.observe(states, "Alice", { detected = { SHARK = 40 } })
         Made.observe(states, "Alice", { detected = { SHARK = 43 } })

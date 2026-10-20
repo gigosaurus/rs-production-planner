@@ -9,7 +9,7 @@ The one current set of Targets, with the Steps, Shortages and Leftovers that the
 _Avoid_: Project, job, order list
 
 **Target**:
-An item and quantity that the player wants to have at the end.
+An item and quantity that the player wants to have at the end. When two Targets are for the same item, the Plan aims for the larger quantity, not the sum. Progress on the item counts for each Target.
 _Avoid_: Goal, request, order
 
 **Basis**:

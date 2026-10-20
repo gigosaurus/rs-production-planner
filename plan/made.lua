@@ -165,12 +165,22 @@ function Made.stop(states)
     end
 end
 
--- If the player adds the Target again, it starts at its next observation.
-function Made.removeTarget(states, item)
+-- Call this when the player removes a Target. targets are the Targets that remain.
+-- It deletes the data of each item that no Target is for. Two Targets for the same item share its count (issue 16).
+-- If the player adds a Target for the item again, it starts at its next observation.
+function Made.forgetUnused(states, targets)
+    local used = {}
+    for _, target in ipairs(targets) do
+        used[target.item] = true
+    end
     for _, state in pairs(states) do
-        state.counts[item] = nil
-        state.last[item] = nil
-        state.ge[item] = nil
+        for _, data in ipairs({ state.counts, state.last, state.ge }) do
+            for item in pairs(data) do
+                if not used[item] then
+                    data[item] = nil
+                end
+            end
+        end
     end
 end
 

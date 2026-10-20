@@ -64,11 +64,12 @@ local function madeCount(basis, item)
     return basis.made[item] or 0
 end
 
--- Gives the total amount of each Target item. Two Targets can be for the same item.
+-- Gives the amount of each Target item. Two Targets can be for the same item.
+-- They do not add together: progress on the item counts for each Target. Thus the largest Target is the amount (issue 16).
 local function targetTotals(basis)
     local totals = {}
     for _, target in ipairs(basis.targets) do
-        totals[target.item] = (totals[target.item] or 0) + target.count
+        totals[target.item] = math.max(totals[target.item] or 0, target.count)
     end
     return totals
 end
@@ -439,15 +440,20 @@ local function shortagesFor(basis, steps, order, shortBy)
     return shortages
 end
 
-local function targetLines(basis)
-    local targets = {}
+-- Gives one line for each Target item, in the order of the first Target for it (issue 16).
+local function targetLines(basis, totals)
+    local targets, listed = {}, {}
     for _, target in ipairs(basis.targets) do
-        targets[#targets + 1] = {
-            item = target.item,
-            count = target.count,
-            have = countedStock(basis, target.item),
-            made = isMake(basis) and madeCount(basis, target.item) or nil,
-        }
+        local item = target.item
+        if not listed[item] then
+            listed[item] = true
+            targets[#targets + 1] = {
+                item = item,
+                count = totals[item],
+                have = countedStock(basis, item),
+                made = isMake(basis) and madeCount(basis, item) or nil,
+            }
+        end
     end
     return targets
 end
@@ -459,7 +465,7 @@ function Plan.calculate(basis)
     local steps, extraOf, usedSupply, shortBy = stepsFor(basis, levels, order, totals)
     markWaiting(basis, steps, totals)
     return {
-        targets = targetLines(basis),
+        targets = targetLines(basis, totals),
         steps = steps,
         leftovers = leftoversFor(basis, steps, extraOf, usedSupply),
         shortages = shortagesFor(basis, steps, order, shortBy),

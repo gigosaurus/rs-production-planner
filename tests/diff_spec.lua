@@ -179,4 +179,73 @@ describe("Diff.compare", function()
 
         expectEqual(diff.compare(before, after).targets, {})
     end)
+
+    it("reports two Targets for the same item one time", function()
+        local function breadPlan(bread)
+            return Plan.calculate({
+                targets = { { item = "BREAD", count = 3 }, { item = "BREAD", count = 2 } },
+                recipes = {
+                    BREAD = {
+                        { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
+                    },
+                },
+                detected = { BREAD = bread },
+            })
+        end
+
+        expectEqual(diff.compare(breadPlan(0), breadPlan(2)).targets, { { item = "BREAD", by = 2 } })
+    end)
+
+    it("reports an item one time when the player adds or removes a second Target for it", function()
+        local function breadPlan(targets, bread)
+            return Plan.calculate({
+                targets = targets,
+                recipes = {
+                    BREAD = {
+                        { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
+                    },
+                },
+                detected = { BREAD = bread },
+            })
+        end
+        local one = { { item = "BREAD", count = 3 } }
+        local two = { { item = "BREAD", count = 3 }, { item = "BREAD", count = 2 } }
+
+        expectEqual(diff.compare(breadPlan(one, 0), breadPlan(two, 2)).targets, { { item = "BREAD", by = 2 } })
+        expectEqual(diff.compare(breadPlan(two, 0), breadPlan(one, 2)).targets, { { item = "BREAD", by = 2 } })
+    end)
+
+    describe("in Make", function()
+        local function makePlan(made, bread)
+            return Plan.calculate({
+                targets = { { item = "BREAD", count = 10 } },
+                recipes = {
+                    BREAD = {
+                        { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
+                    },
+                },
+                targetMode = "MAKE",
+                made = { BREAD = made },
+                detected = { BREAD = bread },
+            })
+        end
+
+        it("reports a Target whose Made count went up", function()
+            expectEqual(diff.compare(makePlan(0, 2), makePlan(2, 0)).targets, { { item = "BREAD", by = 2 } })
+        end)
+
+        it("does not report a Target whose Counted stock went up but whose Made count did not", function()
+            expectEqual(diff.compare(makePlan(0, 0), makePlan(0, 50)).targets, {})
+        end)
+
+        it("does not report a Target when the Target mode changes", function()
+            local havePlan = Plan.calculate({
+                targets = { { item = "BREAD", count = 10 } },
+                recipes = {},
+                detected = { BREAD = 50 },
+            })
+
+            expectEqual(diff.compare(havePlan, makePlan(0, 50)).targets, {})
+        end)
+    end)
 end)
