@@ -35,6 +35,38 @@ describe("Plan.calculate", function()
         expectEqual(plan.leftovers, { { item = "BREAD", count = 1 } })
     end)
 
+    it("adds two Targets for the same item together", function()
+        local function plan(bread)
+            return Plan.calculate({
+                targets = { { item = "BREAD", count = 3 }, { item = "BREAD", count = 2 } },
+                recipes = {
+                    BREAD = { { verb = "Bake", output = 2, inputs = { { item = "DOUGH", count = 1 } } } },
+                },
+                detected = { DOUGH = 10, BREAD = bread },
+            })
+        end
+
+        expectEqual(plan(0).steps[1].actions, 3)
+        expectEqual(plan(4).complete, false)
+        expectEqual(plan(5).complete, true)
+    end)
+
+    it("does not change the tables of the caller", function()
+        -- The Basis has no optional fields and the Recipe has no optional lists.
+        local function newBasis()
+            return {
+                targets = { { item = "BREAD", count = 5 } },
+                recipes = { BREAD = { { verb = "Bake", output = 2, inputs = { { item = "DOUGH", count = 1 } } } } },
+                detected = { DOUGH = 10 },
+            }
+        end
+        local basis = newBasis()
+
+        Plan.calculate(basis)
+
+        expectEqual(basis, newBasis())
+    end)
+
     it("lists an other Output that the Plan does not use as a Leftover", function()
         local plan = Plan.calculate({
             targets = { { item = "COCONUT_MILK", count = 3 } },
@@ -72,6 +104,26 @@ describe("Plan.calculate", function()
 
             expectEqual(plan.shortages, {})
             expectEqual(plan.leftovers, {})
+        end)
+
+        it("lists only the unused part of an other Output from two Steps as a Leftover", function()
+            local grateCoconut = {
+                verb = "Grate",
+                output = 1,
+                otherOutputs = { { item = "COCONUT_SHELL", count = 1 } },
+                inputs = { { item = "COCONUT_OPEN", count = 1 } },
+            }
+            local plan = Plan.calculate({
+                targets = {
+                    { item = "COCONUT_MILK", count = 3 },
+                    { item = "GRATED_COCONUT", count = 2 },
+                    { item = "SHELL_BOWL", count = 4 },
+                },
+                recipes = { COCONUT_MILK = { pourMilk }, GRATED_COCONUT = { grateCoconut }, SHELL_BOWL = { makeBowl } },
+                detected = { VIAL = 3, COCONUT_OPEN = 5 },
+            })
+
+            expectEqual(plan.leftovers, { { item = "COCONUT_SHELL", count = 1 } })
         end)
 
         it("puts the Step that makes an other Output before the Steps that use it", function()

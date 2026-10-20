@@ -2,7 +2,7 @@
 -- It does not use the game API. Tests run it outside the game client.
 local Diff = {}
 
-local function isHeld(step)
+local function isFlaggedOrWaiting(step)
     return #step.flags > 0 or step.waitsOn ~= nil
 end
 
@@ -45,7 +45,7 @@ function Diff.compare(before, after)
         local earlier = beforeSteps[step.item]
         if not earlier then
             back[#back + 1] = step.item
-        elseif isHeld(earlier) and not isHeld(step) then
+        elseif isFlaggedOrWaiting(earlier) and not isFlaggedOrWaiting(step) then
             ready[#ready + 1] = step.item
         end
     end
