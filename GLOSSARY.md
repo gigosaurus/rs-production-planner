@@ -9,7 +9,7 @@ The one current set of Targets, with the Steps, Shortages and Leftovers that the
 _Avoid_: Project, job, order list
 
 **Target**:
-An item and quantity that the player wants to have at the end.
+An item and quantity that the player wants to have at the end. When two Targets are for the same item, the Plan aims for the larger quantity, not the sum. Progress on the item counts for each Target.
 _Avoid_: Goal, request, order
 
 **Basis**:
@@ -45,11 +45,19 @@ The first Step in the production order that the player can usefully do now with 
 _Avoid_: Current step, active step
 
 **Planning level**:
-The deepest point at which an item appears in the Plan. Inputs, other Outputs and the Steps that use other Outputs all count. It decides when the Plan totals the demand and the supply of the item.
+The deepest point at which an item appears in the Plan. Inputs, other Outputs and the Steps that use other Outputs all count. It decides when the Plan totals the demand and the supply of the item. All items in one Loop have the same Planning level.
 _Avoid_: Depth (on its own, because an item can appear at more than one depth)
 
+**Loop**:
+A group of items whose Recipes need each other. For example, A + B → D + C, and C → A. The player goes around a Loop many times.
+_Avoid_: Cycle, circular recipe
+
+**Seed**:
+The stock that a Loop needs before it can start: the Inputs of one action of the first Step of the Loop.
+_Avoid_: Starter, catalyst
+
 **Shortage**:
-The amount of a Raw material that the Plan still needs after it subtracts Counted stock.
+The amount of a Raw material, or of a Seed, that the Plan still needs after it subtracts Counted stock.
 _Avoid_: Missing, deficit, to-buy
 
 **Leftover**:

@@ -45,16 +45,16 @@ end
 
 local function checkScope(scope)
     if scope ~= Made.CHARACTER and scope ~= Made.ALL then
-        error("unknown Made count scope: " .. tostring(scope), 3)
+        error("The Made count scope " .. tostring(scope) .. " is unknown.", 3)
     end
 end
 
 local function checkOffer(offer)
     if offer.type ~= Made.BUY and offer.type ~= Made.SELL then
-        error("unknown GE offer type: " .. tostring(offer.type), 4)
+        error("The GE offer type " .. tostring(offer.type) .. " is unknown.", 4)
     end
     if not STAGES[offer.stage] then
-        error("unknown GE offer stage: " .. tostring(offer.stage), 4)
+        error("The GE offer stage " .. tostring(offer.stage) .. " is unknown.", 4)
     end
 end
 
@@ -165,12 +165,22 @@ function Made.stop(states)
     end
 end
 
--- If the player adds the Target again, it starts at its next observation.
-function Made.removeTarget(states, item)
+-- Call this when the player removes a Target. targets are the Targets that remain.
+-- It deletes the data of each item that no Target is for. Two Targets for the same item share its count (issue 16).
+-- If the player adds a Target for the item again, it starts at its next observation.
+function Made.forgetUnused(states, targets)
+    local used = {}
+    for _, target in ipairs(targets) do
+        used[target.item] = true
+    end
     for _, state in pairs(states) do
-        state.counts[item] = nil
-        state.last[item] = nil
-        state.ge[item] = nil
+        for _, data in ipairs({ state.counts, state.last, state.ge }) do
+            for item in pairs(data) do
+                if not used[item] then
+                    data[item] = nil
+                end
+            end
+        end
     end
 end
 
