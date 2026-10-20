@@ -61,6 +61,7 @@ describe("Plan.calculate", function()
         local plan = Plan.calculate({
             targets = { { item = "BREAD", count = 2 }, { item = "CAKE", count = 1 }, { item = "BREAD", count = 5 } },
             recipes = {},
+            targetMode = Plan.HAVE,
             detected = { BREAD = 4 },
         })
 
