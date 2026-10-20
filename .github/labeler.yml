@@ -16,7 +16,7 @@ area:docs:
           - UX.md
           - CLAUDE.md
 
-area:ci:
+area:tooling:
   - changed-files:
       - any-glob-to-any-file:
           - .github/**

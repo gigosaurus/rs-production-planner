@@ -49,11 +49,11 @@ The number of changed lines (additions + deletions) sets one size label.
 
 The changed file paths set zero or more area labels. `.github/labeler.yml` contains the paths.
 
-| Label        | Paths                                                  |
-| ------------ | ------------------------------------------------------ |
-| `area:plan`  | `plan/`                                                |
-| `area:tests` | `tests/`                                               |
-| `area:docs`  | `docs/`, `GLOSSARY.md`, `UX.md`, `CLAUDE.md`           |
-| `area:ci`    | `.github/`, `scripts/`, `.luacheckrc`, `stylua.toml`   |
+| Label          | Paths                                                |
+| -------------- | ---------------------------------------------------- |
+| `area:plan`    | `plan/`                                              |
+| `area:tests`   | `tests/`                                             |
+| `area:docs`    | `docs/`, `GLOSSARY.md`, `UX.md`, `CLAUDE.md`         |
+| `area:tooling` | `.github/`, `scripts/`, `.luacheckrc`, `stylua.toml` |
 
 Files in `probes/` get no area label.
