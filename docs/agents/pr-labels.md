@@ -17,21 +17,21 @@ The `pr-title` check fails if the title does not use this format. This check is 
 
 ## Kind labels
 
-The title type sets one kind label.
+The title type sets zero or one kind label. A kind label shows only what the file paths cannot show. The area labels show docs, tests and tooling changes, so those types get no kind label. No label has the same meaning as a different label.
 
-| Type       | Label           |
-| ---------- | --------------- |
-| `feat`     | `enhancement`   |
-| `fix`      | `bug`           |
-| `docs`     | `documentation` |
-| `refactor` | `refactor`      |
-| `test`     | `test`          |
-| `ci`       | `ci`            |
-| `chore`    | `chore`         |
-| `build`    | `ci`            |
-| `perf`     | `enhancement`   |
-| `style`    | `chore`         |
-| `revert`   | no label        |
+| Type       | Label         |
+| ---------- | ------------- |
+| `feat`     | `enhancement` |
+| `fix`      | `bug`         |
+| `refactor` | `refactor`    |
+| `chore`    | `chore`       |
+| `perf`     | `enhancement` |
+| `style`    | `chore`       |
+| `docs`     | no label      |
+| `test`     | no label      |
+| `ci`       | no label      |
+| `build`    | no label      |
+| `revert`   | no label      |
 
 ## Size labels
 

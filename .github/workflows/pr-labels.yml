@@ -28,15 +28,16 @@ jobs:
         with:
           script: |
             // Conventional Commits type -> kind label. null: no label.
+            // docs, test, ci and build get none: area labels show them.
             const kinds = {
               feat: 'enhancement',
               fix: 'bug',
-              docs: 'documentation',
+              docs: null,
               refactor: 'refactor',
-              test: 'test',
-              ci: 'ci',
+              test: null,
+              ci: null,
               chore: 'chore',
-              build: 'ci',
+              build: null,
               perf: 'enhancement',
               style: 'chore',
               revert: null,
