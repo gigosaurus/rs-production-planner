@@ -165,8 +165,9 @@ function Made.stop(states)
     end
 end
 
--- If the player adds the Target again, it starts at its next observation.
-function Made.removeTarget(states, item)
+-- Call this when no Target is for the item. Two Targets for the same item share its count (issue 16).
+-- If the player adds a Target for the item again, it starts at its next observation.
+function Made.forgetItem(states, item)
     for _, state in pairs(states) do
         state.counts[item] = nil
         state.last[item] = nil
