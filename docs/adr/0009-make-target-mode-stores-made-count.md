@@ -19,11 +19,11 @@ Made count = rises in Detected stock of the Target item (backpack and bank toget
 Also:
 
 - Items that the plugin did not see the player make are not made. The first read of an inventory is a starting point, not a rise. This applies to the first Bank snapshot of a character, to the first backpack read of a character, and to the Detected stock of a Target when the player adds it in Make.
-- For each character, the plugin saves the last Detected count of each Target. A rise between sessions counts on the next load.
+- A rise between sessions is not made, because the plugin did not see it. Counted stock includes these items, as usual. Each load is a new starting point. Assumed stock uses a different rule (ADR 0004).
 
 ## Potion Targets
 
-A potion Target is a number of doses of its Dose pool (ADR 0005). Its Made count is also in doses. It counts rises in the total doses of the pool. A Decant step does not change the total, so it adds nothing. A new potion that the player makes from other Inputs adds its doses. The plugin shows the Target and the Made count in the Dose size of the Target. For example, a Target of 100× (4) is 400 doses, and shows as 100. A Target of 200× (2) is also 400 doses, and shows as 200.
+A potion Target is a number of doses of its Dose pool (ADR 0005). Its Made count is also in doses. It counts rises in the total doses of the pool. A Decant step does not change the total, so it adds nothing. A new potion that the player makes from other Inputs adds its doses. The plugin shows the Target and the Made count in the Dose size of the Target. For example, a Target of 100× (4) is 400 doses, and shows as 100. A Target of 200× (2) is also 400 doses, and shows as 200. The Made count shows only whole potions. For example, 7 doses towards a Target in (4) shows as 1. The Plan still uses all 7 doses. It needs only 1 more dose to make the next (4).
 
 ## Made count scope
 
@@ -52,5 +52,5 @@ A change of scope then loses nothing.
 ## Consequences
 
 - The plugin stores progress, which ADR 0003 rejects. It does this only in Make, and only for Targets. Steps still show only what remains.
-- In Make, the Plan shows one Planning assumption: `Made counts can include items that you bought, traded or took back out of storage. Edit the count to correct it.` This covers trades, storages that the plugin does not read, GE purchases while the plugin is off, and a wrong GE guess.
+- In Make, the Plan shows one Planning assumption: `Made counts can include items that you bought, traded or took back out of storage. Edit the count to correct it.` This covers trades, storages that the plugin does not read, and a wrong GE guess.
 - A name change resets the Made counts of that character (ADR 0008).
