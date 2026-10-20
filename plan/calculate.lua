@@ -384,7 +384,8 @@ local function stepsFor(request, levels, order, totals)
 end
 
 local function leftoversFor(steps, usedSupply)
-    local leftovers = {}
+    -- notYetMade is the part of the used supply that no Step before this one makes.
+    local leftovers, notYetMade = {}, copyOf(usedSupply)
     for _, step in ipairs(steps) do
         if step.extra > 0 then
             leftovers[#leftovers + 1] = { item = step.item, count = step.extra }
@@ -392,8 +393,8 @@ local function leftoversFor(steps, usedSupply)
         -- The used supply comes from the first Steps in production order.
         for _, other in ipairs(step.recipe.otherOutputs) do
             local made = other.count * step.actions
-            local used = math.min(made, usedSupply[other.item] or 0)
-            usedSupply[other.item] = (usedSupply[other.item] or 0) - used
+            local used = math.min(made, notYetMade[other.item] or 0)
+            notYetMade[other.item] = (notYetMade[other.item] or 0) - used
             if made > used then
                 leftovers[#leftovers + 1] = { item = other.item, count = made - used }
             end

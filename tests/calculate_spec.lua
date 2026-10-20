@@ -111,6 +111,26 @@ describe("Plan.calculate", function()
             expectEqual(plan.leftovers, {})
         end)
 
+        it("takes the used supply from the first Steps and lists the rest as a Leftover", function()
+            local grateCoconut = {
+                verb = "Grate",
+                output = 1,
+                otherOutputs = { { item = "COCONUT_SHELL", count = 1 } },
+                inputs = { { item = "COCONUT_OPEN", count = 1 } },
+            }
+            local plan = Plan.calculate({
+                targets = {
+                    { item = "COCONUT_MILK", count = 3 },
+                    { item = "GRATED_COCONUT", count = 2 },
+                    { item = "SHELL_BOWL", count = 4 },
+                },
+                recipes = { COCONUT_MILK = { pourMilk }, GRATED_COCONUT = { grateCoconut }, SHELL_BOWL = { makeBowl } },
+                detected = { VIAL = 3, COCONUT_OPEN = 5 },
+            })
+
+            expectEqual(plan.leftovers, { { item = "COCONUT_SHELL", count = 1 } })
+        end)
+
         it("puts the Step that makes an other Output before the Steps that use it", function()
             local plan = Plan.calculate({
                 targets = { { item = "SHELL_BOWL", count = 3 }, { item = "COCONUT_MILK", count = 3 } },
