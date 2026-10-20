@@ -148,6 +148,36 @@ describe("Plan.calculate", function()
 
             expectEqual(stepFor(plan, "COCONUT_MILK").waitsOn, nil)
         end)
+
+        -- Both Steps make COCONUT_SHELL. The Plan uses 4 of the 5.
+        it("takes the used part of an other Output from the first Steps in production order", function()
+            local plan = Plan.calculate({
+                targets = {
+                    { item = "COCONUT_MILK", count = 3 },
+                    { item = "COCONUT_FLESH", count = 3 },
+                    { item = "SHELL_BOWL", count = 4 },
+                },
+                recipes = {
+                    COCONUT_MILK = { pourMilk },
+                    COCONUT_FLESH = {
+                        {
+                            verb = "Scoop",
+                            output = 2,
+                            otherOutputs = { { item = "COCONUT_SHELL", count = 1 } },
+                            inputs = { { item = "COCONUT_OPEN", count = 1 } },
+                        },
+                    },
+                    SHELL_BOWL = { makeBowl },
+                },
+                detected = { VIAL = 3, COCONUT_OPEN = 5 },
+            })
+
+            expectEqual(plan.steps[1].item, "COCONUT_MILK")
+            expectEqual(
+                plan.leftovers,
+                { { item = "COCONUT_FLESH", count = 1 }, { item = "COCONUT_SHELL", count = 1 } }
+            )
+        end)
     end)
 
     it("lists the uncovered amount of a Raw material as a Shortage", function()
@@ -198,6 +228,12 @@ describe("Plan.calculate", function()
             recipes = {},
             detected = { BREAD = 5 },
         })
+
+        expectEqual(plan.complete, false)
+    end)
+
+    it("is not Complete when a Reserve decreases Counted stock below a Target", function()
+        local plan = bakeBread({ BREAD = 5 }, nil, { BREAD = 1 })
 
         expectEqual(plan.complete, false)
     end)
@@ -288,6 +324,19 @@ describe("Plan.calculate", function()
         })
 
         expectEqual(plan.shortages, { { item = "FLOUR", count = 1 }, { item = "SALT", count = 1 } })
+    end)
+
+    -- The search finds CAKE first.
+    it("lists a Target with no Recipe after the Shortages that Steps use", function()
+        local plan = Plan.calculate({
+            targets = { { item = "CAKE", count = 1 }, { item = "BREAD", count = 1 } },
+            recipes = {
+                BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
+            },
+            detected = {},
+        })
+
+        expectEqual(plan.shortages, { { item = "DOUGH", count = 1 }, { item = "CAKE", count = 1 } })
     end)
 
     it("lists Leftovers in the order of the Step that makes them", function()
@@ -470,6 +519,12 @@ describe("Plan.calculate", function()
             expectEqual(plan.steps[plan.next].item, "CLEAN_RANARR")
         end)
 
+        it("is nil when no Step is ready", function()
+            local plan = twoSteps({ detected = {} })
+
+            expectEqual(plan.next, nil)
+        end)
+
         it("is not a Flagged step", function()
             local plan = Plan.calculate({
                 targets = { { item = "CLEAN_RANARR", count = 28 }, { item = "CLEAN_TOADFLAX", count = 28 } },
@@ -638,6 +693,64 @@ describe("Plan.calculate", function()
 
             expectEqual(plan.steps[2].item, "SUPER_RESTORE")
             expectEqual(plan.steps[1].waitsOn, 2)
+        end)
+
+        -- D uses B and C. B uses C, so C comes first in production order.
+        it("names the first Flagged step in production order when a Step uses items of more than one", function()
+            local plan = Plan.calculate({
+                targets = { { item = "D", count = 1 } },
+                recipes = {
+                    B = {
+                        {
+                            verb = "Make",
+                            output = 1,
+                            inputs = { { item = "C", count = 1 } },
+                            skills = { { skill = "HERBLORE", level = 63 } },
+                        },
+                    },
+                    C = {
+                        {
+                            verb = "Make",
+                            output = 1,
+                            inputs = { { item = "ORE", count = 1 } },
+                            skills = { { skill = "HERBLORE", level = 63 } },
+                        },
+                    },
+                    D = {
+                        {
+                            verb = "Make",
+                            output = 1,
+                            inputs = { { item = "B", count = 1 }, { item = "C", count = 1 } },
+                        },
+                    },
+                },
+                detected = { ORE = 2 },
+                levels = { HERBLORE = 61 },
+            })
+
+            expectEqual(plan.steps[1].item, "C")
+            expectEqual(stepFor(plan, "D").waitsOn, 1)
+        end)
+
+        it("does not make a Step Waiting when its Output goes to a Target and to a Flagged step", function()
+            local plan = Plan.calculate({
+                targets = { { item = "SHARK", count = 10 }, { item = "SHARK_SOUP", count = 4 } },
+                recipes = {
+                    SHARK = { { verb = "Cook", output = 1, inputs = { { item = "RAW_SHARK", count = 1 } } } },
+                    SHARK_SOUP = {
+                        {
+                            verb = "Make",
+                            output = 1,
+                            inputs = { { item = "SHARK", count = 1 } },
+                            skills = { { skill = "COOKING", level = 80 } },
+                        },
+                    },
+                },
+                detected = { RAW_SHARK = 14 },
+                levels = { COOKING = 70 },
+            })
+
+            expectEqual(stepFor(plan, "SHARK").waitsOn, nil)
         end)
 
         it("makes a Step Waiting when it uses an item that a Waiting step makes", function()
