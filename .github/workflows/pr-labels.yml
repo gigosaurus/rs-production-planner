@@ -9,8 +9,19 @@ permissions:
   pull-requests: write
 
 jobs:
+  # Runs first. With sync-labels, the labeler replaces the full label list.
+  area:
+    if: github.event.action != 'edited'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@v7
+        with:
+          sync-labels: true
+
   # Required check. The PR title becomes the squash commit on main.
   pr-title:
+    needs: area
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/github-script@v9
@@ -52,7 +63,8 @@ jobs:
             }
 
   size:
-    if: github.event.action != 'edited'
+    needs: area
+    if: ${{ !cancelled() && github.event.action != 'edited' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/github-script@v9
@@ -78,11 +90,3 @@ jobs:
             if (!pr.labels.some((l) => l.name === want)) {
               await github.rest.issues.addLabels({ ...issue, labels: [want] });
             }
-
-  area:
-    if: github.event.action != 'edited'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/labeler@v7
-        with:
-          sync-labels: true
