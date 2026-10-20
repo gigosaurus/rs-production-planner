@@ -205,7 +205,7 @@ end
 local function findNext(basis, steps)
     for position, step in ipairs(steps) do
         -- One inventory is the Batch hint, or less when fewer actions remain.
-        local actions = math.min(step.batchHint or step.actions, step.actions)
+        local actions = math.min(step.batchHint, step.actions)
         local ready = #step.flags == 0 and not step.waitsOn
         for _, input in ipairs(recipeFor(basis, step.item).inputs) do
             if freeDetected(basis, input.item) < input.count * actions then
@@ -325,7 +325,7 @@ local function newStep(basis, item, recipe, need)
     for _, input in ipairs(recipe.inputs) do
         step.inputs[#step.inputs + 1] = {
             item = input.item,
-            perInventory = step.batchHint and input.count * step.batchHint,
+            perInventory = input.count * step.batchHint,
             detected = basis.detected[input.item] or 0,
         }
     end

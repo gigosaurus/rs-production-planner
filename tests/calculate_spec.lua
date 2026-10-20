@@ -221,13 +221,14 @@ describe("Plan.calculate", function()
             expectEqual(stepFor(plan, "COCONUT_MILK").waitsOn, nil)
         end)
 
-        -- Both Steps make COCONUT_SHELL. The Plan uses 4 of the 5.
+        -- Both Steps make COCONUT_SHELL: COCONUT_MILK makes 3, then COCONUT_FLESH makes 2. The Plan uses 2.
+        -- From the first Steps, each Step has a Leftover: 1 and 2. From the last Steps, only COCONUT_MILK has one: 3.
         it("takes the used part of an other Output from the first Steps in production order", function()
             local plan = Plan.calculate({
                 targets = {
                     { item = "COCONUT_MILK", count = 3 },
-                    { item = "COCONUT_FLESH", count = 3 },
-                    { item = "SHELL_BOWL", count = 4 },
+                    { item = "COCONUT_FLESH", count = 4 },
+                    { item = "SHELL_BOWL", count = 2 },
                 },
                 recipes = {
                     COCONUT_MILK = { pourMilk },
@@ -248,7 +249,7 @@ describe("Plan.calculate", function()
             expectEqual(plan.steps[1].item, "COCONUT_MILK")
             expectEqual(
                 plan.leftovers,
-                { { item = "COCONUT_FLESH", count = 1 }, { item = "COCONUT_SHELL", count = 1 } }
+                { { item = "COCONUT_SHELL", count = 1 }, { item = "COCONUT_SHELL", count = 2 } }
             )
         end)
     end)
@@ -269,6 +270,12 @@ describe("Plan.calculate", function()
         local plan = bakeBread({ DOUGH = 3 }, nil, { DOUGH = 2 })
 
         expectEqual(plan.shortages, { { item = "DOUGH", count = 2 } })
+    end)
+
+    it("ignores a Reserve of an item that the Plan does not use", function()
+        local plan = bakeBread({ DOUGH = 3 }, nil, { COAL = 10 })
+
+        expectEqual(plan, bakeBread({ DOUGH = 3 }))
     end)
 
     it("adds the part of a Reserve that the player does not have to the Shortage", function()
@@ -505,6 +512,20 @@ describe("Plan.calculate", function()
 
         expectEqual(ok, false)
         expectEqual(err, "The Recipe for BREAD has no Action limit.")
+    end)
+
+    -- The check covers only the Recipes that the Plan uses (issue 2, section 1).
+    it("does not stop when a Recipe that the Plan does not use has no Action limit", function()
+        local ok = pcall(Plan.calculate, {
+            targets = { { item = "BREAD", count = 1 } },
+            recipes = {
+                BREAD = { { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
+                CAKE = { { verb = "Bake", output = 1, inputs = { { item = "BATTER", count = 1 } } } },
+            },
+            detected = {},
+        })
+
+        expectEqual(ok, true)
     end)
 
     describe("Batch hint", function()
