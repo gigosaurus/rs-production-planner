@@ -49,24 +49,58 @@ local function checkScope(scope)
     end
 end
 
+local function checkOffer(offer)
+    if offer.type ~= Made.BUY and offer.type ~= Made.SELL then
+        error("unknown GE offer type: " .. tostring(offer.type), 4)
+    end
+    if not STAGES[offer.stage] then
+        error("unknown GE offer stage: " .. tostring(offer.stage), 4)
+    end
+end
+
+local function saveSlot(state, offer)
+    state.slots[offer.slot] = { item = offer.item, type = offer.type, stage = offer.stage, soldCount = offer.soldCount }
+end
+
+-- The offers that the GE has now become the slot data. They add no GE amount.
+-- Items that the offers bought but the player did not collect then count as made.
+local function readOffers(state, offers)
+    state.slots = {}
+    for _, offer in ipairs(offers) do
+        checkOffer(offer)
+        saveSlot(state, offer)
+    end
+end
+
 -- Call this on Have → Make. detected is the Detected stock of the Targets now.
--- Other characters start at their next observation.
-function Made.start(states, name, detected)
-    Made.stop(states)
+-- offers are all the GE offers of the character now.
+-- Other characters start at their next observation. Their slot data stays.
+function Made.start(states, name, detected, offers)
+    for _, state in pairs(states) do
+        state.counts = {}
+        state.last = {}
+        state.ge = {}
+    end
     local state = character(states, name)
     for item, count in pairs(detected) do
         state.last[item] = count
     end
+    readOffers(state, offers)
+end
+
+-- Call this when the plugin loads the state of a character in Make.
+-- A rise between sessions is not made, so the next observation is the starting point.
+-- offers are all the GE offers of the character now.
+function Made.load(states, name, offers)
+    local state = character(states, name)
+    state.last = {}
+    state.ge = {}
+    readOffers(state, offers)
 end
 
 -- Items that the GE gives to the player add to the GE amount of the character.
 local function observeOffer(state, offer, detected)
-    if offer.type ~= Made.BUY and offer.type ~= Made.SELL then
-        error("unknown GE offer type: " .. tostring(offer.type), 3)
-    end
-    if not STAGES[offer.stage] then
-        error("unknown GE offer stage: " .. tostring(offer.stage), 3)
-    end
+    checkOffer(offer)
     local slot = state.slots[offer.slot]
     -- A slot has a new offer when it has no saved data, a different item or type, or a lower soldCount.
     if not slot or slot.item ~= offer.item or slot.type ~= offer.type or offer.soldCount < slot.soldCount then
@@ -84,7 +118,7 @@ local function observeOffer(state, offer, detected)
     if detected[offer.item] then
         state.ge[offer.item] = (state.ge[offer.item] or 0) + amount
     end
-    state.slots[offer.slot] = { item = offer.item, type = offer.type, stage = offer.stage, soldCount = offer.soldCount }
+    saveSlot(state, offer)
 end
 
 -- tick has the facts of one server tick for one character.
