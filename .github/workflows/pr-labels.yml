@@ -1,0 +1,88 @@
+name: PR labels
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # Required check. The PR title becomes the squash commit on main.
+  pr-title:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v9
+        with:
+          script: |
+            // Conventional Commits type -> kind label. null: no label.
+            const kinds = {
+              feat: 'enhancement',
+              fix: 'bug',
+              docs: 'documentation',
+              refactor: 'refactor',
+              test: 'test',
+              ci: 'ci',
+              chore: 'chore',
+              build: 'ci',
+              perf: 'enhancement',
+              style: 'chore',
+              revert: null,
+            };
+            const pr = context.payload.pull_request;
+            const match = /^([a-z]+)(\([^)]+\))?!?: \S/.exec(pr.title);
+            if (!match || !Object.hasOwn(kinds, match[1])) {
+              core.setFailed(
+                `PR title "${pr.title}" must start with "<type>: " or "<type>(<scope>): ". ` +
+                  `Types: ${Object.keys(kinds).join(', ')}.`,
+              );
+              return;
+            }
+            const want = kinds[match[1]];
+            const managed = new Set(Object.values(kinds).filter(Boolean));
+            const issue = { ...context.repo, issue_number: pr.number };
+            for (const { name } of pr.labels) {
+              if (managed.has(name) && name !== want) {
+                await github.rest.issues.removeLabel({ ...issue, name });
+              }
+            }
+            if (want && !pr.labels.some((l) => l.name === want)) {
+              await github.rest.issues.addLabels({ ...issue, labels: [want] });
+            }
+
+  size:
+    if: github.event.action != 'edited'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v9
+        with:
+          script: |
+            // Changed lines (additions + deletions) below each limit.
+            const sizes = [
+              ['size:XS', 10],
+              ['size:S', 100],
+              ['size:M', 500],
+              ['size:L', 1000],
+              ['size:XL', Infinity],
+            ];
+            const pr = context.payload.pull_request;
+            const lines = pr.additions + pr.deletions;
+            const want = sizes.find(([, limit]) => lines < limit)[0];
+            const issue = { ...context.repo, issue_number: pr.number };
+            for (const { name } of pr.labels) {
+              if (name.startsWith('size:') && name !== want) {
+                await github.rest.issues.removeLabel({ ...issue, name });
+              }
+            }
+            if (!pr.labels.some((l) => l.name === want)) {
+              await github.rest.issues.addLabels({ ...issue, labels: [want] });
+            }
+
+  area:
+    if: github.event.action != 'edited'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@v7
+        with:
+          sync-labels: true

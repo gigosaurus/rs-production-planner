@@ -1,0 +1,25 @@
+# Area labels for pull requests. See docs/agents/pr-labels.md.
+
+area:plan:
+  - changed-files:
+      - any-glob-to-any-file: plan/**
+
+area:tests:
+  - changed-files:
+      - any-glob-to-any-file: tests/**
+
+area:docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - docs/**
+          - GLOSSARY.md
+          - UX.md
+          - CLAUDE.md
+
+area:ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/**
+          - scripts/**
+          - .luacheckrc
+          - stylua.toml
