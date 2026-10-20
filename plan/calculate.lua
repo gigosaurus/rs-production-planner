@@ -2,6 +2,7 @@
 -- It does not use the game API. Tests run it outside the game client.
 local Plan = {}
 
+local REQUIRED_FIELDS = { "targets", "recipes", "detected", "targetMode" }
 local OPTIONAL_FIELDS = { "assumed", "reserves", "made", "stackable", "levels", "unlocks" }
 local OPTIONAL_RECIPE_LISTS = { "otherOutputs", "skills", "unlocks" }
 
@@ -55,11 +56,26 @@ local function freeDetected(basis, item)
 end
 
 -- The Target modes. Callers use these names, not the strings.
-Plan.HAVE = "HAVE"
-Plan.MAKE = "MAKE"
+-- The code compares with the locals, so a change to Plan.HAVE or Plan.MAKE has no effect.
+local HAVE = "HAVE"
+local MAKE = "MAKE"
+Plan.HAVE = HAVE
+Plan.MAKE = MAKE
 
 local function isMake(basis)
-    return basis.targetMode == Plan.MAKE
+    return basis.targetMode == MAKE
+end
+
+-- Stops with an error at the line of the caller of Plan.calculate when the Basis is not complete.
+local function checkBasis(basis)
+    for _, field in ipairs(REQUIRED_FIELDS) do
+        if basis[field] == nil then
+            error("The Basis has no " .. field .. ".", 3)
+        end
+    end
+    if basis.targetMode ~= HAVE and basis.targetMode ~= MAKE then
+        error("The Target mode " .. tostring(basis.targetMode) .. " is unknown.", 3)
+    end
 end
 
 local function madeCount(basis, item)
@@ -455,12 +471,7 @@ local function targetLines(basis)
 end
 
 function Plan.calculate(basis)
-    if basis.targetMode == nil then
-        error("The basis has no Target mode.", 0)
-    end
-    if basis.targetMode ~= Plan.HAVE and basis.targetMode ~= Plan.MAKE then
-        error("The Target mode " .. tostring(basis.targetMode) .. " is unknown.", 0)
-    end
+    checkBasis(basis)
     basis = withDefaults(basis)
     local levels, order = planningLevels(basis)
     local totals = targetTotals(basis)

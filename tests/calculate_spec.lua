@@ -567,33 +567,52 @@ describe("Plan.calculate", function()
         expectEqual(ok, true)
     end)
 
-    -- A typo in the Target mode must not give a Plan in Have (issue 14).
-    it("stops with an error that names an unknown Target mode", function()
-        local ok, err = pcall(Plan.calculate, {
-            targets = { { item = "BREAD", count = 1 } },
-            recipes = {
-                BREAD = { { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
-            },
-            targetMode = "MAKES",
-            detected = {},
-        })
+    describe("Basis check", function()
+        local function breadBasis()
+            return {
+                targets = { { item = "BREAD", count = 1 } },
+                recipes = {
+                    BREAD = {
+                        { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
+                    },
+                },
+                targetMode = Plan.HAVE,
+                detected = {},
+            }
+        end
 
-        expectEqual(ok, false)
-        expectEqual(err, "The Target mode MAKES is unknown.")
-    end)
+        -- A typo in the Target mode must not give a Plan in Have (issue 14).
+        it("stops with an error that names an unknown Target mode", function()
+            local basis = breadBasis()
+            basis.targetMode = "MAKES"
+            local ok, err = pcall(Plan.calculate, basis)
 
-    -- Each caller must give the Target mode (issue 14).
-    it("stops with an error when the Target mode is missing", function()
-        local ok, err = pcall(Plan.calculate, {
-            targets = { { item = "BREAD", count = 1 } },
-            recipes = {
-                BREAD = { { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
-            },
-            detected = {},
-        })
+            expectEqual(ok, false)
+            expectEqual(err, "The Target mode MAKES is unknown.")
+        end)
 
-        expectEqual(ok, false)
-        expectEqual(err, "The basis has no Target mode.")
+        -- Each caller must give each required field (issue 14).
+        for _, field in ipairs({ "targets", "recipes", "detected", "targetMode" }) do
+            it("stops with an error when the Basis has no " .. field, function()
+                local basis = breadBasis()
+                basis[field] = nil
+                local ok, err = pcall(Plan.calculate, basis)
+
+                expectEqual(ok, false)
+                expectEqual(err, "The Basis has no " .. field .. ".")
+            end)
+        end
+
+        it("gives the line of the caller in the error", function()
+            local basis = breadBasis()
+            basis.targetMode = nil
+            local ok, err = pcall(function()
+                Plan.calculate(basis)
+            end)
+
+            expectEqual(ok, false)
+            expectEqual(err:find("calculate_spec.lua:%d+: The Basis has no targetMode%.") ~= nil, true)
+        end)
     end)
 
     describe("Batch hint", function()
