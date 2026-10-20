@@ -1,6 +1,8 @@
 -- Tracks Assumed stock, as ADR 0004 describes.
 -- It does not use the game API. Tests run it outside the game client.
 -- The state is a plain table, so the plugin can save it with PersistentDB.
+local Validate = require("plan/validate")
+
 local Assumed = {}
 
 function Assumed.new()
@@ -11,8 +13,7 @@ end
 -- An item that is already assumed keeps its line and its baseline.
 -- The view must check the amount that the player types. A bad amount here is a fault in the code.
 function Assumed.add(state, item, amount, detected)
-    -- amount % 1 is not 0 for a fraction, NaN and infinity.
-    if type(amount) ~= "number" or amount % 1 ~= 0 or amount <= 0 then
+    if not Validate.isPositiveInteger(amount) then
         error("The Assumed amount of " .. tostring(item) .. " must be a whole number more than 0.", 2)
     end
     for _, entry in ipairs(state.entries) do
