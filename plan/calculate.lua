@@ -38,6 +38,12 @@ local function countedStock(request, item)
     return (request.detected[item] or 0) + (request.assumed[item] or 0) - (request.reserves[item] or 0)
 end
 
+-- Gives the amount of an item that the player has now and can use: Detected stock minus Reserves.
+-- It does not include Assumed stock, because the player does not have it yet.
+local function freeDetected(request, item)
+    return (request.detected[item] or 0) - (request.reserves[item] or 0)
+end
+
 local MAKE = "MAKE"
 
 local function isMake(request)
@@ -192,8 +198,7 @@ local function findNext(request, steps)
         local actions = math.min(step.batchHint or step.actions, step.actions)
         local ready = #step.flags == 0 and not step.waitsOn
         for _, input in ipairs(step.recipe.inputs) do
-            local free = (request.detected[input.item] or 0) - (request.reserves[input.item] or 0)
-            if free < input.count * actions then
+            if freeDetected(request, input.item) < input.count * actions then
                 ready = false
             end
         end
