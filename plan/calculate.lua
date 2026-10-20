@@ -455,7 +455,10 @@ local function targetLines(basis)
 end
 
 function Plan.calculate(basis)
-    if basis.targetMode ~= nil and basis.targetMode ~= Plan.HAVE and basis.targetMode ~= Plan.MAKE then
+    if basis.targetMode == nil then
+        error("The basis has no Target mode.", 0)
+    end
+    if basis.targetMode ~= Plan.HAVE and basis.targetMode ~= Plan.MAKE then
         error("The Target mode " .. tostring(basis.targetMode) .. " is unknown.", 0)
     end
     basis = withDefaults(basis)

@@ -13,6 +13,7 @@ local function herbPlan(detected)
                 { verb = "Clean", output = 1, actionLimit = 60, inputs = { { item = "GRIMY_RANARR", count = 1 } } },
             },
         },
+        targetMode = Plan.HAVE,
         detected = detected,
     })
 end
@@ -35,6 +36,7 @@ local function restorePlan(herblore)
                 { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "SNAPDRAGON", count = 1 } } },
             },
         },
+        targetMode = Plan.HAVE,
         detected = { SNAPDRAGON = 14 },
         levels = { HERBLORE = herblore },
     })
@@ -72,6 +74,7 @@ local function twoChains(herblore, detected)
                 },
             },
         },
+        targetMode = Plan.HAVE,
         detected = detected,
         levels = { HERBLORE = herblore },
     })
