@@ -707,6 +707,7 @@ describe("Plan.calculate", function()
                         { verb = "Carve", output = 1, actionLimit = 60, inputs = { { item = "CLAY", count = 29 } } },
                     },
                 },
+                targetMode = Plan.HAVE,
                 detected = {},
             })
 
@@ -805,6 +806,7 @@ describe("Plan.calculate", function()
                         { verb = "Carve", output = 1, actionLimit = 60, inputs = { { item = "CLAY", count = 29 } } },
                     },
                 },
+                targetMode = Plan.HAVE,
                 detected = detected,
             })
         end
