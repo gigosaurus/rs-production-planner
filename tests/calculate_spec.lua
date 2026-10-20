@@ -514,6 +514,20 @@ describe("Plan.calculate", function()
         expectEqual(err, "The Recipe for BREAD has no Action limit.")
     end)
 
+    -- The check does not depend on stock. Thus a data error shows at once, not later in a session.
+    it("stops with an error when stock covers an item whose Recipe has no Action limit", function()
+        local ok, err = pcall(Plan.calculate, {
+            targets = { { item = "BREAD", count = 1 } },
+            recipes = {
+                BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
+            },
+            detected = { BREAD = 1 },
+        })
+
+        expectEqual(ok, false)
+        expectEqual(err, "The Recipe for BREAD has no Action limit.")
+    end)
+
     -- The check covers only the Recipes that the Plan uses (issue 2, section 1).
     it("does not stop when a Recipe that the Plan does not use has no Action limit", function()
         local ok = pcall(Plan.calculate, {

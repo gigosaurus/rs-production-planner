@@ -231,6 +231,11 @@ local function planningLevels(basis)
         order[#order + 1] = item
         local recipe = recipeFor(basis, item)
         if recipe then
+            -- Each Recipe that the Plan uses must have an Action limit (issue 2, section 1).
+            -- The check does not depend on stock, so that a data error shows at once.
+            if not recipe.actionLimit then
+                error("The Recipe for " .. item .. " has no Action limit.", 0)
+            end
             for _, input in ipairs(recipe.inputs) do
                 find(input.item)
             end
@@ -366,10 +371,6 @@ local function stepsFor(basis, levels, order, totals)
                 local need = stillNeeded - (supply[item] or 0)
                 local recipe = recipeFor(basis, item)
                 if need > 0 and recipe then
-                    -- Each Recipe must have an Action limit (issue 2, section 1).
-                    if not recipe.actionLimit then
-                        error("The Recipe for " .. item .. " has no Action limit.", 0)
-                    end
                     local step, extra = newStep(basis, item, recipe, need)
                     extraOf[step] = extra
                     local steps = stepsByLevel[level]
