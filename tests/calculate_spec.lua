@@ -542,6 +542,21 @@ describe("Plan.calculate", function()
         expectEqual(ok, true)
     end)
 
+    -- A typo in the Target mode must not give a Plan in Have (issue 14).
+    it("stops with an error that names an unknown Target mode", function()
+        local ok, err = pcall(Plan.calculate, {
+            targets = { { item = "BREAD", count = 1 } },
+            recipes = {
+                BREAD = { { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
+            },
+            targetMode = "MAKES",
+            detected = {},
+        })
+
+        expectEqual(ok, false)
+        expectEqual(err, "The Target mode MAKES is unknown.")
+    end)
+
     describe("Batch hint", function()
         local function batchHint(inputs, actionLimit, stackable)
             local plan = Plan.calculate({
@@ -1000,7 +1015,7 @@ describe("Plan.calculate", function()
             recipes = {
                 BREAD = { { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
             },
-            targetMode = "HAVE",
+            targetMode = Plan.HAVE,
             made = { BREAD = 5 },
             detected = { BREAD = 2, DOUGH = 10 },
         })
@@ -1019,7 +1034,7 @@ describe("Plan.calculate", function()
                         { verb = "Bake", output = 2, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
                     },
                 },
-                targetMode = "MAKE",
+                targetMode = Plan.MAKE,
                 made = made,
                 detected = detected,
             })
@@ -1039,7 +1054,7 @@ describe("Plan.calculate", function()
                         { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
                     },
                 },
-                targetMode = "MAKE",
+                targetMode = Plan.MAKE,
                 made = {},
                 detected = { DOUGH = 10 },
                 reserves = { BREAD = 3 },
@@ -1059,7 +1074,7 @@ describe("Plan.calculate", function()
                         { verb = "Mix", output = 1, actionLimit = 60, inputs = { { item = "FLOUR", count = 1 } } },
                     },
                 },
-                targetMode = "MAKE",
+                targetMode = Plan.MAKE,
                 made = {},
                 detected = { DOUGH = 2, FLOUR = 1 },
             })
@@ -1103,7 +1118,7 @@ describe("Plan.calculate", function()
                             { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "SHARK", count = 1 } } },
                         },
                     },
-                    targetMode = "MAKE",
+                    targetMode = Plan.MAKE,
                     made = made,
                     detected = detected,
                 })

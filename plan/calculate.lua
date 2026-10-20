@@ -54,10 +54,12 @@ local function freeDetected(basis, item)
     return (basis.detected[item] or 0) - (basis.reserves[item] or 0)
 end
 
-local MAKE = "MAKE"
+-- The Target modes. Callers use these names, not the strings.
+Plan.HAVE = "HAVE"
+Plan.MAKE = "MAKE"
 
 local function isMake(basis)
-    return basis.targetMode == MAKE
+    return basis.targetMode == Plan.MAKE
 end
 
 local function madeCount(basis, item)
@@ -453,6 +455,9 @@ local function targetLines(basis)
 end
 
 function Plan.calculate(basis)
+    if basis.targetMode ~= nil and basis.targetMode ~= Plan.HAVE and basis.targetMode ~= Plan.MAKE then
+        error("The Target mode " .. tostring(basis.targetMode) .. " is unknown.", 0)
+    end
     basis = withDefaults(basis)
     local levels, order = planningLevels(basis)
     local totals = targetTotals(basis)
