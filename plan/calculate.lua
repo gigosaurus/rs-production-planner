@@ -132,14 +132,17 @@ local function markWaiting(steps, totals)
         return false
     end
 
-    local changed = true
+    -- Gives true when the Step changes.
     local function wait(step, flaggedPosition)
         local earliest = math.min(step.waitsOn or flaggedPosition, flaggedPosition)
-        if earliest ~= step.waitsOn then
-            step.waitsOn = earliest
-            changed = true
+        if earliest == step.waitsOn then
+            return false
         end
+        step.waitsOn = earliest
+        return true
     end
+
+    local changed = true
 
     -- A change in one pass can make more Steps Waiting in the other pass.
     -- Repeat both passes until no Step changes.
@@ -162,7 +165,7 @@ local function markWaiting(steps, totals)
                 end
             end
             if #step.flags == 0 and not makesTarget(step) and allFlaggedOrWaiting and earliest then
-                wait(step, earliest)
+                changed = wait(step, earliest) or changed
             end
         end
 
@@ -173,7 +176,7 @@ local function markWaiting(steps, totals)
                     for position, maker in ipairs(steps) do
                         local by = makes(maker, input.item) and causeOf(position, maker)
                         if by then
-                            wait(step, by)
+                            changed = wait(step, by) or changed
                         end
                     end
                 end
