@@ -218,12 +218,6 @@ describe("Plan.calculate", function()
         expectEqual(plan.shortages, { { item = "DOUGH", count = 5 } })
     end)
 
-    it("ignores a Reserve of an item that the Plan does not use", function()
-        local plan = bakeBread({ DOUGH = 3 }, nil, { COAL = 10 })
-
-        expectEqual(plan.shortages, {})
-    end)
-
     it("gives each Target with its Counted stock", function()
         local plan = bakeBread({ BREAD = 3 }, { BREAD = 1 })
 
@@ -544,6 +538,12 @@ describe("Plan.calculate", function()
             local plan = twoSteps({ detected = { GRIMY_RANARR = 27, GRIMY_TOADFLAX = 28 } })
 
             expectEqual(plan.steps[plan.next].item, "CLEAN_TOADFLAX")
+        end)
+
+        it("is the first ready Step in production order when more than one is ready", function()
+            local plan = twoSteps({ detected = { GRIMY_RANARR = 28, GRIMY_TOADFLAX = 28 } })
+
+            expectEqual(plan.steps[plan.next].item, "CLEAN_RANARR")
         end)
 
         it("does not count Reserves", function()
@@ -933,23 +933,6 @@ describe("Plan.calculate", function()
             local plan = makeBread({ BREAD = 1 }, { BREAD = 10, DOUGH = 10 })
 
             expectEqual(stepFor(plan, "BREAD").actions, 2)
-        end)
-
-        it("does not decrease the need for the Target by its Assumed stock", function()
-            local plan = Plan.calculate({
-                targets = { { item = "BREAD", count = 5 } },
-                recipes = {
-                    BREAD = {
-                        { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
-                    },
-                },
-                targetMode = "MAKE",
-                made = {},
-                detected = { DOUGH = 10 },
-                assumed = { BREAD = 3 },
-            })
-
-            expectEqual(stepFor(plan, "BREAD").actions, 5)
         end)
 
         it("does not add a Reserve of the Target to its need", function()

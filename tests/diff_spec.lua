@@ -77,7 +77,7 @@ local function twoChains(herblore, detected)
     })
 end
 
-describe("Plan.diff", function()
+describe("Diff.compare", function()
     it("reports a Step that finished", function()
         local before = herbPlan({ GRIMY_RANARR = 28 })
         local after = herbPlan({ CLEAN_RANARR = 28 })
