@@ -270,6 +270,7 @@ describe("Plan.calculate", function()
         expectEqual(order, { "DOUGH", "BREAD" })
     end)
 
+    -- The search finds SALT before FLOUR. The Step that uses FLOUR comes first.
     it("lists Shortages in the order of the first Step that uses them", function()
         local plan = Plan.calculate({
             targets = { { item = "BREAD", count = 1 } },
@@ -278,7 +279,7 @@ describe("Plan.calculate", function()
                     {
                         verb = "Bake",
                         output = 1,
-                        inputs = { { item = "DOUGH", count = 1 }, { item = "SALT", count = 1 } },
+                        inputs = { { item = "SALT", count = 1 }, { item = "DOUGH", count = 1 } },
                     },
                 },
                 DOUGH = { { verb = "Mix", output = 1, inputs = { { item = "FLOUR", count = 1 } } } },
