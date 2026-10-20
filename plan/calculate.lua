@@ -1,5 +1,7 @@
 -- Calculates the Plan from Targets, Recipes and Counted stock.
 -- It does not use the game API. Tests run it outside the game client.
+local Validate = require("plan/validate")
+
 local Plan = {}
 
 local REQUIRED_FIELDS = { "targets", "recipes", "detected", "targetMode" }
@@ -61,6 +63,7 @@ local HAVE = "HAVE"
 local MAKE = "MAKE"
 Plan.HAVE = HAVE
 Plan.MAKE = MAKE
+local TARGET_MODES = { [HAVE] = true, [MAKE] = true }
 
 local function isMake(basis)
     return basis.targetMode == MAKE
@@ -73,7 +76,7 @@ local function checkBasis(basis)
             error("The Basis has no " .. field .. ".", 3)
         end
     end
-    if basis.targetMode ~= HAVE and basis.targetMode ~= MAKE then
+    if not Validate.isOneOf(basis.targetMode, TARGET_MODES) then
         error("The Target mode " .. tostring(basis.targetMode) .. " is unknown.", 3)
     end
 end
