@@ -85,7 +85,7 @@ The number of a Target that the player made since the Plan changed to Make. The 
 _Avoid_: Progress, produced count, done count
 
 **Made count scope**:
-The setting of a Plan that decides which Made count the Plan uses. Its options are This character and All characters.
+The setting of a Plan that decides which Made counts the Plan uses. Its options are This character and All characters. All characters adds the Made counts of all characters together.
 _Avoid_: Count mode, tracking mode
 
 ## Counted stock

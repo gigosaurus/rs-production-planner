@@ -9,14 +9,14 @@ This choice has these advantages:
 - The plugin works offline.
 - The plugin does not need the `httpAccess` permission.
 - The plugin does not parse wiki markup in Lua.
-- The plugin uses only documented APIs.
+- The plugin reads game data only through documented APIs.
 
 The disadvantage is that we must update the table by hand when Jagex adds or changes recipes.
 
 ## Considered Options
 
 - **Get recipes from the wiki at runtime:** rejected for now. Examine this option again if someone publishes a maintained wiki-data library for plugins.
-- **Read undocumented `DBRow` tables:** rejected. No document says which tables contain recipes. Possibly no table contains them. The project uses only documented APIs.
+- **Read undocumented `DBRow` tables:** rejected. No document says which tables contain recipes. Possibly no table contains them. The project reads game data only through documented APIs. When a documented API behaves differently from its reference page, the project follows the tested behaviour (ADR 0007).
 
 ## Consequences
 

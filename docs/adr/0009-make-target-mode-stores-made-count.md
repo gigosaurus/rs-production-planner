@@ -21,11 +21,16 @@ Also:
 
 ## Made count scope
 
-The plugin keeps two Made counts for each Target: one for each character (ADR 0008), and one for all characters. Each rise adds to both. Made count scope selects which count the Plan uses. A change of scope then loses nothing.
+The plugin keeps one Made count for each Target on each character (ADR 0008). Each rise adds to the count of the current character. Made count scope selects how the Plan reads the counts:
+
+- **This character:** the count of the current character.
+- **All characters:** the sum of the counts of all characters, at the time of the calculation.
+
+A change of scope then loses nothing.
 
 ## Edits
 
-- The player can set the selected Made count directly. A reset sets it to 0.
+- The player can set the Made count directly. A reset sets it to 0. In All characters, the plugin sets the count of the current character to the new value, and the counts of all other characters to 0. The sum is then the new value.
 - A change to the amount of a Target keeps its Made count. Removing a Target deletes its Made counts.
 - Have → Make sets all Made counts to 0. Make → Have deletes them.
 
@@ -35,6 +40,7 @@ The plugin keeps two Made counts for each Target: one for each character (ADR 00
 - **Chat messages:** rejected for now. They need the `chatAccess` permission and are fragile. Messages such as "Your sign of the porter has sent an item to your bank" can be a future addition.
 - **Track drops, and let later rises use up a dropped amount:** rejected. If a dropped stack disappears, the dropped amount stays, and the next items that the player makes do not count.
 - **Exclude rises when the money pouch falls:** rejected. Some shops take other currencies. The open-shop rule covers them.
+- **A second Made count for all characters, which each rise also adds to:** rejected. The two counts can disagree after an edit. ADR 0008 saves Made counts only for each character.
 - **Exclude trades:** not possible. The docs name no trade inventory, and we cannot test one.
 
 ## Consequences
@@ -42,4 +48,3 @@ The plugin keeps two Made counts for each Target: one for each character (ADR 00
 - The plugin stores progress, which ADR 0003 rejects. It does this only in Make, and only for Targets. Steps still show only what remains.
 - In Make, the Plan shows one Planning assumption: `Made counts can include items that you bought, traded or took back out of storage. Edit the count to correct it.` This covers trades, storages that the plugin does not read, GE purchases while the plugin is off, and a wrong GE guess.
 - A name change resets the Made counts of that character (ADR 0008).
-- ADR 0003 said that the plugin saves only Targets and settings. That was already wrong. ADR 0008 lists the saved data.
