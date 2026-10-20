@@ -35,10 +35,10 @@ describe("Plan.calculate", function()
         expectEqual(plan.leftovers, { { item = "BREAD", count = 1 } })
     end)
 
-    it("uses the largest of two Targets for the same item", function()
-        local function plan(bread)
+    it("uses the largest of two Targets for the same item, in each order", function()
+        local function plan(bread, first, second)
             return Plan.calculate({
-                targets = { { item = "BREAD", count = 2 }, { item = "BREAD", count = 5 } },
+                targets = { { item = "BREAD", count = first or 2 }, { item = "BREAD", count = second or 5 } },
                 recipes = {
                     BREAD = {
                         { verb = "Bake", output = 2, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
@@ -51,6 +51,8 @@ describe("Plan.calculate", function()
         expectEqual(plan(0).steps[1].actions, 3)
         expectEqual(plan(4).complete, false)
         expectEqual(plan(5).complete, true)
+        expectEqual(plan(0, 5, 2).steps[1].actions, 3)
+        expectEqual(plan(4, 5, 2).complete, false)
     end)
 
     it("gives one Target line for two Targets for the same item", function()

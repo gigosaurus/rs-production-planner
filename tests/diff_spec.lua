@@ -196,6 +196,25 @@ describe("Diff.compare", function()
         expectEqual(diff.compare(breadPlan(0), breadPlan(2)).targets, { { item = "BREAD", by = 2 } })
     end)
 
+    it("reports an item one time when the player adds or removes a second Target for it", function()
+        local function breadPlan(targets, bread)
+            return Plan.calculate({
+                targets = targets,
+                recipes = {
+                    BREAD = {
+                        { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
+                    },
+                },
+                detected = { BREAD = bread },
+            })
+        end
+        local one = { { item = "BREAD", count = 3 } }
+        local two = { { item = "BREAD", count = 3 }, { item = "BREAD", count = 2 } }
+
+        expectEqual(diff.compare(breadPlan(one, 0), breadPlan(two, 2)).targets, { { item = "BREAD", by = 2 } })
+        expectEqual(diff.compare(breadPlan(two, 0), breadPlan(one, 2)).targets, { { item = "BREAD", by = 2 } })
+    end)
+
     describe("in Make", function()
         local function makePlan(made, bread)
             return Plan.calculate({
