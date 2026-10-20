@@ -31,6 +31,13 @@ This file lists every documented function, event, event payload field, type, pro
 ### Modules
 Every module must return a table. The game client's `require` returns `nil` for a module that returns a function (see `probes/require-probe`).
 
+### Checks
+CI (`.github/workflows/checks.yml`) runs these checks on each pull request. Run them before you commit:
+- `lua5.4 tests/run.lua`
+- `luacheck plan tests` (config: `.luacheckrc`)
+- `stylua plan tests` (config: `stylua.toml`). Run it two times. One pass does not always give stable output.
+- `scripts/check-manifests.sh`
+
 ### Before you prepare a plugin for submission
 Read `pages/submission/guidelines.md`, `pages/submission/adequacy.md` and `pages/submission/process.md`. Then check the plugin against them.
 
