@@ -89,4 +89,22 @@ describe("Assumed stock", function()
 
         expectEqual(Assumed.remaining(state), { SNAPE_GRASS = 14, VIAL_OF_WATER = 20 })
     end)
+
+    it("stops with an error for an amount of 0", function()
+        local state = Assumed.new()
+        local ok, message = pcall(Assumed.add, state, "SNAPE_GRASS", 0, { SNAPE_GRASS = 0 })
+
+        expectEqual(ok, false)
+        expectEqual(message:find("The Assumed amount of SNAPE_GRASS must be more than 0.", 1, true) ~= nil, true)
+        expectEqual(Assumed.lines(state), {})
+    end)
+
+    it("stops with an error for a negative amount and keeps the line", function()
+        local state = Assumed.new()
+        Assumed.add(state, "SNAPE_GRASS", 50, { SNAPE_GRASS = 0 })
+        local ok = pcall(Assumed.add, state, "SNAPE_GRASS", -10, { SNAPE_GRASS = 0 })
+
+        expectEqual(ok, false)
+        expectEqual(Assumed.lines(state), { { item = "SNAPE_GRASS", remaining = 50, arrived = 0, entered = 50 } })
+    end)
 end)

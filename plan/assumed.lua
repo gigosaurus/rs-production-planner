@@ -9,7 +9,11 @@ end
 
 -- detected is the Detected stock when the player adds the Assumed stock.
 -- An item that is already assumed keeps its line and its baseline.
+-- The view must check the amount that the player types. A bad amount here is a fault in the code.
 function Assumed.add(state, item, amount, detected)
+    if amount <= 0 then
+        error("The Assumed amount of " .. item .. " must be more than 0.", 2)
+    end
     for _, entry in ipairs(state.entries) do
         if entry.item == item then
             entry.entered = entry.entered + amount
