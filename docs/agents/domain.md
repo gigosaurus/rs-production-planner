@@ -52,6 +52,6 @@ If your output contradicts an ADR, say so clearly. Do not override the ADR silen
 
 ## Do not change ADRs
 
-An ADR is immutable after it merges. Edit it only for typos, broken links and other changes that keep the decision the same. To change a decision, write a new ADR. The new ADR names the ADR that it amends or supersedes.
+An ADR is immutable after it merges. Edit it only for typos, broken links and other changes that keep the decision the same. To change a decision, write a new ADR. The new ADR names the ADR that it amends or supersedes, for example `Amends ADR 0001.`
 
-An ADR body refers only to earlier ADRs. Do not refer to a later ADR in the body.
+Then add one header line under the title of the earlier ADR, for example `Amended by ADR 0007.` or `Superseded by ADR 0008.` This line is the only permitted reference to a later ADR. Do not refer to a later ADR in the body.
