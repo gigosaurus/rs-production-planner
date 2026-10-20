@@ -53,6 +53,19 @@ describe("Plan.calculate", function()
         expectEqual(plan(5).complete, true)
     end)
 
+    it("gives one Target line for two Targets for the same item", function()
+        local plan = Plan.calculate({
+            targets = { { item = "BREAD", count = 2 }, { item = "CAKE", count = 1 }, { item = "BREAD", count = 5 } },
+            recipes = {},
+            detected = { BREAD = 4 },
+        })
+
+        expectEqual(plan.targets, {
+            { item = "BREAD", count = 5, have = 4 },
+            { item = "CAKE", count = 1, have = 0 },
+        })
+    end)
+
     it("does not change the tables of the caller", function()
         -- The Basis has no optional fields and the Recipe has no optional lists.
         local function newBasis()

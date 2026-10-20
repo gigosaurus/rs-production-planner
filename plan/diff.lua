@@ -68,12 +68,9 @@ function Diff.compare(before, after)
     for _, target in ipairs(before.targets) do
         haveBefore[target.item] = target.have
     end
-    -- A rise belongs to the item, not to a Target. Two Targets for the same item give one line (issue 16).
-    local reported = {}
     for _, target in ipairs(after.targets) do
         local by = target.have - (haveBefore[target.item] or target.have)
-        if by ~= 0 and not reported[target.item] then
-            reported[target.item] = true
+        if by ~= 0 then
             targets[#targets + 1] = { item = target.item, by = by }
         end
     end

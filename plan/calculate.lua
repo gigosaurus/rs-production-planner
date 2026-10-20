@@ -440,15 +440,20 @@ local function shortagesFor(basis, steps, order, shortBy)
     return shortages
 end
 
-local function targetLines(basis)
-    local targets = {}
+-- Gives one line for each Target item, in the order of the first Target for it (issue 16).
+local function targetLines(basis, totals)
+    local targets, listed = {}, {}
     for _, target in ipairs(basis.targets) do
-        targets[#targets + 1] = {
-            item = target.item,
-            count = target.count,
-            have = countedStock(basis, target.item),
-            made = isMake(basis) and madeCount(basis, target.item) or nil,
-        }
+        local item = target.item
+        if not listed[item] then
+            listed[item] = true
+            targets[#targets + 1] = {
+                item = item,
+                count = totals[item],
+                have = countedStock(basis, item),
+                made = isMake(basis) and madeCount(basis, item) or nil,
+            }
+        end
     end
     return targets
 end
@@ -460,7 +465,7 @@ function Plan.calculate(basis)
     local steps, extraOf, usedSupply, shortBy = stepsFor(basis, levels, order, totals)
     markWaiting(basis, steps, totals)
     return {
-        targets = targetLines(basis),
+        targets = targetLines(basis, totals),
         steps = steps,
         leftovers = leftoversFor(basis, steps, extraOf, usedSupply),
         shortages = shortagesFor(basis, steps, order, shortBy),
