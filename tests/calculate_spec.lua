@@ -35,10 +35,10 @@ describe("Plan.calculate", function()
         expectEqual(plan.leftovers, { { item = "BREAD", count = 1 } })
     end)
 
-    it("adds two Targets for the same item together", function()
+    it("uses the largest of two Targets for the same item", function()
         local function plan(bread)
             return Plan.calculate({
-                targets = { { item = "BREAD", count = 3 }, { item = "BREAD", count = 2 } },
+                targets = { { item = "BREAD", count = 2 }, { item = "BREAD", count = 5 } },
                 recipes = {
                     BREAD = {
                         { verb = "Bake", output = 2, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
@@ -1029,6 +1029,26 @@ describe("Plan.calculate", function()
             local plan = makeBread({ BREAD = 1 }, { BREAD = 10, DOUGH = 10 })
 
             expectEqual(stepFor(plan, "BREAD").actions, 2)
+        end)
+
+        it("uses the largest of two Targets for the same item, minus the Made count", function()
+            local function plan(made)
+                return Plan.calculate({
+                    targets = { { item = "BREAD", count = 100 }, { item = "BREAD", count = 10 } },
+                    recipes = {
+                        BREAD = {
+                            { verb = "Bake", output = 2, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
+                        },
+                    },
+                    targetMode = "MAKE",
+                    made = { BREAD = made },
+                    detected = { DOUGH = 100 },
+                })
+            end
+
+            expectEqual(stepFor(plan(20), "BREAD").actions, 40)
+            expectEqual(plan(99).complete, false)
+            expectEqual(plan(100).complete, true)
         end)
 
         it("does not add a Reserve of the Target to its need", function()

@@ -64,11 +64,12 @@ local function madeCount(basis, item)
     return basis.made[item] or 0
 end
 
--- Gives the total amount of each Target item. Two Targets can be for the same item.
+-- Gives the amount of each Target item. Two Targets can be for the same item.
+-- They do not add together: progress on the item counts for each Target. Thus the largest Target is the amount (issue 16).
 local function targetTotals(basis)
     local totals = {}
     for _, target in ipairs(basis.targets) do
-        totals[target.item] = (totals[target.item] or 0) + target.count
+        totals[target.item] = math.max(totals[target.item] or 0, target.count)
     end
     return totals
 end
