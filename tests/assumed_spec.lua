@@ -1,5 +1,7 @@
 local Assumed = require("plan/assumed")
 
+local AMOUNT_ERROR = "The Assumed amount of SNAPE_GRASS must be a whole number more than 0."
+
 describe("Assumed stock", function()
     it("adds a line with nothing arrived", function()
         local state = Assumed.new()
@@ -88,5 +90,48 @@ describe("Assumed stock", function()
         Assumed.observe(state, { SNAPE_GRASS = 36 })
 
         expectEqual(Assumed.remaining(state), { SNAPE_GRASS = 14, VIAL_OF_WATER = 20 })
+    end)
+
+    it("stops with an error for an amount of 0", function()
+        local state = Assumed.new()
+        local ok, message = pcall(Assumed.add, state, "SNAPE_GRASS", 0, { SNAPE_GRASS = 0 })
+
+        expectEqual(ok, false)
+        expectEqual(message:find(AMOUNT_ERROR, 1, true) ~= nil, true)
+        expectEqual(Assumed.lines(state), {})
+    end)
+
+    it("stops with an error for a negative amount and keeps the line", function()
+        local state = Assumed.new()
+        Assumed.add(state, "SNAPE_GRASS", 50, { SNAPE_GRASS = 0 })
+        local ok, message = pcall(Assumed.add, state, "SNAPE_GRASS", -10, { SNAPE_GRASS = 0 })
+
+        expectEqual(ok, false)
+        expectEqual(message:find(AMOUNT_ERROR, 1, true) ~= nil, true)
+        expectEqual(Assumed.lines(state), { { item = "SNAPE_GRASS", remaining = 50, arrived = 0, entered = 50 } })
+    end)
+
+    for _, case in ipairs({
+        { name = "a fraction", amount = 2.5 },
+        { name = "NaN", amount = 0 / 0 },
+        { name = "infinity", amount = math.huge },
+        { name = "no amount", amount = nil },
+        { name = "a string", amount = "5" },
+    }) do
+        it("stops with an error for " .. case.name, function()
+            local state = Assumed.new()
+            local ok, message = pcall(Assumed.add, state, "SNAPE_GRASS", case.amount, { SNAPE_GRASS = 0 })
+
+            expectEqual(ok, false)
+            expectEqual(message:find(AMOUNT_ERROR, 1, true) ~= nil, true)
+            expectEqual(Assumed.lines(state), {})
+        end)
+    end
+
+    it("names a nil item in the error for a bad amount", function()
+        local ok, message = pcall(Assumed.add, Assumed.new(), nil, 0, {})
+
+        expectEqual(ok, false)
+        expectEqual(message:find("The Assumed amount of nil must be a whole number more than 0.", 1, true) ~= nil, true)
     end)
 end)
