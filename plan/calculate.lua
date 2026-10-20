@@ -2,8 +2,40 @@
 -- It does not use the game API. Tests run it outside the game client.
 local Plan = {}
 
+local OPTIONAL_STOCK = { "assumed", "reserves", "made", "stackable", "levels", "unlocks" }
+local OPTIONAL_RECIPE_LISTS = { "otherOutputs", "skills", "unlocks" }
+
+local function copyOf(source)
+    local copy = {}
+    for key, value in pairs(source) do
+        copy[key] = value
+    end
+    return copy
+end
+
+-- Gives a copy of the request with an empty table for each optional field that is missing.
+-- The tables of the caller do not change.
+local function withDefaults(request)
+    local filled = copyOf(request)
+    for _, field in ipairs(OPTIONAL_STOCK) do
+        filled[field] = filled[field] or {}
+    end
+    filled.recipes = {}
+    for item, recipes in pairs(request.recipes) do
+        filled.recipes[item] = {}
+        for index, recipe in ipairs(recipes) do
+            local recipeCopy = copyOf(recipe)
+            for _, field in ipairs(OPTIONAL_RECIPE_LISTS) do
+                recipeCopy[field] = recipeCopy[field] or {}
+            end
+            filled.recipes[item][index] = recipeCopy
+        end
+    end
+    return filled
+end
+
 local function countedStock(request, item)
-    return (request.detected[item] or 0) + ((request.assumed or {})[item] or 0) - ((request.reserves or {})[item] or 0)
+    return (request.detected[item] or 0) + (request.assumed[item] or 0) - (request.reserves[item] or 0)
 end
 
 local MAKE = "MAKE"
@@ -13,7 +45,7 @@ local function isMake(request)
 end
 
 local function madeCount(request, item)
-    return (request.made or {})[item] or 0
+    return request.made[item] or 0
 end
 
 local function isComplete(request)
@@ -37,7 +69,7 @@ local function batchHintFor(request, recipe)
     -- A stackable Input takes one slot, whatever its amount.
     local slots, perAction = BACKPACK_SLOTS, 0
     for _, input in ipairs(recipe.inputs) do
-        if (request.stackable or {})[input.item] then
+        if request.stackable[input.item] then
             slots = slots - 1
         else
             perAction = perAction + input.count
@@ -52,14 +84,14 @@ end
 -- Lists the requirements of a Recipe that the player does not meet.
 local function flagsFor(request, recipe)
     local flags = {}
-    for _, requirement in ipairs(recipe.skills or {}) do
-        local current = (request.levels or {})[requirement.skill] or 0
+    for _, requirement in ipairs(recipe.skills) do
+        local current = request.levels[requirement.skill] or 0
         if current < requirement.level then
             flags[#flags + 1] = { skill = requirement.skill, level = requirement.level, current = current }
         end
     end
-    for _, unlock in ipairs(recipe.unlocks or {}) do
-        if not (request.unlocks or {})[unlock] then
+    for _, unlock in ipairs(recipe.unlocks) do
+        if not request.unlocks[unlock] then
             flags[#flags + 1] = { unlock = unlock }
         end
     end
@@ -83,7 +115,7 @@ local function markWaiting(request, steps)
         if step.item == item then
             return true
         end
-        for _, other in ipairs(step.recipe.otherOutputs or {}) do
+        for _, other in ipairs(step.recipe.otherOutputs) do
             if other.item == item then
                 return true
             end
@@ -157,7 +189,7 @@ local function findNext(request, steps)
         local actions = math.min(step.batchHint or step.actions, step.actions)
         local ready = #step.flags == 0 and not step.waitsOn
         for _, input in ipairs(step.recipe.inputs) do
-            local free = (request.detected[input.item] or 0) - ((request.reserves or {})[input.item] or 0)
+            local free = (request.detected[input.item] or 0) - (request.reserves[input.item] or 0)
             if free < input.count * actions then
                 ready = false
             end
@@ -191,7 +223,7 @@ local function planningLevels(request)
             for _, input in ipairs(recipe.inputs) do
                 find(input.item)
             end
-            for _, other in ipairs(recipe.otherOutputs or {}) do
+            for _, other in ipairs(recipe.otherOutputs) do
                 find(other.item)
             end
         end
@@ -226,7 +258,7 @@ local function planningLevels(request)
                 end
             end
         end
-        for _, other in ipairs(recipe.otherOutputs or {}) do
+        for _, other in ipairs(recipe.otherOutputs) do
             linked[#linked + 1] = other.item
         end
         return linked
@@ -335,7 +367,7 @@ local function stepsFor(request, levels, order)
                     for _, input in ipairs(recipe.inputs) do
                         demand[input.item] = (demand[input.item] or 0) + input.count * step.actions
                     end
-                    for _, other in ipairs(recipe.otherOutputs or {}) do
+                    for _, other in ipairs(recipe.otherOutputs) do
                         supply[other.item] = (supply[other.item] or 0) + other.count * step.actions
                     end
                 elseif need > 0 then
@@ -362,7 +394,7 @@ local function leftoversFor(steps, usedSupply)
             leftovers[#leftovers + 1] = { item = step.item, count = step.extra }
         end
         -- The used supply comes from the first Steps in production order.
-        for _, other in ipairs(step.recipe.otherOutputs or {}) do
+        for _, other in ipairs(step.recipe.otherOutputs) do
             local made = other.count * step.actions
             local used = math.min(made, usedSupply[other.item] or 0)
             usedSupply[other.item] = (usedSupply[other.item] or 0) - used
@@ -409,6 +441,7 @@ local function targetLines(request)
 end
 
 function Plan.calculate(request)
+    request = withDefaults(request)
     local levels, order = planningLevels(request)
     local steps, usedSupply, shortBy = stepsFor(request, levels, order)
     markWaiting(request, steps)

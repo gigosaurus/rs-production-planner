@@ -35,6 +35,20 @@ describe("Plan.calculate", function()
         expectEqual(plan.leftovers, { { item = "BREAD", count = 1 } })
     end)
 
+    it("does not change the tables of the caller", function()
+        local recipe = { verb = "Bake", output = 2, inputs = { { item = "DOUGH", count = 1 } } }
+        local request = {
+            targets = { { item = "BREAD", count = 5 } },
+            recipes = { BREAD = { recipe } },
+            detected = { DOUGH = 10 },
+        }
+
+        Plan.calculate(request)
+
+        expectEqual(request.assumed, nil)
+        expectEqual(recipe.otherOutputs, nil)
+    end)
+
     it("gives each Step its Recipe and its extra Output", function()
         local plan = bakeBread({ DOUGH = 10 })
 
