@@ -4,6 +4,8 @@
 
 The project keeps issues as GitHub issues in `gigosaurus/rs-production-planner`. See `docs/agents/issue-tracker.md`.
 
+Before you start work on an issue, assign it to `@me`. See "When you start work on an issue" in `docs/agents/issue-tracker.md`.
+
 ### Triage labels
 
 The default labels are needs-triage, needs-info, ready-for-agent, ready-for-human and wontfix. See `docs/agents/triage-labels.md`.

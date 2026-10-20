@@ -19,6 +19,14 @@ Run `gh issue create --title "<title>" --body-file <file> --label <labels>`.
 
 Run `gh issue view <N> --comments`. Usually the user gives the issue number.
 
+## When you start work on an issue
+
+1. Run `gh issue view <N> --json assignees`.
+2. If the issue has no assignee, run `gh issue edit <N> --add-assignee @me`.
+3. If a different person is the assignee, stop and ask the user.
+
+Do this before you write code, make a branch or start a skill.
+
 ## Wayfinding operations
 
 `/wayfinder` uses these operations. The **map** is an issue with one **child** sub-issue for each ticket.
@@ -29,5 +37,5 @@ Run `gh issue view <N> --comments`. Usually the user gives the issue number.
   - To list sub-issues: `gh api repos/{owner}/{repo}/issues/<map>/sub_issues`.
 - **Blocking**: a `Blocked by: #N, #N` line at the top of the body. A ticket is unblocked when each issue in its list is closed.
 - **Frontier**: find the sub-issues of the map that are open, unblocked and have no assignee. The lowest number goes first.
-- **Claim**: run `gh issue edit <N> --add-assignee @me` before you start work.
+- **Claim**: see "When you start work on an issue".
 - **Resolve**: add the answer as a comment that starts with `## Answer`. Close the issue. Then add a context pointer (a summary and `#N`) to Decisions-so-far in the map body.
