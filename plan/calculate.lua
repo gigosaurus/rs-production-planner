@@ -168,14 +168,16 @@ local function findNext(request, steps, recipeOf)
     end
 end
 
+-- Chooses the Recipe that the Plan uses for an item. It is nil for a Raw material.
+-- Each part of the Plan must use this function, so that all parts use the same Recipe.
+local function recipeFor(request, item)
+    local recipes = request.recipes[item]
+    return recipes and recipes[1]
+end
+
 -- Finds the Planning level of each item (ADR 0002).
 -- The order list holds each item once, in the order that the search finds it.
 local function planningLevels(request)
-    local function recipeFor(item)
-        local recipes = request.recipes[item]
-        return recipes and recipes[1]
-    end
-
     -- Find each item in the Plan, through Inputs and other Outputs.
     local order, inPlan = {}, {}
     local function find(item)
@@ -184,7 +186,7 @@ local function planningLevels(request)
         end
         inPlan[item] = true
         order[#order + 1] = item
-        local recipe = recipeFor(item)
+        local recipe = recipeFor(request, item)
         if recipe then
             for _, input in ipairs(recipe.inputs) do
                 find(input.item)
@@ -200,7 +202,7 @@ local function planningLevels(request)
 
     local makers = {}
     for _, item in ipairs(order) do
-        local recipe = recipeFor(item)
+        local recipe = recipeFor(request, item)
         for _, other in ipairs(recipe and recipe.otherOutputs or {}) do
             makers[other.item] = makers[other.item] or {}
             table.insert(makers[other.item], item)
@@ -212,7 +214,7 @@ local function planningLevels(request)
     -- These links make sure that the Plan knows the supply of an item before it calculates the need for the item.
     -- They also put the Step that makes an other Output before the Steps that use it.
     local function links(item)
-        local recipe, linked = recipeFor(item), {}
+        local recipe, linked = recipeFor(request, item), {}
         if not recipe then
             return linked
         end
@@ -295,9 +297,8 @@ function Plan.calculate(request)
                 local stillNeeded = stillNeededFor(item)
                 usedSupply[item] = math.max(0, math.min(stillNeeded, supply[item] or 0))
                 local need = stillNeeded - (supply[item] or 0)
-                local recipes = request.recipes[item]
-                if need > 0 and recipes then
-                    local recipe = recipes[1]
+                local recipe = recipeFor(request, item)
+                if need > 0 and recipe then
                     local actions = math.ceil(need / recipe.output)
                     local steps = stepsByLevel[level]
                     local step = {
