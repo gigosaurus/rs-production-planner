@@ -1,5 +1,7 @@
 # Total the demand for each item at its Planning level, then subtract Counted stock once
 
+Amended by ADR 0010 (recipe Loops).
+
 Each item has a Planning level. This is the deepest point at which the item appears in the recipe tree. The Plan processes the items one level at a time, from the Targets downwards. For each item, the Plan adds the demand from every parent. Then it subtracts Counted stock. Then it expands the remaining amount into the Inputs of the item.
 
 A simpler recursive expansion subtracts Counted stock separately in each branch. This is wrong for two reasons:
