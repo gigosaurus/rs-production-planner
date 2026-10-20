@@ -12,6 +12,10 @@ _Avoid_: Project, job, order list
 An item and quantity that the player wants to have at the end.
 _Avoid_: Goal, request, order
 
+**Basis**:
+All the data that the plugin calculates a Plan from: the Targets, the Recipes, the stock counts, the Made counts, the skill levels, the Unlocks and the Target mode.
+_Avoid_: Request, input (an Input is a Recipe term)
+
 **Recipe**:
 One way to make items. It has Inputs, Outputs, requirements, an Action limit and an Action time.
 _Avoid_: Formula, craft

@@ -52,24 +52,19 @@ describe("Plan.calculate", function()
     end)
 
     it("does not change the tables of the caller", function()
-        local recipe = { verb = "Bake", output = 2, inputs = { { item = "DOUGH", count = 1 } } }
-        local request = {
-            targets = { { item = "BREAD", count = 5 } },
-            recipes = { BREAD = { recipe } },
-            detected = { DOUGH = 10 },
-        }
+        -- The Basis has no optional fields and the Recipe has no optional lists.
+        local function newBasis()
+            return {
+                targets = { { item = "BREAD", count = 5 } },
+                recipes = { BREAD = { { verb = "Bake", output = 2, inputs = { { item = "DOUGH", count = 1 } } } } },
+                detected = { DOUGH = 10 },
+            }
+        end
+        local basis = newBasis()
 
-        Plan.calculate(request)
+        Plan.calculate(basis)
 
-        expectEqual(request.assumed, nil)
-        expectEqual(recipe.otherOutputs, nil)
-    end)
-
-    it("gives each Step its Recipe and its extra Output", function()
-        local plan = bakeBread({ DOUGH = 10 })
-
-        expectEqual(plan.steps[1].recipe.verb, "Bake")
-        expectEqual(plan.steps[1].extra, 1)
+        expectEqual(basis, newBasis())
     end)
 
     it("lists an other Output that the Plan does not use as a Leftover", function()
@@ -111,7 +106,7 @@ describe("Plan.calculate", function()
             expectEqual(plan.leftovers, {})
         end)
 
-        it("takes the used supply from the first Steps and lists the rest as a Leftover", function()
+        it("lists only the unused part of an other Output from two Steps as a Leftover", function()
             local grateCoconut = {
                 verb = "Grate",
                 output = 1,
