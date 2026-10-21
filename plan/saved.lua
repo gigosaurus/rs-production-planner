@@ -125,12 +125,45 @@ end
 
 local CODECS = { bank = bank, assumed = assumed, reserves = reserves, unlocks = unlocks }
 
+-- The display names of all characters that have saved data, in the order that the plugin added them.
+local CHARACTERS_KEY = "global:characters"
+local characters = { version = 1, versionOf = tableVersionOf, start = empty }
+
+function characters.encode(names)
+    return { v = characters.version, characters = table.move(names, 1, #names, 1, {}) }
+end
+
+function characters.decode(value)
+    return table.move(value.characters, 1, #value.characters, 1, {})
+end
+
 local function key(name, part)
     return "char:" .. name .. ":" .. part
 end
 
 function Saved.new(store)
-    return { store = store, changed = {}, blocked = {} }
+    return { store = store, changed = {}, blocked = {}, characters = nil }
+end
+
+-- Gives the value of one key, decoded, or the start value. A key with an unknown version is blocked.
+local function load(saved, codec, loadKey, problems)
+    local value = saved.store:Get(loadKey)
+    if value == nil then
+        return codec.start()
+    end
+    if codec.versionOf(value) == codec.version then
+        return codec.decode(value)
+    end
+    saved.blocked[loadKey] = true
+    problems[#problems + 1] = { key = loadKey, kind = Saved.UNKNOWN_VERSION }
+    return codec.start()
+end
+
+-- Gives the global data, and a list of problems. Call this one time at start, before a change.
+function Saved.loadGlobal(saved)
+    local problems = {}
+    saved.characters = load(saved, characters, CHARACTERS_KEY, problems)
+    return { characters = table.move(saved.characters, 1, #saved.characters, 1, {}) }, problems
 end
 
 -- Gives the saved parts of one character, and a list of problems.
@@ -139,27 +172,25 @@ end
 function Saved.loadCharacter(saved, name)
     local parts, problems = {}, {}
     for part, codec in pairs(CODECS) do
-        local partKey = key(name, part)
-        local value = saved.store:Get(partKey)
-        if value == nil then
-            parts[part] = codec.start()
-        else
-            local version = codec.versionOf(value)
-            if version == codec.version then
-                parts[part] = codec.decode(value)
-            else
-                parts[part] = codec.start()
-                saved.blocked[partKey] = true
-                problems[#problems + 1] = { key = partKey, kind = Saved.UNKNOWN_VERSION }
-            end
-        end
+        parts[part] = load(saved, codec, key(name, part), problems)
     end
     return parts, problems
 end
 
 -- Marks a part as changed. Saved.write writes it.
+-- The first change for a character adds its name to the saved characters.
 function Saved.change(saved, name, part, value)
+    if not saved.characters then
+        error("Load the global data before a change.", 2)
+    end
     saved.changed[key(name, part)] = CODECS[part].encode(value)
+    for _, known in ipairs(saved.characters) do
+        if known == name then
+            return
+        end
+    end
+    saved.characters[#saved.characters + 1] = name
+    saved.changed[CHARACTERS_KEY] = characters.encode(saved.characters)
 end
 
 -- Call this one time in each Logic tick. It writes each changed part one time, and gives a list of problems.

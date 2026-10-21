@@ -33,11 +33,25 @@ local function fakeStore()
     return store
 end
 
+-- Gives a store in which Alice already has saved data, so that a change writes only its part.
+local function aliceStore()
+    local store = fakeStore()
+    store.values["global:characters"] = { v = 1, characters = { "Alice" } }
+    return store
+end
+
+-- Gives saved data that is ready for changes.
+local function newSaved(store)
+    local saved = Saved.new(store)
+    Saved.loadGlobal(saved)
+    return saved
+end
+
 describe("Saved data", function()
     describe("Bank snapshot", function()
         it("loads the Bank snapshot that it wrote", function()
             local store = fakeStore()
-            local saved = Saved.new(store)
+            local saved = newSaved(store)
             Saved.change(saved, "Alice", "bank", { SNAPE_GRASS = 5, COINS = 2147483647 })
             Saved.write(saved)
 
@@ -48,7 +62,7 @@ describe("Saved data", function()
 
         it("writes one line for each item after the version line", function()
             local store = fakeStore()
-            local saved = Saved.new(store)
+            local saved = newSaved(store)
             Saved.change(saved, "Alice", "bank", { SNAPE_GRASS = 5, COINS = 1200000 })
             Saved.write(saved)
 
@@ -104,7 +118,7 @@ describe("Saved data", function()
         it("does not write a key with a newer version", function()
             local store = fakeStore()
             store:Set("char:Alice:bank", "v=2\nCOINS=5\n")
-            local saved = Saved.new(store)
+            local saved = newSaved(store)
             Saved.loadCharacter(saved, "Alice")
             Saved.change(saved, "Alice", "bank", { COINS = 9 })
             Saved.write(saved)
@@ -115,8 +129,8 @@ describe("Saved data", function()
 
     describe("writes", function()
         it("writes a part that changed two times in one tick one time, with the last value", function()
-            local store = fakeStore()
-            local saved = Saved.new(store)
+            local store = aliceStore()
+            local saved = newSaved(store)
             Saved.change(saved, "Alice", "bank", { COINS = 1 })
             Saved.change(saved, "Alice", "bank", { COINS = 2 })
             Saved.write(saved)
@@ -126,25 +140,25 @@ describe("Saved data", function()
         end)
 
         it("gives no problems when each part is saved", function()
-            local saved = Saved.new(fakeStore())
+            local saved = newSaved(fakeStore())
             Saved.change(saved, "Alice", "bank", { COINS = 1 })
 
             expectEqual(Saved.write(saved), {})
         end)
 
         it("gives a problem when the store does not save a part", function()
-            local store = fakeStore()
+            local store = aliceStore()
             store.full = true
-            local saved = Saved.new(store)
+            local saved = newSaved(store)
             Saved.change(saved, "Alice", "bank", { COINS = 1 })
 
             expectEqual(Saved.write(saved), { { key = "char:Alice:bank", kind = Saved.NOT_SAVED } })
         end)
 
         it("does not try again in the next tick after the store does not save a part", function()
-            local store = fakeStore()
+            local store = aliceStore()
             store.full = true
-            local saved = Saved.new(store)
+            local saved = newSaved(store)
             Saved.change(saved, "Alice", "bank", { COINS = 1 })
             Saved.write(saved)
             Saved.write(saved)
@@ -153,9 +167,9 @@ describe("Saved data", function()
         end)
 
         it("tries again after the next change to the part", function()
-            local store = fakeStore()
+            local store = aliceStore()
             store.full = true
-            local saved = Saved.new(store)
+            local saved = newSaved(store)
             Saved.change(saved, "Alice", "bank", { COINS = 1 })
             Saved.write(saved)
             store.full = false
@@ -175,7 +189,7 @@ describe("Saved data", function()
 
         it("loads the Assumed stock that it wrote", function()
             local store = fakeStore()
-            local saved = Saved.new(store)
+            local saved = newSaved(store)
             Saved.change(saved, "Alice", "assumed", assumedState())
             Saved.write(saved)
 
@@ -186,7 +200,7 @@ describe("Saved data", function()
 
         it("writes each count as a decimal string", function()
             local store = fakeStore()
-            local saved = Saved.new(store)
+            local saved = newSaved(store)
             Saved.change(saved, "Alice", "assumed", assumedState())
             Saved.write(saved)
 
@@ -226,7 +240,7 @@ describe("Saved data", function()
     describe("Reserves", function()
         it("loads the Reserves that it wrote", function()
             local store = fakeStore()
-            local saved = Saved.new(store)
+            local saved = newSaved(store)
             Saved.change(saved, "Alice", "reserves", { COINS = 20000001, SNAPE_GRASS = 5 })
             Saved.write(saved)
 
@@ -237,7 +251,7 @@ describe("Saved data", function()
 
         it("writes each count as a decimal string", function()
             local store = fakeStore()
-            local saved = Saved.new(store)
+            local saved = newSaved(store)
             Saved.change(saved, "Alice", "reserves", { SNAPE_GRASS = 5 })
             Saved.write(saved)
 
@@ -254,7 +268,7 @@ describe("Saved data", function()
     describe("Unlocks", function()
         it("loads the Unlocks that it wrote", function()
             local store = fakeStore()
-            local saved = Saved.new(store)
+            local saved = newSaved(store)
             Saved.change(saved, "Alice", "unlocks", { ZAROS_GODSWORD = true })
             Saved.write(saved)
 
@@ -265,7 +279,7 @@ describe("Saved data", function()
 
         it("writes the Unlocks as a set", function()
             local store = fakeStore()
-            local saved = Saved.new(store)
+            local saved = newSaved(store)
             Saved.change(saved, "Alice", "unlocks", { ZAROS_GODSWORD = true })
             Saved.write(saved)
 
@@ -276,6 +290,60 @@ describe("Saved data", function()
             local parts = Saved.loadCharacter(Saved.new(fakeStore()), "Alice")
 
             expectEqual(parts.unlocks, {})
+        end)
+    end)
+
+    describe("characters", function()
+        it("gives no characters when the plugin has saved no data", function()
+            local globals, problems = Saved.loadGlobal(Saved.new(fakeStore()))
+
+            expectEqual(globals.characters, {})
+            expectEqual(problems, {})
+        end)
+
+        it("adds a character the first time that it saves data for it", function()
+            local store = fakeStore()
+            local saved = Saved.new(store)
+            Saved.loadGlobal(saved)
+            Saved.change(saved, "Alice", "reserves", {})
+            Saved.write(saved)
+
+            expectEqual(store.values["global:characters"], { v = 1, characters = { "Alice" } })
+        end)
+
+        it("adds each character one time, after the characters that it saved before", function()
+            local store = fakeStore()
+            store:Set("global:characters", { v = 1, characters = { "Bob" } })
+            local saved = Saved.new(store)
+            Saved.loadGlobal(saved)
+            Saved.change(saved, "Alice", "reserves", {})
+            Saved.change(saved, "Bob", "reserves", {})
+            Saved.change(saved, "Alice", "unlocks", {})
+            Saved.write(saved)
+
+            local globals = Saved.loadGlobal(Saved.new(store))
+
+            expectEqual(globals.characters, { "Bob", "Alice" })
+        end)
+
+        it("does not add a character when the version is newer, but saves its data", function()
+            local store = fakeStore()
+            store:Set("global:characters", { v = 2, characters = { "Bob" } })
+            local saved = Saved.new(store)
+            local _, problems = Saved.loadGlobal(saved)
+            Saved.change(saved, "Alice", "reserves", { COINS = 1 })
+            Saved.write(saved)
+
+            expectEqual(problems, { { key = "global:characters", kind = Saved.UNKNOWN_VERSION } })
+            expectEqual(store.values["global:characters"], { v = 2, characters = { "Bob" } })
+            expectEqual(store.values["char:Alice:reserves"], { v = 1, reserves = { COINS = "1" } })
+        end)
+
+        it("gives an error for a change before the global data is loaded", function()
+            local ok, message = pcall(Saved.change, Saved.new(fakeStore()), "Alice", "reserves", {})
+
+            expectEqual(ok, false)
+            expectEqual(message:find("Load the global data before a change.", 1, true) ~= nil, true)
         end)
     end)
 end)
