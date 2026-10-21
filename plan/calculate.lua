@@ -245,16 +245,9 @@ local function findNext(basis, steps)
     end
 end
 
--- A data error in the Recipes. The search is recursive, so no error level can point to the caller.
--- Plan.calculate catches the error and stops again at the line of its caller.
-local function recipeError(message)
-    error({ recipeError = message })
-end
-
--- Finds the Planning level of each item (ADR 0002).
+-- Finds each item in the Plan, through Inputs and other Outputs.
 -- The table order holds each item once, in the sequence that the search finds it.
-local function planningLevels(basis)
-    -- Find each item in the Plan, through Inputs and other Outputs.
+local function itemsInPlan(basis)
     local order, inPlan = {}, {}
     local function find(item)
         if inPlan[item] then
@@ -264,11 +257,6 @@ local function planningLevels(basis)
         order[#order + 1] = item
         local recipe = recipeFor(basis, item)
         if recipe then
-            -- Each Recipe that the Plan uses must have an Action limit (issue 2, section 1).
-            -- The check does not depend on stock, so that a data error shows at once.
-            if not recipe.actionLimit then
-                recipeError("The Recipe for " .. item .. " has no Action limit.")
-            end
             for _, input in ipairs(recipe.inputs) do
                 find(input.item)
             end
@@ -280,7 +268,23 @@ local function planningLevels(basis)
     for _, target in ipairs(basis.targets) do
         find(target.item)
     end
+    return order
+end
 
+-- Each Recipe that the Plan uses must have an Action limit (issue 2, section 1).
+-- The check does not depend on stock, so that a data error shows at once.
+local function checkActionLimits(basis, order)
+    for _, item in ipairs(order) do
+        local recipe = recipeFor(basis, item)
+        if recipe and not recipe.actionLimit then
+            error("The Recipe for " .. item .. " has no Action limit.", 3)
+        end
+    end
+end
+
+-- Finds the Planning level of each item (ADR 0002).
+-- When the links contain a Loop, it gives nil and the items of the Loop.
+local function planningLevels(basis, order)
     local makers = {}
     for _, item in ipairs(order) do
         local recipe = recipeFor(basis, item)
@@ -321,7 +325,7 @@ local function planningLevels(basis)
             if onPath == item then
                 local loop = { table.unpack(path, index) }
                 loop[#loop + 1] = item
-                recipeError("The Recipes contain a Loop: " .. table.concat(loop, ", ") .. ".")
+                return loop
             end
         end
         if levels[item] and levels[item] >= depth then
@@ -330,14 +334,20 @@ local function planningLevels(basis)
         levels[item] = depth
         path[#path + 1] = item
         for _, linked in ipairs(links(item)) do
-            visit(linked, depth + 1)
+            local loop = visit(linked, depth + 1)
+            if loop then
+                return loop
+            end
         end
         path[#path] = nil
     end
     for _, target in ipairs(basis.targets) do
-        visit(target.item, 0)
+        local loop = visit(target.item, 0)
+        if loop then
+            return nil, loop
+        end
     end
-    return levels, order
+    return levels
 end
 
 local function deepestLevel(levels)
@@ -493,14 +503,12 @@ end
 function Plan.calculate(basis)
     checkBasis(basis)
     basis = withDefaults(basis)
-    local ok, levels, order = pcall(planningLevels, basis)
-    if not ok then
-        local err = levels
-        if type(err) == "table" and err.recipeError then
-            error(err.recipeError, 2)
-        end
-        -- Any other error is a fault in this module. It keeps its own line.
-        error(err, 0)
+    local order = itemsInPlan(basis)
+    checkActionLimits(basis, order)
+    local levels, loop = planningLevels(basis, order)
+    if not levels then
+        -- A Loop is not a data error (ADR 0010). Until issue 7 is done, the Plan cannot calculate one.
+        error("The Plan cannot calculate a Loop: " .. table.concat(loop, ", ") .. ".", 2)
     end
     local totals = targetTotals(basis)
     local steps, extraOf, usedSupply, shortBy = stepsFor(basis, levels, order, totals)

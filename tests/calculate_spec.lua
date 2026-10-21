@@ -535,7 +535,34 @@ describe("Plan.calculate", function()
         })
 
         expectEqual(ok, false)
-        expectEqual(err, "The Recipes contain a Loop: BUCKET_OF_WATER, BUCKET, BUCKET_OF_WATER.")
+        expectEqual(err, "The Plan cannot calculate a Loop: BUCKET_OF_WATER, BUCKET, BUCKET_OF_WATER.")
+    end)
+
+    it("gives the line of the caller in a Loop error", function()
+        local ok, err = pcall(function()
+            Plan.calculate({
+                targets = { { item = "BUCKET_OF_WATER", count = 5 } },
+                recipes = {
+                    BUCKET_OF_WATER = {
+                        { verb = "Fill", output = 1, actionLimit = 60, inputs = { { item = "BUCKET", count = 1 } } },
+                    },
+                    BUCKET = {
+                        {
+                            verb = "Empty",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "BUCKET_OF_WATER", count = 1 } },
+                        },
+                    },
+                },
+                targetMode = Plan.HAVE,
+                detected = {},
+            })
+        end)
+
+        expectEqual(ok, false)
+        expectEqual(type(err), "string")
+        expectEqual(err:find("calculate_spec.lua:%d+: The Plan cannot calculate a Loop: ") ~= nil, true)
     end)
 
     -- Each Recipe must have an Action limit (issue 2, section 1).
@@ -581,6 +608,7 @@ describe("Plan.calculate", function()
         end)
 
         expectEqual(ok, false)
+        expectEqual(type(err), "string")
         expectEqual(err:find("calculate_spec.lua:%d+: The Recipe for BREAD has no Action limit%.") ~= nil, true)
     end)
 

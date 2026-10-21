@@ -45,7 +45,7 @@ The first Step in the production order that the player can usefully do now with 
 _Avoid_: Current step, active step
 
 **Former step**:
-A Step that was in the previous calculation of the Plan and is not in the new one. The player can have done it. Or the Plan does not need it now.
+A Step that was in the previous calculation of the Plan and is not in the new one. Possible causes: the player did the Step, or the Plan does not need it now.
 _Avoid_: Finished step, completed step, removed step
 
 **Planning level**:
@@ -69,7 +69,7 @@ Output that the Plan does not need. It occurs when Steps are rounded up to whole
 _Avoid_: Surplus, excess, waste
 
 **Batch hint**:
-The number of actions of a Step that the player can do with one full Inventory. The Inventory space and the Action limit decide it. When one action does not fit in the Inventory, the Step has no Batch hint.
+The number of actions of a Step that the player can do with one full Inventory. The Inventory space and the Action limit decide it. When one action does not fit in the Inventory, the Step has no Batch hint. Then the Next step check uses all remaining actions of the Step.
 _Avoid_: Inventory size, load
 
 **Action limit**:
