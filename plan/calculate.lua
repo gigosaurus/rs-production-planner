@@ -536,6 +536,12 @@ local function stepsFor(basis, levels, loopOf, order, totals)
 
     local demand = copyOf(totals)
 
+    -- seeded is the Seed Shortage of each item. The Steps count it as stock (ADR 0010).
+    local seeded = {}
+    local function ownedFor(item)
+        return countedStock(basis, item) + (seeded[item] or 0)
+    end
+
     -- In Make, the Made count covers a Target. Counted stock of the Target item does not (ADR 0009).
     local function stillNeededFor(item)
         if isMake(basis) and totals[item] then
@@ -545,9 +551,9 @@ local function stepsFor(basis, levels, loopOf, order, totals)
             if intermediateDemand == 0 then
                 return targetPart
             end
-            return targetPart + math.max(0, intermediateDemand - countedStock(basis, item))
+            return targetPart + math.max(0, intermediateDemand - ownedFor(item))
         end
-        return (demand[item] or 0) - countedStock(basis, item)
+        return (demand[item] or 0) - ownedFor(item)
     end
 
     -- Calculates the Step for an item from the current demand and supply. It changes no table.
@@ -592,6 +598,35 @@ local function stepsFor(basis, levels, loopOf, order, totals)
         return result and result.step and result.step.actions or 0
     end
 
+    local function canDoOneAction(item)
+        for _, input in ipairs(recipeFor(basis, item).inputs) do
+            if ownedFor(input.item) < input.count then
+                return false
+            end
+        end
+        return true
+    end
+
+    -- A Loop needs stock to start: the Seed. It is the Inputs of one action of the first Step.
+    -- The Loop needs no Seed when the player can do one action of any Step of the Loop.
+    -- Gives true when it adds a Seed Shortage.
+    local function addSeed(sorted)
+        for _, item in ipairs(sorted) do
+            if canDoOneAction(item) then
+                return false
+            end
+        end
+        local added = false
+        for _, input in ipairs(sorted[1] and recipeFor(basis, sorted[1]).inputs or {}) do
+            local short = input.count - ownedFor(input.item)
+            if short > 0 then
+                seeded[input.item] = (seeded[input.item] or 0) + short
+                added = true
+            end
+        end
+        return added
+    end
+
     -- Calculates all items of a Loop again and again, until no amount changes (ADR 0010).
     -- Each pass uses the Steps of the pass before. It gives false when the Loop reaches the pass limit.
     local function planLoop(loop, level)
@@ -602,16 +637,21 @@ local function stepsFor(basis, levels, loopOf, order, totals)
                 nextResults[item] = planItem(item)
                 changed = changed or actionsOf(nextResults[item]) ~= actionsOf(results[item])
             end
-            if not changed then
-                local withSteps = {}
+            local withSteps = {}
+            for _, item in ipairs(loop) do
+                if nextResults[item].step then
+                    withSteps[#withSteps + 1] = item
+                end
+            end
+            local sorted = not changed and loopOrder(basis, withSteps, totals, order)
+            -- A new Seed Shortage changes the stock. Then the Loop needs more passes.
+            if sorted and not addSeed(sorted) then
                 for _, item in ipairs(loop) do
-                    if nextResults[item].step then
-                        withSteps[#withSteps + 1] = item
-                    else
+                    if not nextResults[item].step then
                         record(item, nextResults[item], level)
                     end
                 end
-                for _, item in ipairs(loopOrder(basis, withSteps, totals, order)) do
+                for _, item in ipairs(sorted) do
                     record(item, nextResults[item], level)
                 end
                 return true
@@ -638,6 +678,11 @@ local function stepsFor(basis, levels, loopOf, order, totals)
                 error("The Plan cannot calculate a Loop: " .. table.concat(loop, ", ") .. ", " .. loop[1] .. ".", 3)
             end
         end
+    end
+
+    -- The Shortage of an item is its Seed part and the need that remains after it.
+    for item, count in pairs(seeded) do
+        shortBy[item] = (shortBy[item] or 0) + count
     end
 
     -- Production order starts at the deepest level (ADR 0002).

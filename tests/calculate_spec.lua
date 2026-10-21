@@ -1435,6 +1435,28 @@ describe("Plan.calculate", function()
             expectEqual(plan.shortages, {})
         end)
 
+        -- The Seed is the Inputs of one action of X. The Steps count the Seed Shortage as stock.
+        it("gives a Shortage of the Seed that the player does not own", function()
+            local plan = loopPlan({ B = 10 })
+
+            expectEqual(plan.shortages, { { item = "A", count = 1 } })
+            expectEqual(stepFor(plan, "D").actions, 10)
+            expectEqual(stepFor(plan, "A").actions, 9)
+        end)
+
+        it("adds the Seed to the Shortage of a Raw material", function()
+            local plan = loopPlan({})
+
+            expectEqual(plan.shortages, { { item = "A", count = 1 }, { item = "B", count = 10 } })
+        end)
+
+        -- R can start with the C.
+        it("gives no Seed Shortage when the player can do one action of a Step of the Loop", function()
+            local plan = loopPlan({ B = 10, C = 1 })
+
+            expectEqual(plan.shortages, {})
+        end)
+
         local function itemsOf(plan)
             local items = {}
             for _, step in ipairs(plan.steps) do
