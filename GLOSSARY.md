@@ -9,11 +9,11 @@ The one current set of Targets, with the Steps, Shortages and Leftovers that the
 _Avoid_: Project, job, order list
 
 **Target**:
-An item and quantity that the player wants to have at the end. When two Targets are for the same item, the Plan aims for the larger quantity, not the sum. The same items count for each Target.
+An item, a quantity and a Target mode. When two Targets are for the same item, the same items count for each Target.
 _Avoid_: Goal, request, order
 
 **Basis**:
-All the data that the plugin calculates a Plan from: the Targets, the Recipes, the stock counts, the Made counts, the skill levels, the Unlocks and the Target mode.
+All the data that the plugin calculates a Plan from: the Targets, the Recipes, the stock counts, the Made counts, the skill levels and the Unlocks.
 _Avoid_: Request, input (an Input is a Recipe term)
 
 **Recipe**:
@@ -81,23 +81,23 @@ The number of game ticks that one action of a Recipe takes.
 _Avoid_: Duration, speed
 
 **Complete**:
-The state of a Plan when Counted stock covers each Target. In Make, the state of a Plan when the Made count of each Target reaches its amount. A Make Plan then stays Complete.
+The state of a Plan when each Target is met. A Have Target is met while Counted stock covers it. A Make Target is met when its Made count reaches its quantity, and then stays met.
 _Avoid_: Done, finished
 
 **Target mode**:
-The setting of a Plan that decides what the Targets mean. Its options are Have and Make.
+The setting of a Target that decides what its quantity means. Its options are Have and Make.
 _Avoid_: Plan mode, goal mode
 
 **Have**:
-The Target mode in which the Plan aims to have each Target in Counted stock.
+The Target mode in which the player aims to have the quantity in Counted stock.
 _Avoid_: Keep, stock mode
 
 **Make**:
-The Target mode in which the Plan aims to make each Target amount. It uses the Made count, not Counted stock, for the Targets.
+The Target mode in which the player aims to make the quantity. The Target uses its Made count, not Counted stock.
 _Avoid_: Produce, craft mode
 
 **Made count**:
-The number of a Target that the player made since the Plan changed to Make. The plugin counts rises in Detected stock and subtracts known other sources. The player can edit it. It never falls on its own.
+The number of the item of a Target that the player made since the Target changed to Make. The plugin counts rises in Detected stock and subtracts known other sources. The player can edit it. It never falls on its own.
 _Avoid_: Progress, produced count, done count
 
 **Made count scope**:

@@ -1,6 +1,7 @@
 # Target mode Make stores a Made count
 
 Amends ADR 0003.
+Amended by ADR 0012 (Target mode for each Target).
 
 A Plan has a Target mode: Have or Make. Have is ADR 0003. Make is for a player who sells products during the Plan. For example, the player makes 100 Shark but sells each inventory to buy more Raw shark. Their Counted stock of Shark never gets near 100.
 
