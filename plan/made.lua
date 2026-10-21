@@ -2,15 +2,19 @@
 -- It does not use the game API. Tests run it outside the game client.
 -- states maps each displayName to the state of that character (ADR 0008).
 -- Each state is a plain table, so the plugin can save it with PersistentDB.
+local Validate = require("plan/validate")
+
 local Made = {}
 
 -- Made count scope
 Made.CHARACTER = "CHARACTER"
 Made.ALL = "ALL"
+local SCOPES = { [Made.CHARACTER] = true, [Made.ALL] = true }
 
 -- GE offer type. The adapter maps GrandExchangeOfferType to these.
 Made.BUY = "BUY"
 Made.SELL = "SELL"
+local OFFER_TYPES = { [Made.BUY] = true, [Made.SELL] = true }
 
 -- GE offer stage. The adapter maps GrandExchangeOfferStage to these.
 Made.EMPTY = "EMPTY"
@@ -44,16 +48,16 @@ local function character(states, name)
 end
 
 local function checkScope(scope)
-    if scope ~= Made.CHARACTER and scope ~= Made.ALL then
+    if not Validate.isOneOf(scope, SCOPES) then
         error("The Made count scope " .. tostring(scope) .. " is unknown.", 3)
     end
 end
 
 local function checkOffer(offer)
-    if offer.type ~= Made.BUY and offer.type ~= Made.SELL then
+    if not Validate.isOneOf(offer.type, OFFER_TYPES) then
         error("The GE offer type " .. tostring(offer.type) .. " is unknown.", 4)
     end
-    if not STAGES[offer.stage] then
+    if not Validate.isOneOf(offer.stage, STAGES) then
         error("The GE offer stage " .. tostring(offer.stage) .. " is unknown.", 4)
     end
 end

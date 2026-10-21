@@ -25,3 +25,21 @@ describe("Validate.isPositiveInteger", function()
         end)
     end
 end)
+
+describe("Validate.isOneOf", function()
+    local set = { BUY = true, SELL = true }
+
+    it("accepts a value in the set", function()
+        expectEqual(Validate.isOneOf("SELL", set), true)
+    end)
+
+    for _, case in ipairs({
+        { name = "a value not in the set", value = "SWAP" },
+        { name = "a value in a different case", value = "buy" },
+        { name = "nil", value = nil },
+    }) do
+        it("rejects " .. case.name, function()
+            expectEqual(Validate.isOneOf(case.value, set), false)
+        end)
+    end
+end)
