@@ -5,6 +5,7 @@ local Saved = {}
 
 -- Problem kinds
 Saved.UNKNOWN_VERSION = "UNKNOWN_VERSION"
+Saved.NOT_SAVED = "NOT_SAVED"
 
 -- The Bank snapshot is one string: a version line, then one line `<name>=<count>` for each item.
 local bank = { version = 1 }
@@ -69,14 +70,17 @@ function Saved.change(saved, name, part, value)
     saved.changed[key(name, part)] = CODECS[part].encode(value)
 end
 
--- Call this one time in each Logic tick. It writes each changed part one time.
+-- Call this one time in each Logic tick. It writes each changed part one time, and gives a list of problems.
+-- A part that the store does not save is not marked again. Its next change tries again (ADR 0011).
 function Saved.write(saved)
+    local problems = {}
     for changedKey, value in pairs(saved.changed) do
-        if not saved.blocked[changedKey] then
-            saved.store:Set(changedKey, value)
+        if not saved.blocked[changedKey] and not saved.store:Set(changedKey, value) then
+            problems[#problems + 1] = { key = changedKey, kind = Saved.NOT_SAVED }
         end
     end
     saved.changed = {}
+    return problems
 end
 
 return Saved

@@ -1,7 +1,7 @@
 local Saved = require("plan/saved")
 
 -- Acts as PersistentDB (docs/client-behaviour.md): Set copies the value, each Get gives a new copy,
--- and each number has float32 precision.
+-- and each number has float32 precision. When full is true, Set saves nothing and returns false.
 local function fakeStore()
     local values = {}
     local function copy(value)
@@ -17,11 +17,15 @@ local function fakeStore()
         end
         return result
     end
-    local store = { values = values }
+    local store = { values = values, sets = 0, full = false }
     function store.Get(_, key)
         return copy(values[key])
     end
     function store.Set(_, key, value)
+        store.sets = store.sets + 1
+        if store.full then
+            return false
+        end
         values[key] = copy(value)
         return true
     end
@@ -105,6 +109,59 @@ describe("Saved data", function()
             Saved.write(saved)
 
             expectEqual(store.values["char:Alice:bank"], "v=2\nCOINS=5\n")
+        end)
+    end)
+
+    describe("writes", function()
+        it("writes a part that changed two times in one tick one time, with the last value", function()
+            local store = fakeStore()
+            local saved = Saved.new(store)
+            Saved.change(saved, "Alice", "bank", { COINS = 1 })
+            Saved.change(saved, "Alice", "bank", { COINS = 2 })
+            Saved.write(saved)
+
+            expectEqual(store.sets, 1)
+            expectEqual(store.values["char:Alice:bank"], "v=1\nCOINS=2\n")
+        end)
+
+        it("gives no problems when each part is saved", function()
+            local saved = Saved.new(fakeStore())
+            Saved.change(saved, "Alice", "bank", { COINS = 1 })
+
+            expectEqual(Saved.write(saved), {})
+        end)
+
+        it("gives a problem when the store does not save a part", function()
+            local store = fakeStore()
+            store.full = true
+            local saved = Saved.new(store)
+            Saved.change(saved, "Alice", "bank", { COINS = 1 })
+
+            expectEqual(Saved.write(saved), { { key = "char:Alice:bank", kind = Saved.NOT_SAVED } })
+        end)
+
+        it("does not try again in the next tick after the store does not save a part", function()
+            local store = fakeStore()
+            store.full = true
+            local saved = Saved.new(store)
+            Saved.change(saved, "Alice", "bank", { COINS = 1 })
+            Saved.write(saved)
+            Saved.write(saved)
+
+            expectEqual(store.sets, 1)
+        end)
+
+        it("tries again after the next change to the part", function()
+            local store = fakeStore()
+            store.full = true
+            local saved = Saved.new(store)
+            Saved.change(saved, "Alice", "bank", { COINS = 1 })
+            Saved.write(saved)
+            store.full = false
+            Saved.change(saved, "Alice", "bank", { COINS = 2 })
+            Saved.write(saved)
+
+            expectEqual(store.values["char:Alice:bank"], "v=1\nCOINS=2\n")
         end)
     end)
 end)
