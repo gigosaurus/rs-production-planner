@@ -1,6 +1,7 @@
 # Save data for each character, but keep Plans global
 
 Supersedes ADR 0006.
+Amended by ADR 0011.
 
 The plugin keys saved data by `displayName`. Data that is a fact about one character, or that the plugin measures on one character, is saved for each character:
 
