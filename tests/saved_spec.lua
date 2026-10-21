@@ -1,5 +1,6 @@
 local Assumed = require("plan/assumed")
 local Made = require("plan/made")
+local Plan = require("plan/calculate")
 local Saved = require("plan/saved")
 
 -- Acts as PersistentDB (docs/client-behaviour.md): Set copies the value, each Get gives a new copy,
@@ -388,6 +389,43 @@ describe("Saved data", function()
 
             expectEqual(ok, false)
             expectEqual(message:find("Load the global data before a change.", 1, true) ~= nil, true)
+        end)
+    end)
+
+    describe("global settings", function()
+        it("starts in Have, with the Made counts of this character", function()
+            local globals = Saved.loadGlobal(Saved.new(fakeStore()))
+
+            expectEqual(globals.settings, { targetMode = Plan.HAVE, madeCountScope = Made.CHARACTER })
+        end)
+
+        it("loads the settings that it wrote", function()
+            local store = fakeStore()
+            local saved = newSaved(store)
+            Saved.changeGlobal(saved, "settings", { targetMode = Plan.MAKE, madeCountScope = Made.ALL })
+            Saved.write(saved)
+
+            local globals = Saved.loadGlobal(Saved.new(store))
+
+            expectEqual(globals.settings, { targetMode = Plan.MAKE, madeCountScope = Made.ALL })
+        end)
+
+        it("writes the settings with a version", function()
+            local store = fakeStore()
+            local saved = newSaved(store)
+            Saved.changeGlobal(saved, "settings", { targetMode = Plan.MAKE, madeCountScope = Made.ALL })
+            Saved.write(saved)
+
+            expectEqual(store.values["global:settings"], { v = 1, targetMode = Plan.MAKE, madeCountScope = Made.ALL })
+        end)
+
+        it("gives the start value of a setting that the saved data does not have", function()
+            local store = fakeStore()
+            store:Set("global:settings", { v = 1, targetMode = Plan.MAKE })
+
+            local globals = Saved.loadGlobal(Saved.new(store))
+
+            expectEqual(globals.settings, { targetMode = Plan.MAKE, madeCountScope = Made.CHARACTER })
         end)
     end)
 

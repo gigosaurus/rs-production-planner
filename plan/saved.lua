@@ -3,6 +3,7 @@
 -- The adapter gives it a store with Get and Set, for example PersistentDB.
 local Assumed = require("plan/assumed")
 local Made = require("plan/made")
+local Plan = require("plan/calculate")
 
 local Saved = {}
 
@@ -177,7 +178,40 @@ function plan.decode(value)
     return { targets = targets }
 end
 
-local GLOBAL_CODECS = { plan = plan }
+-- Gives a codec for a table of settings. Each setting that the saved data does not have gets its start value.
+-- A new setting thus needs no new version.
+local function settingsCodec(startValues)
+    local codec = { version = 1, versionOf = tableVersionOf }
+    function codec.start()
+        local settings = {}
+        for name, value in pairs(startValues) do
+            settings[name] = value
+        end
+        return settings
+    end
+    function codec.encode(settings)
+        local value = { v = codec.version }
+        for name in pairs(startValues) do
+            value[name] = settings[name]
+        end
+        return value
+    end
+    function codec.decode(value)
+        local settings = codec.start()
+        for name in pairs(startValues) do
+            if value[name] ~= nil then
+                settings[name] = value[name]
+            end
+        end
+        return settings
+    end
+    return codec
+end
+
+local GLOBAL_CODECS = {
+    plan = plan,
+    settings = settingsCodec({ targetMode = Plan.HAVE, madeCountScope = Made.CHARACTER }),
+}
 
 local function globalKey(part)
     return "global:" .. part
