@@ -15,17 +15,17 @@ ADR 0007 gives the inventory facts: `isValid` and not `valid`, empty slots with 
 
 ## PersistentDB
 
-Tested on 2026-10-21 with `probes/persistentdb-probe` and `probes/persistentdb-limits-probe`. The data survived `prl` and a full restart of the client.
+Tested on 2026-10-21 with `probes/persistentdb-probe` and `probes/persistentdb-limits-probe`. The data survived `prl`. It also survived a full restart of the client. The probe cannot detect a restart, so the restart fact comes from the person who ran the probe.
 
 ### Numbers
 
-PersistentDB saves numbers as 32-bit floats. `SetInt` saves a 32-bit signed integer. (`probes/persistentdb-limits-probe`)
+PersistentDB saves numbers as 32-bit floats. (`probes/persistentdb-limits-probe`)
 
 - An untyped `Set` of a number gives a float back, with float32 precision. `42` becomes `42.0`. `16777217` becomes `16777216.0`. `0.1` becomes `0.10000000149011612`.
-- In a table, numbers also have float32 precision. Integers are exact up to 2^24 (16,777,216) only. `16777217` becomes `16777216`. A whole number below 2^31 comes back as an integer. From 2^31 it comes back as a float.
-- `SetInt` and `GetInt` are exact from -2,147,483,648 to 2,147,483,647. Values outside this range wrap. `SetInt` still returns `true`. `2^31` becomes `-2^31`, and `2^32` becomes `0`.
+- In a table, numbers also have float32 precision. Integers are exact up to 2^24 (16,777,216) only. `16777217` becomes `16777216`. The client rounds each number to float32 first. When the rounded whole number is below 2^31, it comes back as an integer. Else it comes back as a float. `2147483647` rounds to 2^31, so it comes back as `2147483648.0`.
+- `SetInt` and `GetInt` are not in the API reference. Do not use them in plugin code (ADR 0007). The probe found that they are exact from -2,147,483,648 to 2,147,483,647. Values outside this range wrap. `SetInt` still returns `true`. `2^31` becomes `-2^31`, and `2^32` becomes `0`.
 - A string keeps an integer exact. `"9007199254740993"` comes back unchanged.
-- Do not save a count above 16,777,216 as a number in a table. Save it as a string, or save it with `SetInt` at the top level if it is not more than 2,147,483,647.
+- Do not save a count above 16,777,216 as a number in a table. Save it as a string.
 
 ### Keys in a table
 
@@ -48,5 +48,5 @@ PersistentDB saves numbers as 32-bit floats. `SetInt` saves a 32-bit signed inte
 - `Set` copies the table. Each `Get` returns a new table.
 - `Set` can change the type of a key. A key that held an integer can then hold a table.
 - `IterateEntries` returns `true`, not the number of entries.
-- `GetInt`, `SetInt`, `GetStructuredData` and `SetStructuredData` exist. `PersistentDB` is a userdata.
+- `GetInt`, `SetInt`, `GetStructuredData` and `SetStructuredData` exist, but they are not in the API reference. Do not use them. `PersistentDB` is a userdata.
 - The first version of the probe crashed the client on `pon`. That version called `pcall(PersistentDB.Set, PersistentDB, ...)` and read `PersistentDB.GetFloat`. The second version did neither and did not crash. We did not find the cause. Call the methods with `:`, inside a Lua function.

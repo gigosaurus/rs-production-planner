@@ -5,6 +5,8 @@
 -- Phase 1 (pon): writes each case and reads it back at once.
 -- Phase 2 (prl, then pon): reads each case again, then deletes the probe keys.
 -- The data is isolated to this probe plugin. The planner data is safe.
+-- Each phase runs in one Lua call. The client stops a call after 1000 ms, so a slow phase can stop early.
+-- The probe ran to the end in client 950-1. For new tests, use probes/persistentdb-limits-probe: it runs one step in each tick.
 
 local PREFIX = "probe:"
 local PHASE_KEY = PREFIX .. "phase"
@@ -315,10 +317,14 @@ local function phase2()
             return false
         end)
         -- Keep the crash list, so the report below stays true.
+        local deleted = 0
         for _, k in ipairs(keys) do
-            if k ~= CRASHED_KEY then PersistentDB:Delete(k) end
+            if k ~= CRASHED_KEY then
+                PersistentDB:Delete(k)
+                deleted = deleted + 1
+            end
         end
-        say("Deleted", #keys - 1, "keys.")
+        say("Deleted", deleted, "keys.")
     end)
     say("Crashed steps (all runs):", crashedText == "" and "none" or crashedText:gsub("\n", ", "))
     PersistentDB:Delete(CRASHED_KEY)

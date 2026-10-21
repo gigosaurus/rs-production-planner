@@ -47,8 +47,10 @@ local function fits(value)
     return ok == true
 end
 
--- Largest n in [lo, hi] where fits(build(n)). lo must fit, hi + 1 must not.
+-- Largest n in [lo, hi] where fits(build(n)). hi + 1 must not fit.
+-- When lo does not fit, it says so. A wrong lo then cannot show as the limit.
 local function largest(lo, hi, build)
+    if not fits(build(lo)) then return "none: lo = " .. lo .. " does not fit" end
     while lo < hi do
         local mid = (lo + hi + 1) // 2
         if fits(build(mid)) then lo = mid else hi = mid - 1 end
@@ -163,6 +165,7 @@ local function checkRestart()
     local int = PersistentDB:GetInt(P .. "markerInt")
     local t = PersistentDB:Get(P .. "markerTable")
     local ok = int == 7 and type(t) == "table" and t.n == 3 and t.a and t.a.b == "c"
+    -- The probe cannot tell a restart from prl. The person who runs it must restart the client.
     say("After restart: markerInt =", show(int), "markerTable =", type(t), ok and "SURVIVED" or "LOST OR CHANGED")
     local keys = {}
     PersistentDB:IterateEntries(function(k)
