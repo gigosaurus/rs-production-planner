@@ -65,4 +65,46 @@ describe("Saved data", function()
             expectEqual(parts.bank, nil)
         end)
     end)
+
+    describe("versions", function()
+        it("gives no problems for a key at a known version", function()
+            local store = fakeStore()
+            store:Set("char:Alice:bank", "v=1\nCOINS=5\n")
+
+            local _, problems = Saved.loadCharacter(Saved.new(store), "Alice")
+
+            expectEqual(problems, {})
+        end)
+
+        it("does not read a key with a newer version", function()
+            local store = fakeStore()
+            store:Set("char:Alice:bank", "v=2\nCOINS=5\n")
+
+            local parts, problems = Saved.loadCharacter(Saved.new(store), "Alice")
+
+            expectEqual(parts.bank, nil)
+            expectEqual(problems, { { key = "char:Alice:bank", kind = Saved.UNKNOWN_VERSION } })
+        end)
+
+        it("does not read a key with no version", function()
+            local store = fakeStore()
+            store:Set("char:Alice:bank", "COINS=5\n")
+
+            local parts, problems = Saved.loadCharacter(Saved.new(store), "Alice")
+
+            expectEqual(parts.bank, nil)
+            expectEqual(problems, { { key = "char:Alice:bank", kind = Saved.UNKNOWN_VERSION } })
+        end)
+
+        it("does not write a key with a newer version", function()
+            local store = fakeStore()
+            store:Set("char:Alice:bank", "v=2\nCOINS=5\n")
+            local saved = Saved.new(store)
+            Saved.loadCharacter(saved, "Alice")
+            Saved.change(saved, "Alice", "bank", { COINS = 9 })
+            Saved.write(saved)
+
+            expectEqual(store.values["char:Alice:bank"], "v=2\nCOINS=5\n")
+        end)
+    end)
 end)

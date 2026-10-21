@@ -3,8 +3,15 @@
 -- The adapter gives it a store with Get and Set, for example PersistentDB.
 local Saved = {}
 
+-- Problem kinds
+Saved.UNKNOWN_VERSION = "UNKNOWN_VERSION"
+
 -- The Bank snapshot is one string: a version line, then one line `<name>=<count>` for each item.
-local bank = {}
+local bank = { version = 1 }
+
+function bank.versionOf(text)
+    return math.tointeger(tonumber(text:match("^v=(%d+)\n")))
+end
 
 function bank.encode(snapshot)
     local names = {}
@@ -21,10 +28,8 @@ end
 
 function bank.decode(text)
     local snapshot = {}
-    for name, count in text:gmatch("([^\n]*)=(%d+)\n") do
-        if name ~= "v" then
-            snapshot[name] = math.tointeger(tonumber(count))
-        end
+    for name, count in text:gsub("^[^\n]*\n", "", 1):gmatch("([^\n]*)=(%d+)\n") do
+        snapshot[name] = math.tointeger(tonumber(count))
     end
     return snapshot
 end
@@ -36,19 +41,27 @@ local function key(name, part)
 end
 
 function Saved.new(store)
-    return { store = store, changed = {} }
+    return { store = store, changed = {}, blocked = {} }
 end
 
--- Gives the saved parts of one character.
+-- Gives the saved parts of one character, and a list of problems.
+-- The plugin does not read or write a key with no version or a newer version (ADR 0011).
 function Saved.loadCharacter(saved, name)
-    local parts = {}
+    local parts, problems = {}, {}
     for part, codec in pairs(CODECS) do
-        local value = saved.store:Get(key(name, part))
+        local partKey = key(name, part)
+        local value = saved.store:Get(partKey)
         if value ~= nil then
-            parts[part] = codec.decode(value)
+            local version = codec.versionOf(value)
+            if version == codec.version then
+                parts[part] = codec.decode(value)
+            else
+                saved.blocked[partKey] = true
+                problems[#problems + 1] = { key = partKey, kind = Saved.UNKNOWN_VERSION }
+            end
         end
     end
-    return parts
+    return parts, problems
 end
 
 -- Marks a part as changed. Saved.write writes it.
@@ -59,7 +72,9 @@ end
 -- Call this one time in each Logic tick. It writes each changed part one time.
 function Saved.write(saved)
     for changedKey, value in pairs(saved.changed) do
-        saved.store:Set(changedKey, value)
+        if not saved.blocked[changedKey] then
+            saved.store:Set(changedKey, value)
+        end
     end
     saved.changed = {}
 end
