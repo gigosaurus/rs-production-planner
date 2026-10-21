@@ -438,6 +438,93 @@ end
 -- The largest number of times that the Plan calculates the items of one Loop (ADR 0010).
 local PASS_LIMIT = 1000
 
+-- Puts the items of the Steps of one Loop in production order (ADR 0010).
+-- items is in the order of the search. That order decides a tie.
+local function loopOrder(basis, items, totals, order)
+    local inLoop = {}
+    for _, item in ipairs(items) do
+        inLoop[item] = true
+    end
+
+    -- The Step of an item makes the item and the other Outputs of its Recipe.
+    local function makesOnly(item, made)
+        if item ~= made then
+            return false
+        end
+        for _, other in ipairs(recipeFor(basis, item).otherOutputs) do
+            if other.item ~= made then
+                return false
+            end
+        end
+        return true
+    end
+
+    -- A Step that turns an Input into a different item comes before a Step that makes only that Input.
+    local function mustComeBefore(first, second)
+        for _, input in ipairs(recipeFor(basis, first).inputs) do
+            if makesOnly(second, input.item) and not makesOnly(first, input.item) then
+                return true
+            end
+        end
+        return false
+    end
+
+    -- An Output goes toward the Target when it is a Target or an Input of a Recipe outside the Loop.
+    local usedOutside = {}
+    for _, item in ipairs(order) do
+        local recipe = recipeFor(basis, item)
+        if recipe and not inLoop[item] then
+            for _, input in ipairs(recipe.inputs) do
+                usedOutside[input.item] = true
+            end
+        end
+    end
+    local function goesOut(item)
+        if totals[item] or usedOutside[item] then
+            return true
+        end
+        for _, other in ipairs(recipeFor(basis, item).otherOutputs) do
+            if totals[other.item] or usedOutside[other.item] then
+                return true
+            end
+        end
+        return false
+    end
+
+    local remaining, sorted = { table.unpack(items) }, {}
+    while #remaining > 0 do
+        local candidates = {}
+        for _, item in ipairs(remaining) do
+            local free = true
+            for _, other in ipairs(remaining) do
+                free = free and not (other ~= item and mustComeBefore(other, item))
+            end
+            if free then
+                candidates[#candidates + 1] = item
+            end
+        end
+        -- Each remaining Step must come after a different one. The rule contradicts itself.
+        if #candidates == 0 then
+            candidates = remaining
+        end
+        local chosen = candidates[1]
+        for _, item in ipairs(candidates) do
+            if goesOut(item) then
+                chosen = item
+                break
+            end
+        end
+        sorted[#sorted + 1] = chosen
+        for index, item in ipairs(remaining) do
+            if item == chosen then
+                table.remove(remaining, index)
+                break
+            end
+        end
+    end
+    return sorted
+end
+
 -- Makes the Steps in production order. It totals the demand and the supply of each item at its Planning level.
 -- It also gives the extra Output of each Step, the used supply of each item, and the Shortages.
 local function stepsFor(basis, levels, loopOf, order, totals)
@@ -516,7 +603,15 @@ local function stepsFor(basis, levels, loopOf, order, totals)
                 changed = changed or actionsOf(nextResults[item]) ~= actionsOf(results[item])
             end
             if not changed then
+                local withSteps = {}
                 for _, item in ipairs(loop) do
+                    if nextResults[item].step then
+                        withSteps[#withSteps + 1] = item
+                    else
+                        record(item, nextResults[item], level)
+                    end
+                end
+                for _, item in ipairs(loopOrder(basis, withSteps, totals, order)) do
                     record(item, nextResults[item], level)
                 end
                 return true

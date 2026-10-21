@@ -1434,5 +1434,52 @@ describe("Plan.calculate", function()
             expectEqual(plan.leftovers, { { item = "C", count = 1 } })
             expectEqual(plan.shortages, {})
         end)
+
+        local function itemsOf(plan)
+            local items = {}
+            for _, step in ipairs(plan.steps) do
+                items[#items + 1] = step.item
+            end
+            return items
+        end
+
+        -- The data order puts R first. X turns A into C and E. R makes only A.
+        it("puts a Step that turns an item into a different item before a Step that makes only that item", function()
+            local plan = Plan.calculate({
+                targets = { { item = "T", count = 5 } },
+                recipes = {
+                    T = { { verb = "Use", output = 1, actionLimit = 60, inputs = { { item = "A", count = 1 } } } },
+                    A = { { verb = "R", output = 1, actionLimit = 60, inputs = { { item = "C", count = 1 } } } },
+                    C = {
+                        {
+                            verb = "X",
+                            output = 2,
+                            actionLimit = 60,
+                            inputs = { { item = "A", count = 1 }, { item = "B", count = 1 } },
+                            otherOutputs = { { item = "E", count = 1 } },
+                        },
+                    },
+                },
+                targetMode = Plan.HAVE,
+                detected = { A = 1, B = 10 },
+            })
+
+            expectEqual(itemsOf(plan), { "C", "A", "T" })
+        end)
+
+        -- P is A -> B. Q is B -> 2 A. The order rule contradicts itself.
+        it("puts first the Step whose Output goes toward the Target when the order rule contradicts itself", function()
+            local plan = Plan.calculate({
+                targets = { { item = "A", count = 5 } },
+                recipes = {
+                    A = { { verb = "Q", output = 2, actionLimit = 60, inputs = { { item = "B", count = 1 } } } },
+                    B = { { verb = "P", output = 1, actionLimit = 60, inputs = { { item = "A", count = 1 } } } },
+                },
+                targetMode = Plan.HAVE,
+                detected = { B = 1 },
+            })
+
+            expectEqual(itemsOf(plan), { "A", "B" })
+        end)
     end)
 end)
