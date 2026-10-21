@@ -212,5 +212,70 @@ describe("Saved data", function()
 
             expectEqual(problems, { { key = "char:Alice:assumed", kind = Saved.UNKNOWN_VERSION } })
         end)
+
+        it("gives no Assumed stock when the version is newer", function()
+            local store = fakeStore()
+            store:Set("char:Alice:assumed", { v = 2, entries = { { item = "COINS" } } })
+
+            local parts = Saved.loadCharacter(Saved.new(store), "Alice")
+
+            expectEqual(parts.assumed, Assumed.new())
+        end)
+    end)
+
+    describe("Reserves", function()
+        it("loads the Reserves that it wrote", function()
+            local store = fakeStore()
+            local saved = Saved.new(store)
+            Saved.change(saved, "Alice", "reserves", { COINS = 20000001, SNAPE_GRASS = 5 })
+            Saved.write(saved)
+
+            local parts = Saved.loadCharacter(Saved.new(store), "Alice")
+
+            expectEqual(parts.reserves, { COINS = 20000001, SNAPE_GRASS = 5 })
+        end)
+
+        it("writes each count as a decimal string", function()
+            local store = fakeStore()
+            local saved = Saved.new(store)
+            Saved.change(saved, "Alice", "reserves", { SNAPE_GRASS = 5 })
+            Saved.write(saved)
+
+            expectEqual(store.values["char:Alice:reserves"], { v = 1, reserves = { SNAPE_GRASS = "5" } })
+        end)
+
+        it("gives no Reserves to a character that the plugin has not seen", function()
+            local parts = Saved.loadCharacter(Saved.new(fakeStore()), "Alice")
+
+            expectEqual(parts.reserves, {})
+        end)
+    end)
+
+    describe("Unlocks", function()
+        it("loads the Unlocks that it wrote", function()
+            local store = fakeStore()
+            local saved = Saved.new(store)
+            Saved.change(saved, "Alice", "unlocks", { ZAROS_GODSWORD = true })
+            Saved.write(saved)
+
+            local parts = Saved.loadCharacter(Saved.new(store), "Alice")
+
+            expectEqual(parts.unlocks, { ZAROS_GODSWORD = true })
+        end)
+
+        it("writes the Unlocks as a set", function()
+            local store = fakeStore()
+            local saved = Saved.new(store)
+            Saved.change(saved, "Alice", "unlocks", { ZAROS_GODSWORD = true })
+            Saved.write(saved)
+
+            expectEqual(store.values["char:Alice:unlocks"], { v = 1, unlocks = { ZAROS_GODSWORD = true } })
+        end)
+
+        it("gives no Unlocks to a character that the plugin has not seen", function()
+            local parts = Saved.loadCharacter(Saved.new(fakeStore()), "Alice")
+
+            expectEqual(parts.unlocks, {})
+        end)
     end)
 end)

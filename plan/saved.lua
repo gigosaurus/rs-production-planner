@@ -83,7 +83,47 @@ function assumed.decode(value)
     return state
 end
 
-local CODECS = { bank = bank, assumed = assumed }
+local function empty()
+    return {}
+end
+
+local reserves = { version = 1, versionOf = tableVersionOf, start = empty }
+
+function reserves.encode(counts)
+    local texts = {}
+    for item, count in pairs(counts) do
+        texts[item] = countText(count)
+    end
+    return { v = reserves.version, reserves = texts }
+end
+
+function reserves.decode(value)
+    local counts = {}
+    for item, text in pairs(value.reserves) do
+        counts[item] = countOf(text)
+    end
+    return counts
+end
+
+local unlocks = { version = 1, versionOf = tableVersionOf, start = empty }
+
+function unlocks.encode(set)
+    local copy = {}
+    for unlock in pairs(set) do
+        copy[unlock] = true
+    end
+    return { v = unlocks.version, unlocks = copy }
+end
+
+function unlocks.decode(value)
+    local set = {}
+    for unlock in pairs(value.unlocks) do
+        set[unlock] = true
+    end
+    return set
+end
+
+local CODECS = { bank = bank, assumed = assumed, reserves = reserves, unlocks = unlocks }
 
 local function key(name, part)
     return "char:" .. name .. ":" .. part
@@ -95,6 +135,7 @@ end
 
 -- Gives the saved parts of one character, and a list of problems.
 -- The plugin does not read or write a key with no version or a newer version (ADR 0011).
+-- Such a part gets its start value.
 function Saved.loadCharacter(saved, name)
     local parts, problems = {}, {}
     for part, codec in pairs(CODECS) do
@@ -107,6 +148,7 @@ function Saved.loadCharacter(saved, name)
             if version == codec.version then
                 parts[part] = codec.decode(value)
             else
+                parts[part] = codec.start()
                 saved.blocked[partKey] = true
                 problems[#problems + 1] = { key = partKey, kind = Saved.UNKNOWN_VERSION }
             end
