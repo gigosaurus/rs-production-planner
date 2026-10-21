@@ -1,11 +1,26 @@
 -- Keeps the saved data, as ADR 0008 and ADR 0011 describe.
 -- It does not use the game API. Tests run it outside the game client.
 -- The adapter gives it a store with Get and Set, for example PersistentDB.
+local Assumed = require("plan/assumed")
+
 local Saved = {}
 
 -- Problem kinds
 Saved.UNKNOWN_VERSION = "UNKNOWN_VERSION"
 Saved.NOT_SAVED = "NOT_SAVED"
+
+-- PersistentDB keeps numbers as 32-bit floats, so each count is saved as a decimal string (ADR 0011).
+local function countText(count)
+    return string.format("%d", count)
+end
+
+local function countOf(text)
+    return math.tointeger(tonumber(text))
+end
+
+local function tableVersionOf(value)
+    return type(value) == "table" and math.tointeger(value.v) or nil
+end
 
 -- The Bank snapshot is one string: a version line, then one line `<name>=<count>` for each item.
 local bank = { version = 1 }
@@ -22,7 +37,7 @@ function bank.encode(snapshot)
     table.sort(names)
     local lines = { "v=1\n" }
     for _, name in ipairs(names) do
-        lines[#lines + 1] = name .. "=" .. string.format("%d", snapshot[name]) .. "\n"
+        lines[#lines + 1] = name .. "=" .. countText(snapshot[name]) .. "\n"
     end
     return table.concat(lines)
 end
@@ -30,12 +45,45 @@ end
 function bank.decode(text)
     local snapshot = {}
     for name, count in text:gsub("^[^\n]*\n", "", 1):gmatch("([^\n]*)=(%d+)\n") do
-        snapshot[name] = math.tointeger(tonumber(count))
+        snapshot[name] = countOf(count)
     end
     return snapshot
 end
 
-local CODECS = { bank = bank }
+-- A character that the plugin has not seen has no Bank snapshot.
+function bank.start()
+    return nil
+end
+
+local assumed = { version = 1, versionOf = tableVersionOf, start = Assumed.new }
+
+function assumed.encode(state)
+    local entries = {}
+    for index, entry in ipairs(state.entries) do
+        entries[index] = {
+            item = entry.item,
+            entered = countText(entry.entered),
+            remaining = countText(entry.remaining),
+            baseline = countText(entry.baseline),
+        }
+    end
+    return { v = assumed.version, entries = entries }
+end
+
+function assumed.decode(value)
+    local state = Assumed.new()
+    for index, entry in ipairs(value.entries) do
+        state.entries[index] = {
+            item = entry.item,
+            entered = countOf(entry.entered),
+            remaining = countOf(entry.remaining),
+            baseline = countOf(entry.baseline),
+        }
+    end
+    return state
+end
+
+local CODECS = { bank = bank, assumed = assumed }
 
 local function key(name, part)
     return "char:" .. name .. ":" .. part
@@ -52,7 +100,9 @@ function Saved.loadCharacter(saved, name)
     for part, codec in pairs(CODECS) do
         local partKey = key(name, part)
         local value = saved.store:Get(partKey)
-        if value ~= nil then
+        if value == nil then
+            parts[part] = codec.start()
+        else
             local version = codec.versionOf(value)
             if version == codec.version then
                 parts[part] = codec.decode(value)

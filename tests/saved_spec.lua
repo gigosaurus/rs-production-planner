@@ -1,3 +1,4 @@
+local Assumed = require("plan/assumed")
 local Saved = require("plan/saved")
 
 -- Acts as PersistentDB (docs/client-behaviour.md): Set copies the value, each Get gives a new copy,
@@ -162,6 +163,54 @@ describe("Saved data", function()
             Saved.write(saved)
 
             expectEqual(store.values["char:Alice:bank"], "v=1\nCOINS=2\n")
+        end)
+    end)
+
+    describe("Assumed stock", function()
+        local function assumedState()
+            local state = Assumed.new()
+            Assumed.add(state, "COINS", 20000001, { COINS = 16777217 })
+            return state
+        end
+
+        it("loads the Assumed stock that it wrote", function()
+            local store = fakeStore()
+            local saved = Saved.new(store)
+            Saved.change(saved, "Alice", "assumed", assumedState())
+            Saved.write(saved)
+
+            local parts = Saved.loadCharacter(Saved.new(store), "Alice")
+
+            expectEqual(parts.assumed, assumedState())
+        end)
+
+        it("writes each count as a decimal string", function()
+            local store = fakeStore()
+            local saved = Saved.new(store)
+            Saved.change(saved, "Alice", "assumed", assumedState())
+            Saved.write(saved)
+
+            expectEqual(store.values["char:Alice:assumed"], {
+                v = 1,
+                entries = {
+                    { item = "COINS", entered = "20000001", remaining = "20000001", baseline = "16777217" },
+                },
+            })
+        end)
+
+        it("gives no Assumed stock to a character that the plugin has not seen", function()
+            local parts = Saved.loadCharacter(Saved.new(fakeStore()), "Alice")
+
+            expectEqual(parts.assumed, Assumed.new())
+        end)
+
+        it("does not read Assumed stock with a newer version", function()
+            local store = fakeStore()
+            store:Set("char:Alice:assumed", { v = 2, entries = {} })
+
+            local _, problems = Saved.loadCharacter(Saved.new(store), "Alice")
+
+            expectEqual(problems, { { key = "char:Alice:assumed", kind = Saved.UNKNOWN_VERSION } })
         end)
     end)
 end)
