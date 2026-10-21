@@ -1,12 +1,12 @@
 -- Throwaway probe: what does PersistentDB keep, for issue #23?
--- Version 1 crashed the client on pon. This version finds the step that crashes:
+-- Version 1 crashed the game client on pon. This version finds the step that crashes:
 -- before each step it logs the name and saves it in probe:running.
--- After a crash, the next pon logs that step as CRASHED and skips it from then on.
+-- After a crash, the next pon logs that step as CRASHED and skips it on each later load.
 -- Phase 1 (pon): writes each case and reads it back at once.
 -- Phase 2 (prl, then pon): reads each case again, then deletes the probe keys.
 -- The data is isolated to this probe plugin. The planner data is safe.
--- Each phase runs in one Lua call. The client stops a call after 1000 ms, so a slow phase can stop early.
--- The probe ran to the end in client 950-1. For new tests, use probes/persistentdb-limits-probe: it runs one step in each tick.
+-- Each phase runs in one Lua call. The game client stops a call after 1000 ms. A slow phase can then stop early.
+-- The probe ran to the end in game client 950-1. For new tests, use probes/persistentdb-limits-probe. It runs one step in each tick.
 
 local PREFIX = "probe:"
 local PHASE_KEY = PREFIX .. "phase"
@@ -208,7 +208,7 @@ local function phase1()
         say("IterateEntries count =", PersistentDB:IterateEntries(function() return false end))
     end)
 
-    -- Each alias in its own step: indexing a missing member can fail in the client.
+    -- Each alias in its own step: indexing a missing member can fail in the game client.
     for _, alias in ipairs({ "GetStructuredData", "SetStructuredData", "GetInt", "SetInt" }) do
         step("alias " .. alias, function()
             say("alias", alias, "=", type(PersistentDB[alias]))
@@ -296,7 +296,7 @@ local function phase2()
         return t
     end)
 
-    -- Where do integers in a table turn into floats?
+    -- Where do integers in a table become floats?
     step("int sizes in a table", function()
         local values = { 2147483647, 2147483648, 4294967295, 4294967296, 9007199254740993 }
         PersistentDB:Set(PREFIX .. "intSizes", values)

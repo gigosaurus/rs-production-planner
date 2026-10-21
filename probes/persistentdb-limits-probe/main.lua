@@ -1,13 +1,13 @@
 -- Throwaway probe: the PersistentDB questions that probes/persistentdb-probe left open (issue #23).
---   1. Where do integers in a table stop coming back exact?
+--   1. Where do integers in a table stop being exact?
 --   2. Are floats saved as 32-bit or 64-bit?
 --   3. Does SetInt keep large integers?
 --   4. What is the exact size limit of one value?
---   5. Does the data survive a full restart of the client?
--- The client stops a Lua call after 1000 ms, so the probe runs one step in each Logic tick.
+--   5. Does the data survive a full restart of the game client?
+-- The game client stops a Lua call after 1000 ms. The probe then runs one step in each Logic tick.
 -- Before each step it saves the step name. After a crash, the next pon logs the step and skips it.
 -- Load 1 (pon): runs all steps and writes restart markers.
--- Load 2 (close the client fully, start it, pon): checks the markers, then deletes all keys.
+-- Load 2 (close the game client fully, start it, pon): checks the markers, then deletes all keys.
 
 local P = "limits:"
 local RUNNING_KEY = P .. "running"
@@ -165,7 +165,7 @@ local function checkRestart()
     local int = PersistentDB:GetInt(P .. "markerInt")
     local t = PersistentDB:Get(P .. "markerTable")
     local ok = int == 7 and type(t) == "table" and t.n == 3 and t.a and t.a.b == "c"
-    -- The probe cannot tell a restart from prl. The person who runs it must restart the client.
+    -- The probe cannot tell a restart from prl. The person who runs it must restart the game client.
     say("After restart: markerInt =", show(int), "markerTable =", type(t), ok and "SURVIVED" or "LOST OR CHANGED")
     local keys = {}
     PersistentDB:IterateEntries(function(k)
@@ -192,7 +192,7 @@ local function runNext()
     if nextStep > #steps then
         PersistentDB:Delete(RUNNING_KEY)
         Event.Logic.Unsubscribe("pdbLimits")
-        say("Load 1 done. Close the client fully, start it again, then pon persistentdb-limits-probe.")
+        say("Load 1 done. Close the game client fully, start it again, then pon persistentdb-limits-probe.")
         return
     end
     local s = steps[nextStep]

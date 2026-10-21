@@ -33,7 +33,7 @@ This file lists every documented function, event, event payload field, type, pro
 1. Find the applicable page in `runescape-docs/knowledge-base/llms.txt`. This file is an index of all pages, with a one-line summary of each page.
 2. Read that page in `runescape-docs/knowledge-base/pages/`. It has tables of parameters and return values, examples, and the warnings for that feature.
 3. Obey each **[WARNING]** and **[IMPORTANT]** note on the page. These notes cover required permissions, unsupported cases, and things that cause the rejection of a plugin.
-4. Read `docs/client-behaviour.md`. It gives tested behaviour that differs from the docs. When a probe finds new behaviour, add it to that file.
+4. Read `docs/client-behaviour.md`. It gives tested behaviour that is different from the docs. When a probe finds new behaviour, add it to that file.
 
 ### Modules
 Every module must return a table. The game client's `require` returns `nil` for a module that returns a function (see `probes/require-probe`).
