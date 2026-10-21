@@ -1,6 +1,6 @@
 # The plugin contains hand-written recipe data
 
-Amended by ADR 0007.
+Amended by ADR 0007 and ADR 0011.
 
 The game API does not describe recipes. The recipe data must come from another source.
 
