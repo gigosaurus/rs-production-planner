@@ -291,7 +291,8 @@ local function checkActionLimits(basis, order)
 end
 
 -- Finds the Planning level of each item (ADR 0002).
--- When the links contain a Loop, it gives nil and the items of the Loop.
+-- It also gives the Loop of each item that is in a Loop (ADR 0010).
+-- A Loop is a list of its items in the order of the search.
 local function planningLevels(basis, order)
     local makers = {}
     for _, item in ipairs(order) do
@@ -325,37 +326,83 @@ local function planningLevels(basis, order)
         return linked
     end
 
-    -- The Planning level is the length of the longest path from a Target.
-    -- An item that is already on the path of the search is in a Loop (issue 7).
-    local levels, path = {}, {}
-    local function visit(item, depth)
-        for index, onPath in ipairs(path) do
-            if onPath == item then
-                local loop = { table.unpack(path, index) }
-                loop[#loop + 1] = item
-                return loop
-            end
-        end
-        if levels[item] and levels[item] >= depth then
-            return
-        end
-        levels[item] = depth
-        path[#path + 1] = item
+    -- Puts the items into groups: each item in a group links to each other item of the group, through other items of the group.
+    -- This is the method of Tarjan for strongly connected components.
+    local groupOf, index, lowest, stack, onStack = {}, {}, {}, {}, {}
+    local nextIndex = 0
+    local function connect(item)
+        nextIndex = nextIndex + 1
+        index[item], lowest[item] = nextIndex, nextIndex
+        stack[#stack + 1] = item
+        onStack[item] = true
         for _, linked in ipairs(links(item)) do
-            local loop = visit(linked, depth + 1)
-            if loop then
-                return loop
+            if not index[linked] then
+                connect(linked)
+                lowest[item] = math.min(lowest[item], lowest[linked])
+            elseif onStack[linked] then
+                lowest[item] = math.min(lowest[item], index[linked])
             end
         end
-        path[#path] = nil
+        if lowest[item] == index[item] then
+            local group = {}
+            repeat
+                local member = table.remove(stack)
+                onStack[member] = nil
+                groupOf[member] = group
+                group[#group + 1] = member
+            until member == item
+        end
     end
     for _, target in ipairs(basis.targets) do
-        local loop = visit(target.item, 0)
-        if loop then
-            return nil, loop
+        if not index[target.item] then
+            connect(target.item)
         end
     end
-    return levels
+
+    -- A group is a Loop when it has more than one item, or when its item links to itself.
+    local function isLoop(group)
+        for _, linked in ipairs(links(group[1])) do
+            if linked == group[1] then
+                return true
+            end
+        end
+        return #group > 1
+    end
+    local loopOf, loopOfGroup = {}, {}
+    for _, item in ipairs(order) do
+        local group = groupOf[item]
+        if isLoop(group) then
+            loopOfGroup[group] = loopOfGroup[group] or {}
+            table.insert(loopOfGroup[group], item)
+            loopOf[item] = loopOfGroup[group]
+        end
+    end
+
+    -- The Planning level is the length of the longest path from a Target. All items of one group have the same level.
+    -- The links between groups contain no Loop, so the search stops.
+    local levelOf = {}
+    local function visit(group, depth)
+        if levelOf[group] and levelOf[group] >= depth then
+            return
+        end
+        levelOf[group] = depth
+        for _, member in ipairs(group) do
+            for _, linked in ipairs(links(member)) do
+                if groupOf[linked] ~= group then
+                    visit(groupOf[linked], depth + 1)
+                end
+            end
+        end
+    end
+    for _, target in ipairs(basis.targets) do
+        visit(groupOf[target.item], 0)
+    end
+
+    local levels = {}
+    for _, item in ipairs(order) do
+        levels[item] = levelOf[groupOf[item]]
+    end
+    return levels, loopOf
 end
 
 local function deepestLevel(levels)
@@ -388,9 +435,12 @@ local function newStep(basis, item, recipe, need)
     return step, actions * recipe.output - need
 end
 
+-- The largest number of times that the Plan calculates the items of one Loop (ADR 0010).
+local PASS_LIMIT = 1000
+
 -- Makes the Steps in production order. It totals the demand and the supply of each item at its Planning level.
 -- It also gives the extra Output of each Step, the used supply of each item, and the Shortages.
-local function stepsFor(basis, levels, order, totals)
+local function stepsFor(basis, levels, loopOf, order, totals)
     local stepsByLevel, extraOf = {}, {}
     local shortBy = {}
     -- supply is the other Outputs of Steps. usedSupply is the part of it that the Plan uses.
@@ -413,28 +463,84 @@ local function stepsFor(basis, levels, order, totals)
         return (demand[item] or 0) - countedStock(basis, item)
     end
 
+    -- Calculates the Step for an item from the current demand and supply. It changes no table.
+    local function planItem(item)
+        local stillNeeded = stillNeededFor(item)
+        local result = { used = math.max(0, math.min(stillNeeded, supply[item] or 0)) }
+        local need = stillNeeded - (supply[item] or 0)
+        local recipe = recipeFor(basis, item)
+        if need > 0 and recipe then
+            result.step, result.extra = newStep(basis, item, recipe, need)
+        elseif need > 0 then
+            result.short = need
+        end
+        return result
+    end
+
+    -- Adds the demand and the supply that a Step causes. A sign of -1 removes them.
+    local function addStep(step, sign)
+        if not step then
+            return
+        end
+        local recipe = recipeFor(basis, step.item)
+        for _, input in ipairs(recipe.inputs) do
+            demand[input.item] = (demand[input.item] or 0) + sign * input.count * step.actions
+        end
+        for _, other in ipairs(recipe.otherOutputs) do
+            supply[other.item] = (supply[other.item] or 0) + sign * other.count * step.actions
+        end
+    end
+
+    local function record(item, result, level)
+        usedSupply[item] = result.used
+        shortBy[item] = result.short
+        if result.step then
+            extraOf[result.step] = result.extra
+            local steps = stepsByLevel[level]
+            steps[#steps + 1] = result.step
+        end
+    end
+
+    local function actionsOf(result)
+        return result and result.step and result.step.actions or 0
+    end
+
+    -- Calculates all items of a Loop again and again, until no amount changes (ADR 0010).
+    -- Each pass uses the Steps of the pass before. It gives false when the Loop reaches the pass limit.
+    local function planLoop(loop, level)
+        local results = {}
+        for _ = 1, PASS_LIMIT do
+            local nextResults, changed = {}, false
+            for _, item in ipairs(loop) do
+                nextResults[item] = planItem(item)
+                changed = changed or actionsOf(nextResults[item]) ~= actionsOf(results[item])
+            end
+            if not changed then
+                for _, item in ipairs(loop) do
+                    record(item, nextResults[item], level)
+                end
+                return true
+            end
+            for _, item in ipairs(loop) do
+                addStep(results[item] and results[item].step, -1)
+                addStep(nextResults[item].step, 1)
+            end
+            results = nextResults
+        end
+        return false
+    end
+
     for level = 0, deepest do
         stepsByLevel[level] = {}
         for _, item in ipairs(order) do
-            if levels[item] == level then
-                local stillNeeded = stillNeededFor(item)
-                usedSupply[item] = math.max(0, math.min(stillNeeded, supply[item] or 0))
-                local need = stillNeeded - (supply[item] or 0)
-                local recipe = recipeFor(basis, item)
-                if need > 0 and recipe then
-                    local step, extra = newStep(basis, item, recipe, need)
-                    extraOf[step] = extra
-                    local steps = stepsByLevel[level]
-                    steps[#steps + 1] = step
-                    for _, input in ipairs(recipe.inputs) do
-                        demand[input.item] = (demand[input.item] or 0) + input.count * step.actions
-                    end
-                    for _, other in ipairs(recipe.otherOutputs) do
-                        supply[other.item] = (supply[other.item] or 0) + other.count * step.actions
-                    end
-                elseif need > 0 then
-                    shortBy[item] = need
-                end
+            local loop = loopOf[item]
+            if levels[item] == level and not loop then
+                local result = planItem(item)
+                record(item, result, level)
+                addStep(result.step, 1)
+            elseif levels[item] == level and loop[1] == item and not planLoop(loop, level) then
+                -- A Loop that gains nothing never becomes stable.
+                error("The Plan cannot calculate a Loop: " .. table.concat(loop, ", ") .. ", " .. loop[1] .. ".", 3)
             end
         end
     end
@@ -513,13 +619,9 @@ function Plan.calculate(basis)
     basis = withDefaults(basis)
     local order = itemsInPlan(basis)
     checkActionLimits(basis, order)
-    local levels, loop = planningLevels(basis, order)
-    if not levels then
-        -- A Loop is not a data error (ADR 0010). Until issue 7 is done, the Plan cannot calculate one.
-        error("The Plan cannot calculate a Loop: " .. table.concat(loop, ", ") .. ".", 2)
-    end
+    local levels, loopOf = planningLevels(basis, order)
     local totals = targetTotals(basis)
-    local steps, extraOf, usedSupply, shortBy = stepsFor(basis, levels, order, totals)
+    local steps, extraOf, usedSupply, shortBy = stepsFor(basis, levels, loopOf, order, totals)
     markWaiting(basis, steps, totals)
     return {
         targets = targetLines(basis, totals),

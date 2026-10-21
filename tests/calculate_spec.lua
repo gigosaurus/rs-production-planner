@@ -1403,4 +1403,36 @@ describe("Plan.calculate", function()
             end)
         end)
     end)
+
+    -- ADR 0010. Recipe X is A + B -> D + C. Recipe R is C -> A.
+    describe("in a Loop", function()
+        local function loopPlan(detected)
+            return Plan.calculate({
+                targets = { { item = "D", count = 10 } },
+                recipes = {
+                    D = {
+                        {
+                            verb = "X",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "A", count = 1 }, { item = "B", count = 1 } },
+                            otherOutputs = { { item = "C", count = 1 } },
+                        },
+                    },
+                    A = { { verb = "R", output = 1, actionLimit = 60, inputs = { { item = "C", count = 1 } } } },
+                },
+                targetMode = Plan.HAVE,
+                detected = detected,
+            })
+        end
+
+        it("calculates the actions of each Step again until no amount changes", function()
+            local plan = loopPlan({ A = 1, B = 10 })
+
+            expectEqual(stepFor(plan, "D").actions, 10)
+            expectEqual(stepFor(plan, "A").actions, 9)
+            expectEqual(plan.leftovers, { { item = "C", count = 1 } })
+            expectEqual(plan.shortages, {})
+        end)
+    end)
 end)
