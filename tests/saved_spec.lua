@@ -1,4 +1,5 @@
 local Assumed = require("plan/assumed")
+local Made = require("plan/made")
 local Saved = require("plan/saved")
 
 -- Acts as PersistentDB (docs/client-behaviour.md): Set copies the value, each Get gives a new copy,
@@ -290,6 +291,48 @@ describe("Saved data", function()
             local parts = Saved.loadCharacter(Saved.new(fakeStore()), "Alice")
 
             expectEqual(parts.unlocks, {})
+        end)
+    end)
+
+    describe("Made counts", function()
+        local function madeState()
+            local state = Made.new()
+            state.counts = { COINS = 20000001 }
+            state.slots = { [0] = { item = "COINS", type = Made.BUY, stage = Made.ADDED, soldCount = 16777217 } }
+            return state
+        end
+
+        it("loads the Made counts and GE slots that it wrote", function()
+            local store = fakeStore()
+            local saved = newSaved(store)
+            Saved.change(saved, "Alice", "made", madeState())
+            Saved.write(saved)
+
+            local parts = Saved.loadCharacter(Saved.new(store), "Alice")
+
+            expectEqual(parts.made, madeState())
+        end)
+
+        it("writes each count as a decimal string, with no GE amounts and no last counts", function()
+            local store = fakeStore()
+            local saved = newSaved(store)
+            local state = madeState()
+            state.last = { COINS = 5 }
+            state.ge = { COINS = 3 }
+            Saved.change(saved, "Alice", "made", state)
+            Saved.write(saved)
+
+            expectEqual(store.values["char:Alice:made"], {
+                v = 1,
+                counts = { COINS = "20000001" },
+                slots = { [0] = { item = "COINS", type = Made.BUY, stage = Made.ADDED, soldCount = "16777217" } },
+            })
+        end)
+
+        it("gives Made counts of 0 to a character that the plugin has not seen", function()
+            local parts = Saved.loadCharacter(Saved.new(fakeStore()), "Alice")
+
+            expectEqual(parts.made, Made.new())
         end)
     end)
 

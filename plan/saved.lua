@@ -2,6 +2,7 @@
 -- It does not use the game API. Tests run it outside the game client.
 -- The adapter gives it a store with Get and Set, for example PersistentDB.
 local Assumed = require("plan/assumed")
+local Made = require("plan/made")
 
 local Saved = {}
 
@@ -16,6 +17,22 @@ end
 
 local function countOf(text)
     return math.tointeger(tonumber(text))
+end
+
+local function countTexts(counts)
+    local texts = {}
+    for item, count in pairs(counts) do
+        texts[item] = countText(count)
+    end
+    return texts
+end
+
+local function countsOf(texts)
+    local counts = {}
+    for item, text in pairs(texts) do
+        counts[item] = countOf(text)
+    end
+    return counts
 end
 
 local function tableVersionOf(value)
@@ -90,19 +107,11 @@ end
 local reserves = { version = 1, versionOf = tableVersionOf, start = empty }
 
 function reserves.encode(counts)
-    local texts = {}
-    for item, count in pairs(counts) do
-        texts[item] = countText(count)
-    end
-    return { v = reserves.version, reserves = texts }
+    return { v = reserves.version, reserves = countTexts(counts) }
 end
 
 function reserves.decode(value)
-    local counts = {}
-    for item, text in pairs(value.reserves) do
-        counts[item] = countOf(text)
-    end
-    return counts
+    return countsOf(value.reserves)
 end
 
 local unlocks = { version = 1, versionOf = tableVersionOf, start = empty }
@@ -123,7 +132,28 @@ function unlocks.decode(value)
     return set
 end
 
-local CODECS = { bank = bank, assumed = assumed, reserves = reserves, unlocks = unlocks }
+-- Made.load clears the GE amounts and the last counts, so the plugin does not save them.
+local made = { version = 1, versionOf = tableVersionOf, start = Made.new }
+
+function made.encode(state)
+    local slots = {}
+    for slot, data in pairs(state.slots) do
+        slots[slot] = { item = data.item, type = data.type, stage = data.stage, soldCount = countText(data.soldCount) }
+    end
+    return { v = made.version, counts = countTexts(state.counts), slots = slots }
+end
+
+function made.decode(value)
+    local state = Made.new()
+    state.counts = countsOf(value.counts)
+    for slot, data in pairs(value.slots) do
+        state.slots[slot] =
+            { item = data.item, type = data.type, stage = data.stage, soldCount = countOf(data.soldCount) }
+    end
+    return state
+end
+
+local CODECS = { bank = bank, assumed = assumed, reserves = reserves, unlocks = unlocks, made = made }
 
 -- The display names of all characters that have saved data, in the order that the plugin added them.
 local CHARACTERS_KEY = "global:characters"
