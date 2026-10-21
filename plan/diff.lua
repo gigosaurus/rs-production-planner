@@ -35,10 +35,10 @@ end
 
 function Diff.compare(before, after)
     local beforeSteps, afterSteps = stepsByItem(before), stepsByItem(after)
-    local finished, back, ready = {}, {}, {}
+    local former, back, ready = {}, {}, {}
     for _, step in ipairs(before.steps) do
         if not afterSteps[step.item] then
-            finished[#finished + 1] = step.item
+            former[#former + 1] = step.item
         end
     end
     for _, step in ipairs(after.steps) do
@@ -64,11 +64,8 @@ function Diff.compare(before, after)
         end
     end
 
-    -- Progress on a Target is its Made count in Make, and its Counted stock in Have (ADR 0009).
+    -- In Make, the report uses the Made count of a Target. In Have, it uses Counted stock (ADR 0009).
     -- A line has a Made count only in Make. When the Target mode changes, the two values are not comparable.
-    local function progressOf(target)
-        return target.made or target.have
-    end
     local lineBefore, targets = {}, {}
     for _, target in ipairs(before.targets) do
         lineBefore[target.item] = target
@@ -76,7 +73,7 @@ function Diff.compare(before, after)
     for _, target in ipairs(after.targets) do
         local earlier = lineBefore[target.item]
         if earlier and (earlier.made == nil) == (target.made == nil) then
-            local by = progressOf(target) - progressOf(earlier)
+            local by = (target.made or target.have) - (earlier.made or earlier.have)
             if by ~= 0 then
                 targets[#targets + 1] = { item = target.item, by = by }
             end
@@ -90,7 +87,7 @@ function Diff.compare(before, after)
     end
 
     return {
-        finished = finished,
+        former = former,
         back = back,
         ready = ready,
         next = nextChange,

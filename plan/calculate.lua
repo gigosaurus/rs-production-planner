@@ -83,7 +83,7 @@ local function madeCount(basis, item)
 end
 
 -- Gives the amount of each Target item. Two Targets can be for the same item.
--- They do not add together: progress on the item counts for each Target. Thus the largest Target is the amount (issue 16).
+-- They do not add together: the same items count for each Target. Thus the largest Target is the amount (issue 16).
 local function targetTotals(basis)
     local totals = {}
     for _, target in ipairs(basis.targets) do
@@ -102,13 +102,13 @@ local function isComplete(basis, totals)
     return true
 end
 
-local BACKPACK_SLOTS = 28
+local INVENTORY_SLOTS = 28
 
--- Finds how many actions of a Recipe the player can do with one backpack load.
--- It gives nil (no hint) when one action does not fit in one backpack load.
+-- Finds how many actions of a Recipe the player can do with one full Inventory.
+-- It gives nil (no hint) when one action does not fit in the Inventory.
 local function batchHintFor(basis, recipe)
     -- A stackable Input takes one slot, whatever its amount.
-    local slots, perAction = BACKPACK_SLOTS, 0
+    local slots, perAction = INVENTORY_SLOTS, 0
     for _, input in ipairs(recipe.inputs) do
         if basis.stackable[input.item] then
             slots = slots - 1
@@ -231,7 +231,7 @@ end
 -- Finds the Next step. This is the first Step that the player can usefully do now.
 local function findNext(basis, steps)
     for position, step in ipairs(steps) do
-        -- One inventory is the Batch hint, or less when fewer actions remain. With no Batch hint, it is all remaining actions.
+        -- One full Inventory is the Batch hint, or less when fewer actions remain. With no Batch hint, it is all remaining actions.
         local actions = math.min(step.batchHint or step.actions, step.actions)
         local ready = #step.flags == 0 and not step.waitsOn
         for _, input in ipairs(recipeFor(basis, step.item).inputs) do
@@ -245,10 +245,9 @@ local function findNext(basis, steps)
     end
 end
 
--- Finds the Planning level of each item (ADR 0002).
--- The order list holds each item once, in the order that the search finds it.
-local function planningLevels(basis)
-    -- Find each item in the Plan, through Inputs and other Outputs.
+-- Finds each item in the Plan, through Inputs and other Outputs.
+-- The table order holds each item once, in the sequence that the search finds it.
+local function itemsInPlan(basis)
     local order, inPlan = {}, {}
     local function find(item)
         if inPlan[item] then
@@ -258,11 +257,6 @@ local function planningLevels(basis)
         order[#order + 1] = item
         local recipe = recipeFor(basis, item)
         if recipe then
-            -- Each Recipe that the Plan uses must have an Action limit (issue 2, section 1).
-            -- The check does not depend on stock, so that a data error shows at once.
-            if not recipe.actionLimit then
-                error("The Recipe for " .. item .. " has no Action limit.", 0)
-            end
             for _, input in ipairs(recipe.inputs) do
                 find(input.item)
             end
@@ -274,7 +268,23 @@ local function planningLevels(basis)
     for _, target in ipairs(basis.targets) do
         find(target.item)
     end
+    return order
+end
 
+-- Each Recipe that the Plan uses must have an Action limit (issue 2, section 1).
+-- The check does not depend on stock, so that a data error shows at once.
+local function checkActionLimits(basis, order)
+    for _, item in ipairs(order) do
+        local recipe = recipeFor(basis, item)
+        if recipe and not recipe.actionLimit then
+            error("The Recipe for " .. item .. " has no Action limit.", 3)
+        end
+    end
+end
+
+-- Finds the Planning level of each item (ADR 0002).
+-- When the links contain a Loop, it gives nil and the items of the Loop.
+local function planningLevels(basis, order)
     local makers = {}
     for _, item in ipairs(order) do
         local recipe = recipeFor(basis, item)
@@ -308,14 +318,14 @@ local function planningLevels(basis)
     end
 
     -- The Planning level is the length of the longest path from a Target.
-    -- An item that is already on the path of the search is a loop (issue 07).
+    -- An item that is already on the path of the search is in a Loop (issue 7).
     local levels, path = {}, {}
     local function visit(item, depth)
         for index, onPath in ipairs(path) do
             if onPath == item then
                 local loop = { table.unpack(path, index) }
                 loop[#loop + 1] = item
-                error("The recipes contain a loop: " .. table.concat(loop, ", ") .. ".", 0)
+                return loop
             end
         end
         if levels[item] and levels[item] >= depth then
@@ -324,14 +334,20 @@ local function planningLevels(basis)
         levels[item] = depth
         path[#path + 1] = item
         for _, linked in ipairs(links(item)) do
-            visit(linked, depth + 1)
+            local loop = visit(linked, depth + 1)
+            if loop then
+                return loop
+            end
         end
         path[#path] = nil
     end
     for _, target in ipairs(basis.targets) do
-        visit(target.item, 0)
+        local loop = visit(target.item, 0)
+        if loop then
+            return nil, loop
+        end
     end
-    return levels, order
+    return levels
 end
 
 local function deepestLevel(levels)
@@ -342,7 +358,7 @@ local function deepestLevel(levels)
     return deepest
 end
 
--- Makes the Step that makes need of item with recipe.
+-- Makes a Step that uses recipe to make the amount need of item.
 -- It also gives the extra Output: the Output above the need, because the Step does whole actions. It is a Leftover.
 local function newStep(basis, item, recipe, need)
     local actions = math.ceil(need / recipe.output)
@@ -379,7 +395,7 @@ local function stepsFor(basis, levels, order, totals)
     local function stillNeededFor(item)
         if isMake(basis) and totals[item] then
             local targetPart = math.max(0, totals[item] - madeCount(basis, item))
-            -- Counted stock changes only the Intermediate part. Thus a Reserve of a Target item adds no need without it.
+            -- Counted stock changes only the Intermediate part. Thus, with no Intermediate part, a Reserve of the item adds no need.
             local intermediateDemand = demand[item] - totals[item]
             if intermediateDemand == 0 then
                 return targetPart
@@ -487,7 +503,13 @@ end
 function Plan.calculate(basis)
     checkBasis(basis)
     basis = withDefaults(basis)
-    local levels, order = planningLevels(basis)
+    local order = itemsInPlan(basis)
+    checkActionLimits(basis, order)
+    local levels, loop = planningLevels(basis, order)
+    if not levels then
+        -- A Loop is not a data error (ADR 0010). Until issue 7 is done, the Plan cannot calculate one.
+        error("The Plan cannot calculate a Loop: " .. table.concat(loop, ", ") .. ".", 2)
+    end
     local totals = targetTotals(basis)
     local steps, extraOf, usedSupply, shortBy = stepsFor(basis, levels, order, totals)
     markWaiting(basis, steps, totals)

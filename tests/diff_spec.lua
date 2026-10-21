@@ -81,11 +81,11 @@ local function twoChains(herblore, detected)
 end
 
 describe("Diff.compare", function()
-    it("reports a Step that finished", function()
+    it("reports a Former step", function()
         local before = herbPlan({ GRIMY_RANARR = 28 })
         local after = herbPlan({ CLEAN_RANARR = 28 })
 
-        expectEqual(diff.compare(before, after).finished, { "CLEAN_RANARR" })
+        expectEqual(diff.compare(before, after).former, { "CLEAN_RANARR" })
     end)
 
     it("reports a Step that came back", function()
