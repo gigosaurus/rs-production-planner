@@ -4,7 +4,7 @@ local diff = require("plan/diff")
 -- Grimy ranarr becomes Clean ranarr, then Ranarr potion (unf).
 local function herbPlan(detected)
     return Plan.calculate({
-        targets = { { item = "RANARR_UNF", count = 28 } },
+        targets = { { id = 1, item = "RANARR_UNF", count = 28, mode = Plan.HAVE } },
         recipes = {
             RANARR_UNF = {
                 { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "CLEAN_RANARR", count = 1 } } },
@@ -13,7 +13,6 @@ local function herbPlan(detected)
                 { verb = "Clean", output = 1, actionLimit = 60, inputs = { { item = "GRIMY_RANARR", count = 1 } } },
             },
         },
-        targetMode = Plan.HAVE,
         detected = detected,
     })
 end
@@ -21,7 +20,7 @@ end
 -- Mix Super restore needs Herblore 63. Make Snapdragon potion (unf) waits on it below that level.
 local function restorePlan(herblore)
     return Plan.calculate({
-        targets = { { item = "SUPER_RESTORE", count = 14 } },
+        targets = { { id = 1, item = "SUPER_RESTORE", count = 14, mode = Plan.HAVE } },
         recipes = {
             SUPER_RESTORE = {
                 {
@@ -36,7 +35,6 @@ local function restorePlan(herblore)
                 { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "SNAPDRAGON", count = 1 } } },
             },
         },
-        targetMode = Plan.HAVE,
         detected = { SNAPDRAGON = 14 },
         levels = { HERBLORE = herblore },
     })
@@ -46,7 +44,10 @@ end
 -- Snapdragon potion (unf), Super restore and Clean toadflax.
 local function twoChains(herblore, detected)
     return Plan.calculate({
-        targets = { { item = "SUPER_RESTORE", count = 14 }, { item = "CLEAN_TOADFLAX", count = 28 } },
+        targets = {
+            { id = 1, item = "SUPER_RESTORE", count = 14, mode = Plan.HAVE },
+            { id = 2, item = "CLEAN_TOADFLAX", count = 28, mode = Plan.HAVE },
+        },
         recipes = {
             SUPER_RESTORE = {
                 {
@@ -74,7 +75,6 @@ local function twoChains(herblore, detected)
                 },
             },
         },
-        targetMode = Plan.HAVE,
         detected = detected,
         levels = { HERBLORE = herblore },
     })
@@ -186,13 +186,15 @@ describe("Diff.compare", function()
     it("reports two Targets for the same item one time", function()
         local function breadPlan(bread)
             return Plan.calculate({
-                targets = { { item = "BREAD", count = 3 }, { item = "BREAD", count = 2 } },
+                targets = {
+                    { id = 1, item = "BREAD", count = 3, mode = Plan.HAVE },
+                    { id = 2, item = "BREAD", count = 2, mode = Plan.HAVE },
+                },
                 recipes = {
                     BREAD = {
                         { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
                     },
                 },
-                targetMode = Plan.HAVE,
                 detected = { BREAD = bread },
             })
         end
@@ -209,12 +211,14 @@ describe("Diff.compare", function()
                         { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
                     },
                 },
-                targetMode = Plan.HAVE,
                 detected = { BREAD = bread },
             })
         end
-        local one = { { item = "BREAD", count = 3 } }
-        local two = { { item = "BREAD", count = 3 }, { item = "BREAD", count = 2 } }
+        local one = { { id = 1, item = "BREAD", count = 3, mode = Plan.HAVE } }
+        local two = {
+            { id = 1, item = "BREAD", count = 3, mode = Plan.HAVE },
+            { id = 2, item = "BREAD", count = 2, mode = Plan.HAVE },
+        }
 
         expectEqual(diff.compare(breadPlan(one, 0), breadPlan(two, 2)).targets, { { item = "BREAD", by = 2 } })
         expectEqual(diff.compare(breadPlan(two, 0), breadPlan(one, 2)).targets, { { item = "BREAD", by = 2 } })
@@ -223,14 +227,12 @@ describe("Diff.compare", function()
     describe("in Make", function()
         local function makePlan(made, bread)
             return Plan.calculate({
-                targets = { { item = "BREAD", count = 10 } },
+                targets = { { id = 1, item = "BREAD", count = 10, mode = Plan.MAKE, made = made } },
                 recipes = {
                     BREAD = {
                         { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
                     },
                 },
-                targetMode = "MAKE",
-                made = { BREAD = made },
                 detected = { BREAD = bread },
             })
         end
@@ -245,9 +247,8 @@ describe("Diff.compare", function()
 
         it("does not report a Target when the Target mode changes", function()
             local havePlan = Plan.calculate({
-                targets = { { item = "BREAD", count = 10 } },
+                targets = { { id = 1, item = "BREAD", count = 10, mode = Plan.HAVE } },
                 recipes = {},
-                targetMode = Plan.HAVE,
                 detected = { BREAD = 50 },
             })
 

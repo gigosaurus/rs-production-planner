@@ -2,11 +2,10 @@ local Plan = require("plan/calculate")
 
 local function bakeBread(detected, assumed, reserves)
     return Plan.calculate({
-        targets = { { item = "BREAD", count = 5 } },
+        targets = { { id = 1, item = "BREAD", count = 5, mode = Plan.HAVE } },
         recipes = {
             BREAD = { { verb = "Bake", output = 2, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
         },
-        targetMode = Plan.HAVE,
         detected = detected,
         assumed = assumed,
         reserves = reserves,
@@ -39,13 +38,15 @@ describe("Plan.calculate", function()
     it("uses the largest of two Targets for the same item, in each order", function()
         local function plan(bread, first, second)
             return Plan.calculate({
-                targets = { { item = "BREAD", count = first or 2 }, { item = "BREAD", count = second or 5 } },
+                targets = {
+                    { id = 1, item = "BREAD", count = first or 2, mode = Plan.HAVE },
+                    { id = 2, item = "BREAD", count = second or 5, mode = Plan.HAVE },
+                },
                 recipes = {
                     BREAD = {
                         { verb = "Bake", output = 2, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
                     },
                 },
-                targetMode = Plan.HAVE,
                 detected = { DOUGH = 10, BREAD = bread },
             })
         end
@@ -57,17 +58,21 @@ describe("Plan.calculate", function()
         expectEqual(plan(4, 5, 2).complete, false)
     end)
 
-    it("gives one Target line for two Targets for the same item", function()
+    it("gives one Target line for each Target, also for two Targets for the same item", function()
         local plan = Plan.calculate({
-            targets = { { item = "BREAD", count = 2 }, { item = "CAKE", count = 1 }, { item = "BREAD", count = 5 } },
+            targets = {
+                { id = 1, item = "BREAD", count = 2, mode = Plan.HAVE },
+                { id = 2, item = "CAKE", count = 1, mode = Plan.HAVE },
+                { id = 3, item = "BREAD", count = 5, mode = Plan.HAVE },
+            },
             recipes = {},
-            targetMode = Plan.HAVE,
             detected = { BREAD = 4 },
         })
 
         expectEqual(plan.targets, {
-            { item = "BREAD", count = 5, have = 4 },
-            { item = "CAKE", count = 1, have = 0 },
+            { id = 1, item = "BREAD", mode = Plan.HAVE, count = 2, have = 4 },
+            { id = 2, item = "CAKE", mode = Plan.HAVE, count = 1, have = 0 },
+            { id = 3, item = "BREAD", mode = Plan.HAVE, count = 5, have = 4 },
         })
     end)
 
@@ -75,13 +80,12 @@ describe("Plan.calculate", function()
         -- The Basis has no optional fields and the Recipe has no optional lists.
         local function newBasis()
             return {
-                targets = { { item = "BREAD", count = 5 } },
+                targets = { { id = 1, item = "BREAD", count = 5, mode = Plan.HAVE } },
                 recipes = {
                     BREAD = {
                         { verb = "Bake", output = 2, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
                     },
                 },
-                targetMode = Plan.HAVE,
                 detected = { DOUGH = 10 },
             }
         end
@@ -94,7 +98,7 @@ describe("Plan.calculate", function()
 
     it("lists an other Output that the Plan does not use as a Leftover", function()
         local plan = Plan.calculate({
-            targets = { { item = "COCONUT_MILK", count = 3 } },
+            targets = { { id = 1, item = "COCONUT_MILK", count = 3, mode = Plan.HAVE } },
             recipes = {
                 COCONUT_MILK = {
                     {
@@ -106,7 +110,6 @@ describe("Plan.calculate", function()
                     },
                 },
             },
-            targetMode = Plan.HAVE,
             detected = { VIAL = 3, COCONUT_OPEN = 3 },
         })
 
@@ -126,9 +129,11 @@ describe("Plan.calculate", function()
 
         it("subtracts an other Output from the demand for that item", function()
             local plan = Plan.calculate({
-                targets = { { item = "COCONUT_MILK", count = 3 }, { item = "SHELL_BOWL", count = 3 } },
+                targets = {
+                    { id = 1, item = "COCONUT_MILK", count = 3, mode = Plan.HAVE },
+                    { id = 2, item = "SHELL_BOWL", count = 3, mode = Plan.HAVE },
+                },
                 recipes = { COCONUT_MILK = { pourMilk }, SHELL_BOWL = { makeBowl } },
-                targetMode = Plan.HAVE,
                 detected = { VIAL = 3, COCONUT_OPEN = 3 },
             })
 
@@ -146,12 +151,11 @@ describe("Plan.calculate", function()
             }
             local plan = Plan.calculate({
                 targets = {
-                    { item = "COCONUT_MILK", count = 3 },
-                    { item = "GRATED_COCONUT", count = 2 },
-                    { item = "SHELL_BOWL", count = 4 },
+                    { id = 1, item = "COCONUT_MILK", count = 3, mode = Plan.HAVE },
+                    { id = 2, item = "GRATED_COCONUT", count = 2, mode = Plan.HAVE },
+                    { id = 3, item = "SHELL_BOWL", count = 4, mode = Plan.HAVE },
                 },
                 recipes = { COCONUT_MILK = { pourMilk }, GRATED_COCONUT = { grateCoconut }, SHELL_BOWL = { makeBowl } },
-                targetMode = Plan.HAVE,
                 detected = { VIAL = 3, COCONUT_OPEN = 5 },
             })
 
@@ -160,9 +164,11 @@ describe("Plan.calculate", function()
 
         it("puts the Step that makes an other Output before the Steps that use it", function()
             local plan = Plan.calculate({
-                targets = { { item = "SHELL_BOWL", count = 3 }, { item = "COCONUT_MILK", count = 3 } },
+                targets = {
+                    { id = 1, item = "SHELL_BOWL", count = 3, mode = Plan.HAVE },
+                    { id = 2, item = "COCONUT_MILK", count = 3, mode = Plan.HAVE },
+                },
                 recipes = { COCONUT_MILK = { pourMilk }, SHELL_BOWL = { makeBowl } },
-                targetMode = Plan.HAVE,
                 detected = { VIAL = 3, COCONUT_OPEN = 3 },
             })
 
@@ -175,7 +181,7 @@ describe("Plan.calculate", function()
 
         it("uses an other Output from a Step at a deeper Planning level", function()
             local plan = Plan.calculate({
-                targets = { { item = "FRUIT_BOWL", count = 3 } },
+                targets = { { id = 1, item = "FRUIT_BOWL", count = 3, mode = Plan.HAVE } },
                 recipes = {
                     FRUIT_BOWL = {
                         {
@@ -195,7 +201,6 @@ describe("Plan.calculate", function()
                     },
                     COCONUT_MILK = { pourMilk },
                 },
-                targetMode = Plan.HAVE,
                 detected = { VIAL = 3, COCONUT_OPEN = 3 },
             })
 
@@ -212,9 +217,11 @@ describe("Plan.calculate", function()
                 skills = { { skill = "COOKING", level = 50 } },
             }
             local plan = Plan.calculate({
-                targets = { { item = "COCONUT_MILK", count = 3 }, { item = "SHELL_BOWL", count = 3 } },
+                targets = {
+                    { id = 1, item = "COCONUT_MILK", count = 3, mode = Plan.HAVE },
+                    { id = 2, item = "SHELL_BOWL", count = 3, mode = Plan.HAVE },
+                },
                 recipes = { COCONUT_MILK = { flaggedPour }, SHELL_BOWL = { makeBowl } },
-                targetMode = Plan.HAVE,
                 detected = { VIAL = 3, COCONUT_OPEN = 3 },
                 levels = { COOKING = 10 },
             })
@@ -225,7 +232,10 @@ describe("Plan.calculate", function()
 
         it("does not make a Step Waiting when a Step that can go ahead uses its other Output", function()
             local plan = Plan.calculate({
-                targets = { { item = "MILK_JUG", count = 3 }, { item = "SHELL_BOWL", count = 3 } },
+                targets = {
+                    { id = 1, item = "MILK_JUG", count = 3, mode = Plan.HAVE },
+                    { id = 2, item = "SHELL_BOWL", count = 3, mode = Plan.HAVE },
+                },
                 recipes = {
                     MILK_JUG = {
                         {
@@ -239,7 +249,6 @@ describe("Plan.calculate", function()
                     COCONUT_MILK = { pourMilk },
                     SHELL_BOWL = { makeBowl },
                 },
-                targetMode = Plan.HAVE,
                 detected = { VIAL = 3, COCONUT_OPEN = 3 },
                 levels = { COOKING = 10 },
             })
@@ -252,9 +261,9 @@ describe("Plan.calculate", function()
         it("takes the used part of an other Output from the first Steps in production order", function()
             local plan = Plan.calculate({
                 targets = {
-                    { item = "COCONUT_MILK", count = 3 },
-                    { item = "COCONUT_FLESH", count = 4 },
-                    { item = "SHELL_BOWL", count = 2 },
+                    { id = 1, item = "COCONUT_MILK", count = 3, mode = Plan.HAVE },
+                    { id = 2, item = "COCONUT_FLESH", count = 4, mode = Plan.HAVE },
+                    { id = 3, item = "SHELL_BOWL", count = 2, mode = Plan.HAVE },
                 },
                 recipes = {
                     COCONUT_MILK = { pourMilk },
@@ -269,7 +278,6 @@ describe("Plan.calculate", function()
                     },
                     SHELL_BOWL = { makeBowl },
                 },
-                targetMode = Plan.HAVE,
                 detected = { VIAL = 3, COCONUT_OPEN = 5 },
             })
 
@@ -314,7 +322,7 @@ describe("Plan.calculate", function()
     it("gives each Target with its Counted stock", function()
         local plan = bakeBread({ BREAD = 3 }, { BREAD = 1 })
 
-        expectEqual(plan.targets, { { item = "BREAD", count = 5, have = 4 } })
+        expectEqual(plan.targets, { { id = 1, item = "BREAD", mode = Plan.HAVE, count = 5, have = 4 } })
     end)
 
     it("is Complete when Counted stock covers each Target", function()
@@ -325,9 +333,11 @@ describe("Plan.calculate", function()
 
     it("is not Complete when Counted stock does not cover a Target", function()
         local plan = Plan.calculate({
-            targets = { { item = "BREAD", count = 5 }, { item = "CAKE", count = 1 } },
+            targets = {
+                { id = 1, item = "BREAD", count = 5, mode = Plan.HAVE },
+                { id = 2, item = "CAKE", count = 1, mode = Plan.HAVE },
+            },
             recipes = {},
-            targetMode = Plan.HAVE,
             detected = { BREAD = 5 },
         })
 
@@ -343,13 +353,15 @@ describe("Plan.calculate", function()
     -- This is the example in ADR 0002.
     it("subtracts Counted stock once from the total demand for an item", function()
         local plan = Plan.calculate({
-            targets = { { item = "B", count = 2 }, { item = "C", count = 3 } },
+            targets = {
+                { id = 1, item = "B", count = 2, mode = Plan.HAVE },
+                { id = 2, item = "C", count = 3, mode = Plan.HAVE },
+            },
             recipes = {
                 A = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "ORE", count = 1 } } } },
                 B = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "A", count = 10 } } } },
                 C = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "A", count = 100 } } } },
             },
-            targetMode = Plan.HAVE,
             detected = { A = 1, ORE = 1000 },
         })
 
@@ -359,7 +371,7 @@ describe("Plan.calculate", function()
     -- This is the second case in ADR 0002. C is at depth 1 under D. C is at depth 2 under B.
     it("totals demand for an item at its Planning level", function()
         local plan = Plan.calculate({
-            targets = { { item = "D", count = 1 } },
+            targets = { { id = 1, item = "D", count = 1, mode = Plan.HAVE } },
             recipes = {
                 B = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "C", count = 1 } } } },
                 C = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "ORE", count = 1 } } } },
@@ -372,7 +384,6 @@ describe("Plan.calculate", function()
                     },
                 },
             },
-            targetMode = Plan.HAVE,
             detected = { C = 1, ORE = 10 },
         })
 
@@ -388,12 +399,11 @@ describe("Plan.calculate", function()
 
     it("decreases the demand below an Intermediate by its Counted stock", function()
         local plan = Plan.calculate({
-            targets = { { item = "D", count = 1 } },
+            targets = { { id = 1, item = "D", count = 1, mode = Plan.HAVE } },
             recipes = {
                 B = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "ORE", count = 1 } } } },
                 D = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "B", count = 10 } } } },
             },
-            targetMode = Plan.HAVE,
             detected = { B = 4 },
         })
 
@@ -403,12 +413,11 @@ describe("Plan.calculate", function()
 
     it("puts the Steps of deeper Planning levels first", function()
         local plan = Plan.calculate({
-            targets = { { item = "BREAD", count = 1 } },
+            targets = { { id = 1, item = "BREAD", count = 1, mode = Plan.HAVE } },
             recipes = {
                 BREAD = { { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
                 DOUGH = { { verb = "Mix", output = 1, actionLimit = 60, inputs = { { item = "FLOUR", count = 1 } } } },
             },
-            targetMode = Plan.HAVE,
             detected = { FLOUR = 1 },
         })
 
@@ -422,7 +431,7 @@ describe("Plan.calculate", function()
     -- The search finds SALT before FLOUR. The Step that uses FLOUR comes first.
     it("lists Shortages in the order of the first Step that uses them", function()
         local plan = Plan.calculate({
-            targets = { { item = "BREAD", count = 1 } },
+            targets = { { id = 1, item = "BREAD", count = 1, mode = Plan.HAVE } },
             recipes = {
                 BREAD = {
                     {
@@ -434,7 +443,6 @@ describe("Plan.calculate", function()
                 },
                 DOUGH = { { verb = "Mix", output = 1, actionLimit = 60, inputs = { { item = "FLOUR", count = 1 } } } },
             },
-            targetMode = Plan.HAVE,
             detected = {},
         })
 
@@ -444,11 +452,13 @@ describe("Plan.calculate", function()
     -- The search finds CAKE first.
     it("lists a Target with no Recipe after the Shortages that Steps use", function()
         local plan = Plan.calculate({
-            targets = { { item = "CAKE", count = 1 }, { item = "BREAD", count = 1 } },
+            targets = {
+                { id = 1, item = "CAKE", count = 1, mode = Plan.HAVE },
+                { id = 2, item = "BREAD", count = 1, mode = Plan.HAVE },
+            },
             recipes = {
                 BREAD = { { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
             },
-            targetMode = Plan.HAVE,
             detected = {},
         })
 
@@ -457,12 +467,11 @@ describe("Plan.calculate", function()
 
     it("lists Leftovers in the order of the Step that makes them", function()
         local plan = Plan.calculate({
-            targets = { { item = "BREAD", count = 5 } },
+            targets = { { id = 1, item = "BREAD", count = 5, mode = Plan.HAVE } },
             recipes = {
                 BREAD = { { verb = "Bake", output = 2, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
                 DOUGH = { { verb = "Mix", output = 2, actionLimit = 60, inputs = { { item = "FLOUR", count = 1 } } } },
             },
-            targetMode = Plan.HAVE,
             detected = { FLOUR = 10 },
         })
 
@@ -471,7 +480,7 @@ describe("Plan.calculate", function()
 
     it("flags a Step for each skill level that the player does not have", function()
         local plan = Plan.calculate({
-            targets = { { item = "SUPER_RESTORE", count = 1 } },
+            targets = { { id = 1, item = "SUPER_RESTORE", count = 1, mode = Plan.HAVE } },
             recipes = {
                 SUPER_RESTORE = {
                     {
@@ -483,7 +492,6 @@ describe("Plan.calculate", function()
                     },
                 },
             },
-            targetMode = Plan.HAVE,
             detected = { SNAPDRAGON = 1 },
             levels = { HERBLORE = 61, COOKING = 10 },
         })
@@ -493,7 +501,7 @@ describe("Plan.calculate", function()
 
     it("flags a Step for each Unlock that the player does not have", function()
         local plan = Plan.calculate({
-            targets = { { item = "TROLL_POTION", count = 1 } },
+            targets = { { id = 1, item = "TROLL_POTION", count = 1, mode = Plan.HAVE } },
             recipes = {
                 TROLL_POTION = {
                     {
@@ -505,7 +513,6 @@ describe("Plan.calculate", function()
                     },
                 },
             },
-            targetMode = Plan.HAVE,
             detected = { HERB = 1 },
             unlocks = { DRUIDIC_RITUAL = true },
         })
@@ -516,7 +523,7 @@ describe("Plan.calculate", function()
     -- This is the interim behaviour in issue 7.
     it("stops with an error that names the items in a Loop", function()
         local ok, err = pcall(Plan.calculate, {
-            targets = { { item = "BUCKET_OF_WATER", count = 5 } },
+            targets = { { id = 1, item = "BUCKET_OF_WATER", count = 5, mode = Plan.HAVE } },
             recipes = {
                 BUCKET_OF_WATER = {
                     { verb = "Fill", output = 1, actionLimit = 60, inputs = { { item = "BUCKET", count = 1 } } },
@@ -530,7 +537,6 @@ describe("Plan.calculate", function()
                     },
                 },
             },
-            targetMode = Plan.HAVE,
             detected = {},
         })
 
@@ -541,7 +547,7 @@ describe("Plan.calculate", function()
     it("gives the line of the caller in a Loop error", function()
         local ok, err = pcall(function()
             Plan.calculate({
-                targets = { { item = "BUCKET_OF_WATER", count = 5 } },
+                targets = { { id = 1, item = "BUCKET_OF_WATER", count = 5, mode = Plan.HAVE } },
                 recipes = {
                     BUCKET_OF_WATER = {
                         { verb = "Fill", output = 1, actionLimit = 60, inputs = { { item = "BUCKET", count = 1 } } },
@@ -555,7 +561,6 @@ describe("Plan.calculate", function()
                         },
                     },
                 },
-                targetMode = Plan.HAVE,
                 detected = {},
             })
         end)
@@ -568,11 +573,10 @@ describe("Plan.calculate", function()
     -- Each Recipe must have an Action limit (issue 2, section 1).
     it("stops with an error that names the item when its Recipe has no Action limit", function()
         local ok, err = pcall(Plan.calculate, {
-            targets = { { item = "BREAD", count = 1 } },
+            targets = { { id = 1, item = "BREAD", count = 1, mode = Plan.HAVE } },
             recipes = {
                 BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
             },
-            targetMode = Plan.HAVE,
             detected = {},
         })
 
@@ -583,11 +587,10 @@ describe("Plan.calculate", function()
     -- The check does not depend on stock. Thus a data error shows at once, not later in a session.
     it("stops with an error when stock covers an item whose Recipe has no Action limit", function()
         local ok, err = pcall(Plan.calculate, {
-            targets = { { item = "BREAD", count = 1 } },
+            targets = { { id = 1, item = "BREAD", count = 1, mode = Plan.HAVE } },
             recipes = {
                 BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
             },
-            targetMode = Plan.HAVE,
             detected = { BREAD = 1 },
         })
 
@@ -598,11 +601,10 @@ describe("Plan.calculate", function()
     it("gives the line of the caller in a Recipe error", function()
         local ok, err = pcall(function()
             Plan.calculate({
-                targets = { { item = "BREAD", count = 1 } },
+                targets = { { id = 1, item = "BREAD", count = 1, mode = Plan.HAVE } },
                 recipes = {
                     BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
                 },
-                targetMode = Plan.HAVE,
                 detected = {},
             })
         end)
@@ -615,12 +617,11 @@ describe("Plan.calculate", function()
     -- The check covers only the Recipes that the Plan uses (issue 2, section 1).
     it("does not stop when a Recipe that the Plan does not use has no Action limit", function()
         local ok = pcall(Plan.calculate, {
-            targets = { { item = "BREAD", count = 1 } },
+            targets = { { id = 1, item = "BREAD", count = 1, mode = Plan.HAVE } },
             recipes = {
                 BREAD = { { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
                 CAKE = { { verb = "Bake", output = 1, inputs = { { item = "BATTER", count = 1 } } } },
             },
-            targetMode = Plan.HAVE,
             detected = {},
         })
 
@@ -630,48 +631,78 @@ describe("Plan.calculate", function()
     describe("Basis check", function()
         local function breadBasis()
             return {
-                targets = { { item = "BREAD", count = 1 } },
+                targets = { { id = 1, item = "BREAD", count = 1, mode = Plan.HAVE } },
                 recipes = {
                     BREAD = {
                         { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
                     },
                 },
-                targetMode = Plan.HAVE,
                 detected = {},
             }
         end
 
-        -- A typo in the Target mode must not give a Plan in Have (issue 14).
-        it("stops with an error that names an unknown Target mode", function()
-            local basis = breadBasis()
-            basis.targetMode = "MAKES"
+        local function errorOf(basis)
             local ok, err = pcall(Plan.calculate, basis)
-
             expectEqual(ok, false)
-            expectEqual(err, "The Target mode MAKES is unknown.")
+            return err
+        end
+
+        -- A typo in the Target mode must not give a Plan in Have (issue 14).
+        it("stops with an error that names an unknown Target mode and its item", function()
+            local basis = breadBasis()
+            basis.targets[1].mode = "MAKES"
+
+            expectEqual(errorOf(basis), "The Target mode MAKES of BREAD is unknown.")
+        end)
+
+        it("stops with an error for a Target with no Target mode", function()
+            local basis = breadBasis()
+            basis.targets[1].mode = nil
+
+            expectEqual(errorOf(basis), "The Target mode nil of BREAD is unknown.")
         end)
 
         -- Each caller must give each required field (issue 14).
-        for _, field in ipairs({ "targets", "recipes", "detected", "targetMode" }) do
+        for _, field in ipairs({ "targets", "recipes", "detected" }) do
             it("stops with an error when the Basis has no " .. field, function()
                 local basis = breadBasis()
                 basis[field] = nil
-                local ok, err = pcall(Plan.calculate, basis)
 
-                expectEqual(ok, false)
-                expectEqual(err, "The Basis has no " .. field .. ".")
+                expectEqual(errorOf(basis), "The Basis has no " .. field .. ".")
             end)
         end
 
         it("gives the line of the caller in the error", function()
             local basis = breadBasis()
-            basis.targetMode = nil
+            basis.detected = nil
             local ok, err = pcall(function()
                 Plan.calculate(basis)
             end)
 
             expectEqual(ok, false)
-            expectEqual(err:find("calculate_spec.lua:%d+: The Basis has no targetMode%.") ~= nil, true)
+            expectEqual(err:find("calculate_spec.lua:%d+: The Basis has no detected%.") ~= nil, true)
+        end)
+
+        -- The diff matches the Target lines by id (issue 28).
+        it("stops with an error for a Target with no id", function()
+            local basis = breadBasis()
+            basis.targets[1].id = nil
+
+            expectEqual(errorOf(basis), "A Target of BREAD has no id.")
+        end)
+
+        it("stops with an error when two Targets have the same id", function()
+            local basis = breadBasis()
+            basis.targets[2] = { id = 1, item = "CAKE", count = 1, mode = Plan.HAVE }
+
+            expectEqual(errorOf(basis), "Two Targets have the id 1.")
+        end)
+
+        it("accepts two Targets for the same item with different ids", function()
+            local basis = breadBasis()
+            basis.targets[2] = { id = "b", item = "BREAD", count = 2, mode = Plan.HAVE }
+
+            expectEqual(#Plan.calculate(basis).targets, 2)
         end)
 
         -- The player types the Target count. A bad count is a fault in the view (issue 43).
@@ -685,20 +716,16 @@ describe("Plan.calculate", function()
             it("stops with an error for a Target count of " .. case.name, function()
                 local basis = breadBasis()
                 basis.targets[1].count = case.count
-                local ok, err = pcall(Plan.calculate, basis)
 
-                expectEqual(ok, false)
-                expectEqual(err, "The Target count of BREAD must be a whole number more than 0.")
+                expectEqual(errorOf(basis), "The Target count of BREAD must be a whole number more than 0.")
             end)
         end
 
         it("checks the count of each Target, not only the first", function()
             local basis = breadBasis()
-            basis.targets[2] = { item = "CAKE", count = 0 }
-            local ok, err = pcall(Plan.calculate, basis)
+            basis.targets[2] = { id = 2, item = "CAKE", count = 0, mode = Plan.HAVE }
 
-            expectEqual(ok, false)
-            expectEqual(err, "The Target count of CAKE must be a whole number more than 0.")
+            expectEqual(errorOf(basis), "The Target count of CAKE must be a whole number more than 0.")
         end)
 
         it("gives the line of the caller in a Target count error", function()
@@ -711,16 +738,45 @@ describe("Plan.calculate", function()
             expectEqual(ok, false)
             expectEqual(err:find("calculate_spec.lua:%d+: The Target count of BREAD") ~= nil, true)
         end)
+
+        for _, case in ipairs({
+            { name = "-1", made = -1 },
+            { name = "2.5", made = 2.5 },
+            { name = "nil", made = nil },
+            { name = 'the string "3"', made = "3" },
+        }) do
+            it("stops with an error for a Made count of " .. case.name .. " in a Make Target", function()
+                local basis = breadBasis()
+                basis.targets[1].mode = Plan.MAKE
+                basis.targets[1].made = case.made
+
+                expectEqual(errorOf(basis), "The Made count of BREAD must be a whole number of 0 or more.")
+            end)
+        end
+
+        it("accepts a Made count of 0 in a Make Target", function()
+            local basis = breadBasis()
+            basis.targets[1].mode = Plan.MAKE
+            basis.targets[1].made = 0
+
+            expectEqual(#Plan.calculate(basis).targets, 1)
+        end)
+
+        it("stops with an error for a Made count in a Have Target", function()
+            local basis = breadBasis()
+            basis.targets[1].made = 0
+
+            expectEqual(errorOf(basis), "A Have Target of BREAD has a Made count.")
+        end)
     end)
 
     describe("Batch hint", function()
         local function batchHint(inputs, actionLimit, stackable)
             local plan = Plan.calculate({
-                targets = { { item = "POTION", count = 100 } },
+                targets = { { id = 1, item = "POTION", count = 100, mode = Plan.HAVE } },
                 recipes = {
                     POTION = { { verb = "Mix", output = 1, inputs = inputs, actionLimit = actionLimit or 60 } },
                 },
-                targetMode = Plan.HAVE,
                 detected = {},
                 stackable = stackable,
             })
@@ -761,7 +817,7 @@ describe("Plan.calculate", function()
 
         it("gives each Input for one full Inventory, with its Detected stock", function()
             local plan = Plan.calculate({
-                targets = { { item = "POTION", count = 100 } },
+                targets = { { id = 1, item = "POTION", count = 100, mode = Plan.HAVE } },
                 recipes = {
                     POTION = {
                         {
@@ -772,7 +828,6 @@ describe("Plan.calculate", function()
                         },
                     },
                 },
-                targetMode = Plan.HAVE,
                 detected = { HERB_UNF = 30 },
             })
 
@@ -784,13 +839,12 @@ describe("Plan.calculate", function()
 
         it("is nil when one action needs more non-stackable Input than the Inventory holds", function()
             local plan = Plan.calculate({
-                targets = { { item = "STATUE", count = 1 } },
+                targets = { { id = 1, item = "STATUE", count = 1, mode = Plan.HAVE } },
                 recipes = {
                     STATUE = {
                         { verb = "Carve", output = 1, actionLimit = 60, inputs = { { item = "CLAY", count = 29 } } },
                     },
                 },
-                targetMode = Plan.HAVE,
                 detected = {},
             })
 
@@ -824,7 +878,10 @@ describe("Plan.calculate", function()
     describe("Next step", function()
         -- Two Targets that do not depend on each other. Each Step needs 1 Input for each action.
         local function twoSteps(stock)
-            stock.targets = { { item = "CLEAN_RANARR", count = 28 }, { item = "CLEAN_TOADFLAX", count = 28 } }
+            stock.targets = {
+                { id = 1, item = "CLEAN_RANARR", count = 28, mode = Plan.HAVE },
+                { id = 2, item = "CLEAN_TOADFLAX", count = 28, mode = Plan.HAVE },
+            }
             stock.recipes = {
                 CLEAN_RANARR = {
                     { verb = "Clean", output = 1, actionLimit = 60, inputs = { { item = "GRIMY_RANARR", count = 1 } } },
@@ -838,7 +895,6 @@ describe("Plan.calculate", function()
                     },
                 },
             }
-            stock.targetMode = Plan.HAVE
             return Plan.calculate(stock)
         end
 
@@ -883,13 +939,12 @@ describe("Plan.calculate", function()
         -- One action needs 29 Clay. Thus the Step has no Batch hint.
         local function carveStatues(detected)
             return Plan.calculate({
-                targets = { { item = "STATUE", count = 2 } },
+                targets = { { id = 1, item = "STATUE", count = 2, mode = Plan.HAVE } },
                 recipes = {
                     STATUE = {
                         { verb = "Carve", output = 1, actionLimit = 60, inputs = { { item = "CLAY", count = 29 } } },
                     },
                 },
-                targetMode = Plan.HAVE,
                 detected = detected,
             })
         end
@@ -908,7 +963,10 @@ describe("Plan.calculate", function()
 
         it("is not a Flagged step", function()
             local plan = Plan.calculate({
-                targets = { { item = "CLEAN_RANARR", count = 28 }, { item = "CLEAN_TOADFLAX", count = 28 } },
+                targets = {
+                    { id = 1, item = "CLEAN_RANARR", count = 28, mode = Plan.HAVE },
+                    { id = 2, item = "CLEAN_TOADFLAX", count = 28, mode = Plan.HAVE },
+                },
                 recipes = {
                     CLEAN_RANARR = {
                         {
@@ -928,7 +986,6 @@ describe("Plan.calculate", function()
                         },
                     },
                 },
-                targetMode = Plan.HAVE,
                 detected = { GRIMY_RANARR = 28, GRIMY_TOADFLAX = 28 },
                 levels = { HERBLORE = 10 },
             })
@@ -938,7 +995,10 @@ describe("Plan.calculate", function()
 
         it("is not a Waiting step", function()
             local plan = Plan.calculate({
-                targets = { { item = "SUPER_RESTORE", count = 14 }, { item = "CLEAN_TOADFLAX", count = 28 } },
+                targets = {
+                    { id = 1, item = "SUPER_RESTORE", count = 14, mode = Plan.HAVE },
+                    { id = 2, item = "CLEAN_TOADFLAX", count = 28, mode = Plan.HAVE },
+                },
                 recipes = {
                     SUPER_RESTORE = {
                         {
@@ -966,7 +1026,6 @@ describe("Plan.calculate", function()
                         },
                     },
                 },
-                targetMode = Plan.HAVE,
                 detected = { SNAPDRAGON = 14, GRIMY_TOADFLAX = 28 },
                 levels = { HERBLORE = 61 },
             })
@@ -988,9 +1047,8 @@ describe("Plan.calculate", function()
 
         it("makes a Step Waiting when its Output goes only to a Flagged step", function()
             local plan = Plan.calculate({
-                targets = { { item = "SUPER_RESTORE", count = 1 } },
+                targets = { { id = 1, item = "SUPER_RESTORE", count = 1, mode = Plan.HAVE } },
                 recipes = { SUPER_RESTORE = { mixRestore }, SNAPDRAGON_UNF = { makeUnf } },
-                targetMode = Plan.HAVE,
                 detected = { SNAPDRAGON = 1 },
                 levels = { HERBLORE = 61 },
             })
@@ -1002,7 +1060,7 @@ describe("Plan.calculate", function()
 
         it("makes a Step Waiting when its Output reaches a Flagged step through other Steps", function()
             local plan = Plan.calculate({
-                targets = { { item = "SUPER_RESTORE", count = 1 } },
+                targets = { { id = 1, item = "SUPER_RESTORE", count = 1, mode = Plan.HAVE } },
                 recipes = {
                     SUPER_RESTORE = { mixRestore },
                     SNAPDRAGON_UNF = { makeUnf },
@@ -1015,7 +1073,6 @@ describe("Plan.calculate", function()
                         },
                     },
                 },
-                targetMode = Plan.HAVE,
                 detected = { GRIMY_SNAPDRAGON = 1 },
                 levels = { HERBLORE = 61 },
             })
@@ -1026,7 +1083,10 @@ describe("Plan.calculate", function()
 
         it("does not make a Step Waiting when a Step that uses its Output can go ahead", function()
             local plan = Plan.calculate({
-                targets = { { item = "SUPER_RESTORE", count = 1 }, { item = "OTHER_POTION", count = 1 } },
+                targets = {
+                    { id = 1, item = "SUPER_RESTORE", count = 1, mode = Plan.HAVE },
+                    { id = 2, item = "OTHER_POTION", count = 1, mode = Plan.HAVE },
+                },
                 recipes = {
                     SUPER_RESTORE = { mixRestore },
                     OTHER_POTION = {
@@ -1039,7 +1099,6 @@ describe("Plan.calculate", function()
                     },
                     SNAPDRAGON_UNF = { makeUnf },
                 },
-                targetMode = Plan.HAVE,
                 detected = { SNAPDRAGON = 2 },
                 levels = { HERBLORE = 61 },
             })
@@ -1049,7 +1108,7 @@ describe("Plan.calculate", function()
 
         it("makes a Step Waiting when it uses an item that a Flagged step makes", function()
             local plan = Plan.calculate({
-                targets = { { item = "SUPER_RESTORE_4", count = 1 } },
+                targets = { { id = 1, item = "SUPER_RESTORE_4", count = 1, mode = Plan.HAVE } },
                 recipes = {
                     SUPER_RESTORE_4 = {
                         {
@@ -1069,7 +1128,6 @@ describe("Plan.calculate", function()
                         },
                     },
                 },
-                targetMode = Plan.HAVE,
                 detected = { SNAPDRAGON_UNF = 1 },
                 levels = { HERBLORE = 61 },
             })
@@ -1080,7 +1138,10 @@ describe("Plan.calculate", function()
 
         it("names the first Flagged step in production order when more than one causes the wait", function()
             local plan = Plan.calculate({
-                targets = { { item = "SUPER_RESTORE", count = 1 }, { item = "OTHER_POTION", count = 1 } },
+                targets = {
+                    { id = 1, item = "SUPER_RESTORE", count = 1, mode = Plan.HAVE },
+                    { id = 2, item = "OTHER_POTION", count = 1, mode = Plan.HAVE },
+                },
                 recipes = {
                     SUPER_RESTORE = { mixRestore },
                     OTHER_POTION = {
@@ -1094,7 +1155,6 @@ describe("Plan.calculate", function()
                     },
                     SNAPDRAGON_UNF = { makeUnf },
                 },
-                targetMode = Plan.HAVE,
                 detected = { SNAPDRAGON = 2 },
                 levels = { HERBLORE = 61 },
             })
@@ -1106,7 +1166,7 @@ describe("Plan.calculate", function()
         -- D uses B and C. B uses C, so C comes first in production order.
         it("names the first Flagged step in production order when a Step uses items of more than one", function()
             local plan = Plan.calculate({
-                targets = { { item = "D", count = 1 } },
+                targets = { { id = 1, item = "D", count = 1, mode = Plan.HAVE } },
                 recipes = {
                     B = {
                         {
@@ -1135,7 +1195,6 @@ describe("Plan.calculate", function()
                         },
                     },
                 },
-                targetMode = Plan.HAVE,
                 detected = { ORE = 2 },
                 levels = { HERBLORE = 61 },
             })
@@ -1146,7 +1205,10 @@ describe("Plan.calculate", function()
 
         it("does not make a Step Waiting when its Output goes to a Target and to a Flagged step", function()
             local plan = Plan.calculate({
-                targets = { { item = "SHARK", count = 10 }, { item = "SHARK_SOUP", count = 4 } },
+                targets = {
+                    { id = 1, item = "SHARK", count = 10, mode = Plan.HAVE },
+                    { id = 2, item = "SHARK_SOUP", count = 4, mode = Plan.HAVE },
+                },
                 recipes = {
                     SHARK = {
                         { verb = "Cook", output = 1, actionLimit = 60, inputs = { { item = "RAW_SHARK", count = 1 } } },
@@ -1161,7 +1223,6 @@ describe("Plan.calculate", function()
                         },
                     },
                 },
-                targetMode = Plan.HAVE,
                 detected = { RAW_SHARK = 14 },
                 levels = { COOKING = 70 },
             })
@@ -1171,7 +1232,7 @@ describe("Plan.calculate", function()
 
         it("makes a Step Waiting when it uses an item that a Waiting step makes", function()
             local plan = Plan.calculate({
-                targets = { { item = "SUPER_RESTORE_FLASK", count = 1 } },
+                targets = { { id = 1, item = "SUPER_RESTORE_FLASK", count = 1, mode = Plan.HAVE } },
                 recipes = {
                     SUPER_RESTORE_FLASK = {
                         {
@@ -1199,7 +1260,6 @@ describe("Plan.calculate", function()
                         },
                     },
                 },
-                targetMode = Plan.HAVE,
                 detected = { SNAPDRAGON_UNF = 1 },
                 levels = { HERBLORE = 61 },
             })
@@ -1210,7 +1270,7 @@ describe("Plan.calculate", function()
 
         it("makes a Step Waiting when its Output goes only to a Waiting step", function()
             local plan = Plan.calculate({
-                targets = { { item = "SUPER_RESTORE_FLASK", count = 1 } },
+                targets = { { id = 1, item = "SUPER_RESTORE_FLASK", count = 1, mode = Plan.HAVE } },
                 recipes = {
                     SUPER_RESTORE_FLASK = {
                         {
@@ -1233,7 +1293,6 @@ describe("Plan.calculate", function()
                         { verb = "Blow", output = 1, actionLimit = 60, inputs = { { item = "GLASS", count = 1 } } },
                     },
                 },
-                targetMode = Plan.HAVE,
                 detected = { SNAPDRAGON_UNF = 1, GLASS = 1 },
                 levels = { HERBLORE = 61 },
             })
@@ -1243,75 +1302,63 @@ describe("Plan.calculate", function()
         end)
     end)
 
-    it("uses Target mode Have when the Target mode is HAVE", function()
-        local plan = Plan.calculate({
-            targets = { { item = "BREAD", count = 5 } },
-            recipes = {
-                BREAD = { { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
-            },
-            targetMode = Plan.HAVE,
-            made = { BREAD = 5 },
-            detected = { BREAD = 2, DOUGH = 10 },
-        })
+    it("gives a Have Target line with no Made count", function()
+        local plan = bakeBread({ BREAD = 2, DOUGH = 10 })
 
-        expectEqual(stepFor(plan, "BREAD").actions, 3)
-        expectEqual(plan.complete, false)
-        expectEqual(plan.targets, { { item = "BREAD", count = 5, have = 2 } })
+        expectEqual(plan.targets[1].made, nil)
     end)
 
     describe("Target mode Make", function()
         local function makeBread(made, detected)
             return Plan.calculate({
-                targets = { { item = "BREAD", count = 5 } },
+                targets = { { id = 1, item = "BREAD", count = 5, mode = Plan.MAKE, made = made } },
                 recipes = {
                     BREAD = {
                         { verb = "Bake", output = 2, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
                     },
                 },
-                targetMode = Plan.MAKE,
-                made = made,
                 detected = detected,
             })
         end
 
         it("makes the Target minus its Made count, even with Counted stock of the Target", function()
-            local plan = makeBread({ BREAD = 1 }, { BREAD = 10, DOUGH = 10 })
+            local plan = makeBread(1, { BREAD = 10, DOUGH = 10 })
 
             expectEqual(stepFor(plan, "BREAD").actions, 2)
         end)
 
-        it("uses the largest of two Targets for the same item, minus the Made count", function()
-            local function plan(made)
+        it("uses the largest remaining amount of two Make Targets for the same item", function()
+            local function plan(madeA, madeB)
                 return Plan.calculate({
-                    targets = { { item = "BREAD", count = 100 }, { item = "BREAD", count = 10 } },
+                    targets = {
+                        { id = 1, item = "BREAD", count = 100, mode = Plan.MAKE, made = madeA },
+                        { id = 2, item = "BREAD", count = 25, mode = Plan.MAKE, made = madeB },
+                    },
                     recipes = {
                         BREAD = {
-                            { verb = "Bake", output = 2, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
+                            { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
                         },
                     },
-                    targetMode = "MAKE",
-                    made = { BREAD = made },
                     detected = { DOUGH = 100 },
                 })
             end
 
-            expectEqual(stepFor(plan(20), "BREAD").actions, 40)
-            expectEqual(plan(99).complete, false)
-            expectEqual(plan(100).complete, true)
+            expectEqual(stepFor(plan(20, 14), "BREAD").actions, 80)
+            expectEqual(stepFor(plan(90, 0), "BREAD").actions, 25)
+            expectEqual(plan(99, 25).complete, false)
+            expectEqual(plan(100, 25).complete, true)
         end)
 
         it("does not add a Reserve of the Target to its need", function()
             local plan = Plan.calculate({
-                targets = { { item = "BREAD", count = 5 } },
+                targets = { { id = 1, item = "BREAD", count = 5, mode = Plan.MAKE, made = 0 } },
                 recipes = {
                     BREAD = {
                         { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
                     },
                 },
-                targetMode = Plan.MAKE,
-                made = {},
                 detected = { DOUGH = 10 },
-                reserves = { BREAD = 3 },
+                reserves = { BREAD = 10 },
             })
 
             expectEqual(stepFor(plan, "BREAD").actions, 5)
@@ -1319,7 +1366,7 @@ describe("Plan.calculate", function()
 
         it("decreases the demand for Intermediates and Raw materials by their Counted stock", function()
             local plan = Plan.calculate({
-                targets = { { item = "BREAD", count = 5 } },
+                targets = { { id = 1, item = "BREAD", count = 5, mode = Plan.MAKE, made = 0 } },
                 recipes = {
                     BREAD = {
                         { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } },
@@ -1328,8 +1375,6 @@ describe("Plan.calculate", function()
                         { verb = "Mix", output = 1, actionLimit = 60, inputs = { { item = "FLOUR", count = 1 } } },
                     },
                 },
-                targetMode = Plan.MAKE,
-                made = {},
                 detected = { DOUGH = 2, FLOUR = 1 },
             })
 
@@ -1338,27 +1383,30 @@ describe("Plan.calculate", function()
         end)
 
         it("is Complete when the Made count covers each Target", function()
-            local plan = makeBread({ BREAD = 5 }, {})
+            local plan = makeBread(5, {})
 
             expectEqual(plan.complete, true)
         end)
 
         it("is not Complete when only Counted stock covers a Target", function()
-            local plan = makeBread({ BREAD = 4 }, { BREAD = 5 })
+            local plan = makeBread(4, { BREAD = 5 })
 
             expectEqual(plan.complete, false)
         end)
 
-        it("gives each Target with its Made count and its Counted stock", function()
-            local plan = makeBread({ BREAD = 4 }, { BREAD = 2 })
+        it("gives each Target with its raw Made count and its Counted stock", function()
+            local plan = makeBread(7, { BREAD = 2 })
 
-            expectEqual(plan.targets, { { item = "BREAD", count = 5, made = 4, have = 2 } })
+            expectEqual(plan.targets, { { id = 1, item = "BREAD", mode = Plan.MAKE, count = 5, made = 7, have = 2 } })
         end)
 
         describe("a Target item that is also an Intermediate", function()
             local function makeSharkAndSoup(made, detected)
                 return Plan.calculate({
-                    targets = { { item = "SHARK", count = 10 }, { item = "SHARK_SOUP", count = 4 } },
+                    targets = {
+                        { id = 1, item = "SHARK", count = 10, mode = Plan.MAKE, made = made },
+                        { id = 2, item = "SHARK_SOUP", count = 4, mode = Plan.MAKE, made = 0 },
+                    },
                     recipes = {
                         SHARK = {
                             {
@@ -1372,35 +1420,129 @@ describe("Plan.calculate", function()
                             { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "SHARK", count = 1 } } },
                         },
                     },
-                    targetMode = Plan.MAKE,
-                    made = made,
                     detected = detected,
                 })
             end
 
-            it("covers the Target part by the Made count and the Intermediate part by Counted stock", function()
-                local plan = makeSharkAndSoup({ SHARK = 3 }, { SHARK = 1 })
+            -- The soup can use the Shark that the Make Target counts (ADR 0012).
+            it("makes the larger of the Make need and the need of the Steps, not the sum", function()
+                local plan = makeSharkAndSoup(0, {})
 
                 expectEqual(stepFor(plan, "SHARK").actions, 10)
             end)
 
-            it("does not let a Made count above the Target cover the Intermediate part", function()
-                local plan = makeSharkAndSoup({ SHARK = 12 }, {})
+            it("uses the Make need when it is larger", function()
+                local plan = makeSharkAndSoup(3, { SHARK = 1 })
+
+                expectEqual(stepFor(plan, "SHARK").actions, 7)
+            end)
+
+            it("uses the need of the Steps when the Made count covers the Target", function()
+                local plan = makeSharkAndSoup(12, {})
 
                 expectEqual(stepFor(plan, "SHARK").actions, 4)
             end)
 
-            it("does not let spare Counted stock cover the Target part", function()
-                local plan = makeSharkAndSoup({ SHARK = 3 }, { SHARK = 10 })
+            it("does not let spare Counted stock cover the Make need", function()
+                local plan = makeSharkAndSoup(3, { SHARK = 10 })
 
                 expectEqual(stepFor(plan, "SHARK").actions, 7)
             end)
 
             it("lets the same items count in the Made count and in Counted stock", function()
-                local plan = makeSharkAndSoup({ SHARK = 10 }, { SHARK = 10 })
+                local plan = makeSharkAndSoup(10, { SHARK = 10 })
 
                 expectEqual(stepFor(plan, "SHARK"), nil)
             end)
+        end)
+    end)
+
+    describe("Have and Make Targets together", function()
+        local recipes = {
+            BREAD = { { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
+            SANDWICH = { { verb = "Make", output = 1, actionLimit = 60, inputs = { { item = "BREAD", count = 1 } } } },
+        }
+
+        local function breadPlan(targets, detected, reserves)
+            return Plan.calculate({ targets = targets, recipes = recipes, detected = detected, reserves = reserves })
+        end
+
+        it("makes the Make need when it is larger than the Have need", function()
+            local plan = breadPlan({
+                { id = 1, item = "BREAD", count = 10, mode = Plan.HAVE },
+                { id = 2, item = "BREAD", count = 100, mode = Plan.MAKE, made = 30 },
+            }, { BREAD = 15, DOUGH = 100 })
+
+            expectEqual(stepFor(plan, "BREAD").actions, 70)
+        end)
+
+        it("makes the Have need when it is larger than the Make need", function()
+            local plan = breadPlan({
+                { id = 1, item = "BREAD", count = 20, mode = Plan.HAVE },
+                { id = 2, item = "BREAD", count = 10, mode = Plan.MAKE, made = 8 },
+            }, { BREAD = 5, DOUGH = 100 })
+
+            expectEqual(stepFor(plan, "BREAD").actions, 15)
+        end)
+
+        it("adds a Reserve to the Have need", function()
+            local targets = {
+                { id = 1, item = "BREAD", count = 5, mode = Plan.HAVE },
+                { id = 2, item = "BREAD", count = 5, mode = Plan.MAKE, made = 0 },
+            }
+
+            expectEqual(stepFor(breadPlan(targets, { DOUGH = 100 }), "BREAD").actions, 5)
+            expectEqual(stepFor(breadPlan(targets, { DOUGH = 100 }, { BREAD = 3 }), "BREAD").actions, 8)
+        end)
+
+        -- The example of ADR 0012, at its end.
+        local function examplePlan()
+            return breadPlan({
+                { id = "a", item = "BREAD", count = 100, mode = Plan.MAKE, made = 20 },
+                { id = "b", item = "BREAD", count = 10, mode = Plan.MAKE, made = 20 },
+                { id = "c", item = "SANDWICH", count = 5, mode = Plan.HAVE },
+                { id = "d", item = "BREAD", count = 25, mode = Plan.MAKE, made = 14 },
+                { id = "e", item = "SANDWICH", count = 3, mode = Plan.MAKE, made = 2 },
+                { id = "f", item = "BREAD", count = 50, mode = Plan.HAVE },
+            }, { BREAD = 15, SANDWICH = 4, DOUGH = 100 })
+        end
+
+        it("makes the need of each item in the example of ADR 0012", function()
+            local plan = examplePlan()
+
+            expectEqual(stepFor(plan, "SANDWICH").actions, 1)
+            expectEqual(stepFor(plan, "BREAD").actions, 80)
+        end)
+
+        it("gives one Target line for each Target, in the order of the Targets", function()
+            local plan = examplePlan()
+
+            expectEqual(plan.targets, {
+                { id = "a", item = "BREAD", mode = Plan.MAKE, count = 100, made = 20, have = 15 },
+                { id = "b", item = "BREAD", mode = Plan.MAKE, count = 10, made = 20, have = 15 },
+                { id = "c", item = "SANDWICH", mode = Plan.HAVE, count = 5, have = 4 },
+                { id = "d", item = "BREAD", mode = Plan.MAKE, count = 25, made = 14, have = 15 },
+                { id = "e", item = "SANDWICH", mode = Plan.MAKE, count = 3, made = 2, have = 4 },
+                { id = "f", item = "BREAD", mode = Plan.HAVE, count = 50, have = 15 },
+            })
+        end)
+
+        it("is not Complete when a Have Target is not met, even when each Make Target is met", function()
+            local plan = breadPlan({
+                { id = 1, item = "BREAD", count = 5, mode = Plan.MAKE, made = 5 },
+                { id = 2, item = "SANDWICH", count = 5, mode = Plan.HAVE },
+            }, { SANDWICH = 4 })
+
+            expectEqual(plan.complete, false)
+        end)
+
+        it("is Complete when each Target is met", function()
+            local plan = breadPlan({
+                { id = 1, item = "BREAD", count = 5, mode = Plan.MAKE, made = 5 },
+                { id = 2, item = "SANDWICH", count = 5, mode = Plan.HAVE },
+            }, { SANDWICH = 5 })
+
+            expectEqual(plan.complete, true)
         end)
     end)
 end)

@@ -66,13 +66,15 @@ function Diff.compare(before, after)
 
     -- In Make, the report uses the Made count of a Target. In Have, it uses Counted stock (ADR 0009).
     -- A line has a Made count only in Make. When the Target mode changes, the two values are not comparable.
-    local lineBefore, targets = {}, {}
+    -- Plan.calculate gives one line for each Target. Until the diff matches lines by id, it reports each item one time (issue 28).
+    local lineBefore, targets, reported = {}, {}, {}
     for _, target in ipairs(before.targets) do
-        lineBefore[target.item] = target
+        lineBefore[target.item] = lineBefore[target.item] or target
     end
     for _, target in ipairs(after.targets) do
         local earlier = lineBefore[target.item]
-        if earlier and (earlier.made == nil) == (target.made == nil) then
+        if earlier and not reported[target.item] and (earlier.made == nil) == (target.made == nil) then
+            reported[target.item] = true
             local by = (target.made or target.have) - (earlier.made or earlier.have)
             if by ~= 0 then
                 targets[#targets + 1] = { item = target.item, by = by }
