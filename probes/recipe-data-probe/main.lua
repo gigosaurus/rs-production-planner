@@ -43,4 +43,4 @@ try("config.Obj.LANTADYME", objName("LANTADYME")) -- exists (ADR 0001)
 try("config.Obj.lantadyme", objName("lantadyme")) -- letter case
 try("config.Obj.Lantadyme", objName("Lantadyme")) -- letter case
 try("config.Obj.NOT_A_REAL_NAME", objName("NOT_A_REAL_NAME")) -- does not exist
-try("config.Obj.FromID", objName("FromID")) -- a function, not a config
+try("config.Obj.FromID", objName("FromID")) -- not a config
