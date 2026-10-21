@@ -155,6 +155,34 @@ end
 
 local CODECS = { bank = bank, assumed = assumed, reserves = reserves, unlocks = unlocks, made = made }
 
+local plan = { version = 1, versionOf = tableVersionOf }
+
+function plan.start()
+    return { targets = {} }
+end
+
+function plan.encode(value)
+    local targets = {}
+    for index, target in ipairs(value.targets) do
+        targets[index] = { item = target.item, count = countText(target.count) }
+    end
+    return { v = plan.version, targets = targets }
+end
+
+function plan.decode(value)
+    local targets = {}
+    for index, target in ipairs(value.targets) do
+        targets[index] = { item = target.item, count = countOf(target.count) }
+    end
+    return { targets = targets }
+end
+
+local GLOBAL_CODECS = { plan = plan }
+
+local function globalKey(part)
+    return "global:" .. part
+end
+
 -- The display names of all characters that have saved data, in the order that the plugin added them.
 local CHARACTERS_KEY = "global:characters"
 local characters = { version = 1, versionOf = tableVersionOf, start = empty }
@@ -193,7 +221,11 @@ end
 function Saved.loadGlobal(saved)
     local problems = {}
     saved.characters = load(saved, characters, CHARACTERS_KEY, problems)
-    return { characters = table.move(saved.characters, 1, #saved.characters, 1, {}) }, problems
+    local globals = { characters = table.move(saved.characters, 1, #saved.characters, 1, {}) }
+    for part, codec in pairs(GLOBAL_CODECS) do
+        globals[part] = load(saved, codec, globalKey(part), problems)
+    end
+    return globals, problems
 end
 
 -- Gives the saved parts of one character, and a list of problems.
@@ -221,6 +253,14 @@ function Saved.change(saved, name, part, value)
     end
     saved.characters[#saved.characters + 1] = name
     saved.changed[CHARACTERS_KEY] = characters.encode(saved.characters)
+end
+
+-- Marks a global part as changed. Saved.write writes it.
+function Saved.changeGlobal(saved, part, value)
+    if not saved.characters then
+        error("Load the global data before a change.", 2)
+    end
+    saved.changed[globalKey(part)] = GLOBAL_CODECS[part].encode(value)
 end
 
 -- Call this one time in each Logic tick. It writes each changed part one time, and gives a list of problems.

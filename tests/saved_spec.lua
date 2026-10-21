@@ -336,6 +336,61 @@ describe("Saved data", function()
         end)
     end)
 
+    describe("Plan", function()
+        local function plan()
+            return { targets = { { item = "BREAD", count = 20000001 }, { item = "CAKE", count = 3 } } }
+        end
+
+        it("loads the Plan that it wrote", function()
+            local store = fakeStore()
+            local saved = newSaved(store)
+            Saved.changeGlobal(saved, "plan", plan())
+            Saved.write(saved)
+
+            local globals = Saved.loadGlobal(Saved.new(store))
+
+            expectEqual(globals.plan, plan())
+        end)
+
+        it("writes each Target count as a decimal string", function()
+            local store = fakeStore()
+            local saved = newSaved(store)
+            Saved.changeGlobal(saved, "plan", plan())
+            Saved.write(saved)
+
+            expectEqual(store.values["global:plan"], {
+                v = 1,
+                targets = { { item = "BREAD", count = "20000001" }, { item = "CAKE", count = "3" } },
+            })
+        end)
+
+        it("gives a Plan with no Targets when the plugin has saved no Plan", function()
+            local globals = Saved.loadGlobal(Saved.new(fakeStore()))
+
+            expectEqual(globals.plan, { targets = {} })
+        end)
+
+        it("does not read or write a Plan with a newer version", function()
+            local store = fakeStore()
+            store:Set("global:plan", { v = 2, targets = {} })
+            local saved = Saved.new(store)
+            local globals, problems = Saved.loadGlobal(saved)
+            Saved.changeGlobal(saved, "plan", plan())
+            Saved.write(saved)
+
+            expectEqual(globals.plan, { targets = {} })
+            expectEqual(problems, { { key = "global:plan", kind = Saved.UNKNOWN_VERSION } })
+            expectEqual(store.values["global:plan"], { v = 2, targets = {} })
+        end)
+
+        it("gives an error for a change before the global data is loaded", function()
+            local ok, message = pcall(Saved.changeGlobal, Saved.new(fakeStore()), "plan", plan())
+
+            expectEqual(ok, false)
+            expectEqual(message:find("Load the global data before a change.", 1, true) ~= nil, true)
+        end)
+    end)
+
     describe("characters", function()
         it("gives no characters when the plugin has saved no data", function()
             local globals, problems = Saved.loadGlobal(Saved.new(fakeStore()))
