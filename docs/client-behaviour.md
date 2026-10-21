@@ -15,7 +15,7 @@ ADR 0007 gives the inventory facts: `isValid` and not `valid`, empty slots with 
 
 ## PersistentDB
 
-Tested on 2026-10-21 with `probes/persistentdb-probe`. The data survived `prl`. We did not test a full restart of the client.
+Tested on 2026-10-21 with `probes/persistentdb-probe` and `probes/persistentdb-limits-probe`. The data survived `prl` and a full restart of the client.
 
 ### Numbers
 
