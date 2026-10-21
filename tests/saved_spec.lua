@@ -337,6 +337,34 @@ describe("Saved data", function()
         end)
     end)
 
+    describe("character settings", function()
+        it("gives Account mode not ironman to a character that the plugin has not seen", function()
+            local parts = Saved.loadCharacter(Saved.new(fakeStore()), "Alice")
+
+            expectEqual(parts.settings, { ironman = false })
+        end)
+
+        it("loads the settings that it wrote", function()
+            local store = fakeStore()
+            local saved = newSaved(store)
+            Saved.change(saved, "Alice", "settings", { ironman = true })
+            Saved.write(saved)
+
+            local parts = Saved.loadCharacter(Saved.new(store), "Alice")
+
+            expectEqual(parts.settings, { ironman = true })
+        end)
+
+        it("writes the settings with a version", function()
+            local store = fakeStore()
+            local saved = newSaved(store)
+            Saved.change(saved, "Alice", "settings", { ironman = true })
+            Saved.write(saved)
+
+            expectEqual(store.values["char:Alice:settings"], { v = 1, ironman = true })
+        end)
+    end)
+
     describe("Plan", function()
         local function plan()
             return { targets = { { item = "BREAD", count = 20000001 }, { item = "CAKE", count = 3 } } }

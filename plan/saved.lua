@@ -154,8 +154,6 @@ function made.decode(value)
     return state
 end
 
-local CODECS = { bank = bank, assumed = assumed, reserves = reserves, unlocks = unlocks, made = made }
-
 local plan = { version = 1, versionOf = tableVersionOf }
 
 function plan.start()
@@ -207,6 +205,15 @@ local function settingsCodec(startValues)
     end
     return codec
 end
+
+local CODECS = {
+    bank = bank,
+    assumed = assumed,
+    reserves = reserves,
+    unlocks = unlocks,
+    made = made,
+    settings = settingsCodec({ ironman = false }),
+}
 
 local GLOBAL_CODECS = {
     plan = plan,
