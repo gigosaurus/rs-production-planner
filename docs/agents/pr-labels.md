@@ -52,6 +52,7 @@ The changed file paths set zero or more area labels. `.github/labeler.yml` conta
 | Label          | Paths                                                |
 | -------------- | ---------------------------------------------------- |
 | `area:plan`    | `plan/`                                              |
+| `area:data`    | `data/`                                              |
 | `area:tests`   | `tests/`                                             |
 | `area:docs`    | `docs/`, `GLOSSARY.md`, `UX.md`, `CLAUDE.md`         |
 | `area:tooling` | `.github/`, `scripts/`, `.luacheckrc`, `stylua.toml` |
