@@ -14,6 +14,7 @@ local function try(label, f)
 end
 
 -- 1. resources/
+-- control.png is a control: Plugin.resources must list it.
 try("type(Plugin.resources)", function() return type(Plugin.resources) end)
 try("keys of Plugin.resources", function()
     local keys = {}
@@ -22,6 +23,7 @@ try("keys of Plugin.resources", function()
     end
     return #keys == 0 and "(none)" or table.concat(keys, ", ")
 end)
+try("Plugin.resources.control", function() return Plugin.resources.control end)
 try("Plugin.resources.recipes", function() return Plugin.resources.recipes end)
 try("require(\"resources/recipes\")", function() return require("resources/recipes") end)
 
@@ -30,11 +32,15 @@ local function objName(name)
     return function()
         local obj = config.Obj[name]
         if obj == nil then return nil end
-        return obj.configName .. " id=" .. obj.id .. " name=" .. obj.name
+        if type(obj) == "function" then return obj end
+        return type(obj) .. " " .. tostring(obj.configName) .. " id=" .. tostring(obj.id)
+            .. " name=" .. tostring(obj.name)
     end
 end
 
 try("type(config.Obj)", function() return type(config.Obj) end)
 try("config.Obj.LANTADYME", objName("LANTADYME")) -- exists (ADR 0001)
 try("config.Obj.lantadyme", objName("lantadyme")) -- letter case
+try("config.Obj.Lantadyme", objName("Lantadyme")) -- letter case
 try("config.Obj.NOT_A_REAL_NAME", objName("NOT_A_REAL_NAME")) -- does not exist
+try("config.Obj.FromID", objName("FromID")) -- a function, not a config
