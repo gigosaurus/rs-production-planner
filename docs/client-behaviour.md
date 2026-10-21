@@ -19,10 +19,13 @@ Tested on 2026-10-21 with `probes/persistentdb-probe`. The data survived `prl`. 
 
 ### Numbers
 
-- An untyped `Set` of a top-level integer gives a float back: `42` becomes `42.0`.
-- `SetInt` and `GetInt` keep `42` as an integer. We did not test large values.
-- In a table, small integers stay integers. A whole float becomes an integer: `3.0` becomes `3`.
-- In a table, large integers lose precision. `2147483647` becomes `2147483648.0`. `4294967295` becomes `4294967296.0`. This looks like a 32-bit float. Do not save large counts, for example coins, as numbers in a table.
+PersistentDB saves numbers as 32-bit floats. `SetInt` saves a 32-bit signed integer. (`probes/persistentdb-limits-probe`)
+
+- An untyped `Set` of a number gives a float back, with float32 precision. `42` becomes `42.0`. `16777217` becomes `16777216.0`. `0.1` becomes `0.10000000149011612`.
+- In a table, numbers also have float32 precision. Integers are exact up to 2^24 (16,777,216) only. `16777217` becomes `16777216`. A whole number below 2^31 comes back as an integer. From 2^31 it comes back as a float.
+- `SetInt` and `GetInt` are exact from -2,147,483,648 to 2,147,483,647. Values outside this range wrap. `SetInt` still returns `true`. `2^31` becomes `-2^31`, and `2^32` becomes `0`.
+- A string keeps an integer exact. `"9007199254740993"` comes back unchanged.
+- Do not save a count above 16,777,216 as a number in a table. Save it as a string, or save it with `SetInt` at the top level if it is not more than 2,147,483,647.
 
 ### Keys in a table
 
@@ -32,12 +35,11 @@ Tested on 2026-10-21 with `probes/persistentdb-probe`. The data survived `prl`. 
 
 ### Size
 
-- Each value has a size limit. The limit is not the number of entries:
-  - A string of 127 KB fits.
-  - 1000 entries `{ ["item i"] = i }` fit.
-  - Only 681 entries `{ ["item i"] = { a, b, c } }` fit.
-
-  The limit is probably near 128 KB of serialized data.
+- Each value can hold 128 KiB (131,072 bytes) of serialized data. The limit is not the number of entries. (`probes/persistentdb-limits-probe`)
+  - A top-level string fits up to 131,070 bytes.
+  - A table `{ s = string }` has 41 bytes of overhead.
+  - Each key costs its length plus about 40 bytes.
+  - One entry `{ ["eNNNNN"] = 1 }` costs about 43 bytes. 3048 of these fit.
 - When a value is too large, `Set` returns `false` and saves nothing. It gives no error. Always check the return value of `Set`.
 - A table can have 145 levels at most.
 
