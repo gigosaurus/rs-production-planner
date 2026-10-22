@@ -1466,6 +1466,14 @@ describe("Plan.calculate", function()
             expectEqual(after.steps[after.next].item, "A")
         end)
 
+        -- The view shows the mark as "Loop: repeat with <Steps>" (issue 26).
+        it("marks each Step in a Loop with the positions of the other Steps of the Loop", function()
+            local plan = loopPlan({ A = 1, B = 10 })
+
+            expectEqual(stepFor(plan, "D").loopWith, { 2 })
+            expectEqual(stepFor(plan, "A").loopWith, { 1 })
+        end)
+
         local function itemsOf(plan)
             local items = {}
             for _, step in ipairs(plan.steps) do
@@ -1496,6 +1504,7 @@ describe("Plan.calculate", function()
             })
 
             expectEqual(itemsOf(plan), { "C", "A", "T" })
+            expectEqual(stepFor(plan, "T").loopWith, nil)
         end)
 
         -- P is A -> B. Q is B -> 2 A. The order rule contradicts itself.

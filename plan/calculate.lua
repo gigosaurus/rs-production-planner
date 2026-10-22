@@ -257,6 +257,21 @@ local function findNext(basis, steps, loopOf)
     end
 end
 
+-- Marks each Step in a Loop with the positions of the other Steps of the Loop (ADR 0010).
+local function markLoops(steps, loopOf)
+    for _, step in ipairs(steps) do
+        local loop = loopOf[step.item]
+        if loop then
+            step.loopWith = {}
+            for position, other in ipairs(steps) do
+                if other ~= step and loopOf[other.item] == loop then
+                    step.loopWith[#step.loopWith + 1] = position
+                end
+            end
+        end
+    end
+end
+
 -- Finds each item in the Plan, through Inputs and other Outputs.
 -- The table order holds each item once, in the sequence that the search finds it.
 local function itemsInPlan(basis)
@@ -767,6 +782,7 @@ function Plan.calculate(basis)
     local totals = targetTotals(basis)
     local steps, extraOf, usedSupply, shortBy = stepsFor(basis, levels, loopOf, order, totals)
     markWaiting(basis, steps, totals)
+    markLoops(steps, loopOf)
     return {
         targets = targetLines(basis, totals),
         steps = steps,
