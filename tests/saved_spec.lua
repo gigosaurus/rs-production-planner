@@ -129,6 +129,88 @@ describe("Saved data", function()
         end)
     end)
 
+    describe("bad data", function()
+        local function slot(soldCount)
+            return { [0] = { item = "COINS", type = Made.BUY, stage = Made.ADDED, soldCount = soldCount } }
+        end
+
+        local CASES = {
+            { "a bank that is not a string", "char:Alice:bank", { v = 1 } },
+            { "a bank line with no line end", "char:Alice:bank", "v=1\nCOINS=5" },
+            { "a bank line with no count", "char:Alice:bank", "v=1\nCOINS\n" },
+            { "a bank count that is not a number", "char:Alice:bank", "v=1\nCOINS=five\n" },
+            { "Assumed stock with no entries", "char:Alice:assumed", { v = 1 } },
+            {
+                "an Assumed stock count that is not a number",
+                "char:Alice:assumed",
+                { v = 1, entries = { { item = "COINS", entered = "1", remaining = "x", baseline = "0" } } },
+            },
+            { "Reserves with no reserves", "char:Alice:reserves", { v = 1 } },
+            { "a Reserve count that is not a number", "char:Alice:reserves", { v = 1, reserves = { COINS = "abc" } } },
+            { "Unlocks with no unlocks", "char:Alice:unlocks", { v = 1 } },
+            { "Made counts with no slots", "char:Alice:made", { v = 1, counts = {} } },
+            { "a GE slot with no soldCount", "char:Alice:made", { v = 1, counts = {}, slots = slot(nil) } },
+            { "a Made count that is a number", "char:Alice:made", { v = 1, counts = { COINS = 5 }, slots = {} } },
+            { "a character setting of the wrong type", "char:Alice:settings", { v = 1, ironman = "yes" } },
+            { "a Plan with no Targets", "global:plan", { v = 1 } },
+            {
+                "a Target count that is not an integer",
+                "global:plan",
+                { v = 1, targets = { { item = "COINS", count = "1.5" } } },
+            },
+            { "a global setting of the wrong type", "global:settings", { v = 1, targetMode = 5 } },
+            { "characters with no list", "global:characters", { v = 1 } },
+            { "a character name that is not a string", "global:characters", { v = 1, characters = { 5 } } },
+        }
+
+        local function load(store, badKey)
+            local saved = Saved.new(store)
+            local globals, problems = Saved.loadGlobal(saved)
+            if badKey:find("^char:") then
+                return Saved.loadCharacter(saved, "Alice")
+            end
+            return globals, problems
+        end
+
+        for _, case in ipairs(CASES) do
+            local name, badKey, value = case[1], case[2], case[3]
+
+            it("does not read " .. name .. ", and gives the start value", function()
+                local store = fakeStore()
+                store:Set(badKey, value)
+                local start = load(fakeStore(), badKey)
+
+                local parts, problems = load(store, badKey)
+
+                local part = badKey:match("[^:]+$")
+                expectEqual(parts[part], start[part])
+                expectEqual(problems, { { key = badKey, kind = Saved.UNKNOWN_VERSION } })
+            end)
+        end
+
+        it("does not write a key with bad data", function()
+            local store = fakeStore()
+            store:Set("char:Alice:reserves", { v = 1 })
+            local saved = newSaved(store)
+            Saved.loadCharacter(saved, "Alice")
+            Saved.change(saved, "Alice", "reserves", { COINS = 1 })
+            Saved.write(saved)
+
+            expectEqual(store.values["char:Alice:reserves"], { v = 1 })
+        end)
+
+        it("loads a negative count that it wrote", function()
+            local store = fakeStore()
+            local saved = newSaved(store)
+            Saved.change(saved, "Alice", "bank", { COINS = -1 })
+            Saved.write(saved)
+
+            local parts = Saved.loadCharacter(Saved.new(store), "Alice")
+
+            expectEqual(parts.bank, { COINS = -1 })
+        end)
+    end)
+
     describe("writes", function()
         it("writes a part that changed two times in one tick one time, with the last value", function()
             local store = aliceStore()

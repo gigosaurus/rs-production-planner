@@ -16,7 +16,11 @@ local function countText(count)
     return string.format("%d", count)
 end
 
+-- Gives nil when the text is not a decimal integer.
 local function countOf(text)
+    if type(text) ~= "string" or not text:match("^%-?%d+$") then
+        return nil
+    end
     return math.tointeger(tonumber(text))
 end
 
@@ -28,10 +32,18 @@ local function countTexts(counts)
     return texts
 end
 
+-- Gives nil when a count is bad.
 local function countsOf(texts)
+    if type(texts) ~= "table" then
+        return nil
+    end
     local counts = {}
     for item, text in pairs(texts) do
-        counts[item] = countOf(text)
+        local count = countOf(text)
+        if type(item) ~= "string" or not count then
+            return nil
+        end
+        counts[item] = count
     end
     return counts
 end
@@ -44,7 +56,7 @@ end
 local bank = { version = 1 }
 
 function bank.versionOf(text)
-    return math.tointeger(tonumber(text:match("^v=(%d+)\n")))
+    return type(text) == "string" and math.tointeger(tonumber(text:match("^v=(%d+)\n"))) or nil
 end
 
 function bank.encode(snapshot)
@@ -61,9 +73,18 @@ function bank.encode(snapshot)
 end
 
 function bank.decode(text)
+    local lines = text:gsub("^[^\n]*\n", "", 1)
+    if lines ~= "" and lines:sub(-1) ~= "\n" then
+        return nil
+    end
     local snapshot = {}
-    for name, count in text:gsub("^[^\n]*\n", "", 1):gmatch("([^\n]*)=(%d+)\n") do
-        snapshot[name] = countOf(count)
+    for line in lines:gmatch("([^\n]*)\n") do
+        local name, digits = line:match("^(.*)=([^=]*)$")
+        local count = countOf(digits)
+        if not count then
+            return nil
+        end
+        snapshot[name] = count
     end
     return snapshot
 end
@@ -89,14 +110,19 @@ function assumed.encode(state)
 end
 
 function assumed.decode(value)
+    if type(value.entries) ~= "table" then
+        return nil
+    end
     local state = Assumed.new()
     for index, entry in ipairs(value.entries) do
-        state.entries[index] = {
-            item = entry.item,
-            entered = countOf(entry.entered),
-            remaining = countOf(entry.remaining),
-            baseline = countOf(entry.baseline),
-        }
+        if type(entry) ~= "table" or type(entry.item) ~= "string" then
+            return nil
+        end
+        local entered, remaining, baseline = countOf(entry.entered), countOf(entry.remaining), countOf(entry.baseline)
+        if not entered or not remaining or not baseline then
+            return nil
+        end
+        state.entries[index] = { item = entry.item, entered = entered, remaining = remaining, baseline = baseline }
     end
     return state
 end
@@ -126,6 +152,9 @@ function unlocks.encode(set)
 end
 
 function unlocks.decode(value)
+    if type(value.unlocks) ~= "table" then
+        return nil
+    end
     local set = {}
     for unlock in pairs(value.unlocks) do
         set[unlock] = true
@@ -147,7 +176,13 @@ end
 function made.decode(value)
     local state = Made.new()
     state.counts = countsOf(value.counts)
+    if not state.counts or type(value.slots) ~= "table" then
+        return nil
+    end
     for slot, data in pairs(value.slots) do
+        if type(data) ~= "table" or not countOf(data.soldCount) then
+            return nil
+        end
         state.slots[slot] =
             { item = data.item, type = data.type, stage = data.stage, soldCount = countOf(data.soldCount) }
     end
@@ -169,8 +204,14 @@ function plan.encode(value)
 end
 
 function plan.decode(value)
+    if type(value.targets) ~= "table" then
+        return nil
+    end
     local targets = {}
     for index, target in ipairs(value.targets) do
+        if type(target) ~= "table" or type(target.item) ~= "string" or not countOf(target.count) then
+            return nil
+        end
         targets[index] = { item = target.item, count = countOf(target.count) }
     end
     return { targets = targets }
@@ -196,7 +237,10 @@ local function settingsCodec(startValues)
     end
     function codec.decode(value)
         local settings = codec.start()
-        for name in pairs(startValues) do
+        for name, startValue in pairs(startValues) do
+            if value[name] ~= nil and type(value[name]) ~= type(startValue) then
+                return nil
+            end
             if value[name] ~= nil then
                 settings[name] = value[name]
             end
@@ -233,6 +277,14 @@ function characters.encode(names)
 end
 
 function characters.decode(value)
+    if type(value.characters) ~= "table" then
+        return nil
+    end
+    for _, name in ipairs(value.characters) do
+        if type(name) ~= "string" then
+            return nil
+        end
+    end
     return table.move(value.characters, 1, #value.characters, 1, {})
 end
 
@@ -244,14 +296,16 @@ function Saved.new(store)
     return { store = store, changed = {}, blocked = {}, characters = nil, charactersUnsaved = false }
 end
 
--- Gives the value of one key, decoded, or the start value. A key with an unknown version is blocked.
+-- Gives the value of one key, decoded, or the start value.
+-- A key with an unknown version or bad data is blocked. Decode gives nil for bad data.
 local function load(saved, codec, loadKey, problems)
     local value = saved.store:Get(loadKey)
     if value == nil then
         return codec.start()
     end
-    if codec.versionOf(value) == codec.version then
-        return codec.decode(value)
+    local decoded = codec.versionOf(value) == codec.version and codec.decode(value) or nil
+    if decoded ~= nil then
+        return decoded
     end
     saved.blocked[loadKey] = true
     problems[#problems + 1] = { key = loadKey, kind = Saved.UNKNOWN_VERSION }
