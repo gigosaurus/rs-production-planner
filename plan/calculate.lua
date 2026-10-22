@@ -237,10 +237,14 @@ local function markWaiting(basis, steps, totals)
 end
 
 -- Finds the Next step. This is the first Step that the player can usefully do now.
-local function findNext(basis, steps)
+local function findNext(basis, steps, loopOf)
     for position, step in ipairs(steps) do
         -- One full Inventory is the Batch hint, or less when fewer actions remain. With no Batch hint, it is all remaining actions.
         local actions = math.min(step.batchHint or step.actions, step.actions)
+        -- A Loop returns its Inputs, so a Step in a Loop is ready with one action (ADR 0010).
+        if loopOf[step.item] then
+            actions = 1
+        end
         local ready = #step.flags == 0 and not step.waitsOn
         for _, input in ipairs(recipeFor(basis, step.item).inputs) do
             if freeDetected(basis, input.item) < input.count * actions then
@@ -768,7 +772,7 @@ function Plan.calculate(basis)
         steps = steps,
         leftovers = leftoversFor(basis, steps, extraOf, usedSupply),
         shortages = shortagesFor(basis, steps, order, shortBy),
-        next = findNext(basis, steps),
+        next = findNext(basis, steps, loopOf),
         complete = isComplete(basis, totals),
     }
 end

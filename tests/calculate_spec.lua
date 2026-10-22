@@ -1457,6 +1457,15 @@ describe("Plan.calculate", function()
             expectEqual(plan.shortages, {})
         end)
 
+        -- One full Inventory is 14 X or 28 R. The player has less, but a Step in a Loop is ready with one action.
+        it("makes a Step in a Loop the Next step when the player has the Inputs for one action", function()
+            local first = loopPlan({ A = 1, B = 10 })
+            local after = loopPlan({ B = 9, C = 1, D = 1 })
+
+            expectEqual(first.steps[first.next].item, "D")
+            expectEqual(after.steps[after.next].item, "A")
+        end)
+
         local function itemsOf(plan)
             local items = {}
             for _, step in ipairs(plan.steps) do
