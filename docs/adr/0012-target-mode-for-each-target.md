@@ -16,7 +16,7 @@ The Plan is Complete when each Target is met.
 The plugin keeps one Made count for each item on each character, as in ADR 0009. Each Make Target also stores a start value for each character: the item count of that character when the Target changed to Make. The Made count of a Target = item count − start value, on each character. Made count scope then adds the characters as in ADR 0009. A character with no start value uses 0, because its item count starts at its first observation.
 
 - **A Target changes to Make, or the player adds a Make Target:** the start values are the item counts at that time. The item counts of other Targets do not change. If no Make Target was for the item, the plugin starts to count the item at its next observation.
-- **A Target changes to Have, or the player removes it:** the plugin deletes its start values. When no Make Target remains for the item, it also deletes the item counts.
+- **A Target changes to Have, or the player removes it:** the plugin deletes its start values. When no Make Target remains for the item, it also deletes the item counts. When no Make Target remains in the Plan, it deletes all Made data, as Make → Have does in ADR 0009. The next Make Target then reads the GE offers again.
 - **The player edits the Made count of a Target:** the plugin changes only the start values of that Target. In This character, start value of the current character = item count − new value. In All characters, the start value of each other character is its item count. The sum is then the new value. Other Targets for the same item do not change.
 
 ## Need for an item

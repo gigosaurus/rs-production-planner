@@ -1,4 +1,5 @@
--- Keeps the Made counts in Make, as ADR 0009 describes.
+-- Keeps the Made counts of the Make Targets, as ADR 0009 and ADR 0012 describe.
+-- Its callers give it only the Make Targets.
 -- It does not use the game API. Tests run it outside the game client.
 -- states maps each displayName to the state of that character (ADR 0008).
 -- Each state is a plain table, so the plugin can save it with PersistentDB.
@@ -34,8 +35,9 @@ local STAGES = {
 }
 
 -- Gives the state of one character.
+-- counts has one Made count for each item. starts has one start value for each Make Target id (ADR 0012).
 function Made.new()
-    return { last = {}, counts = {}, slots = {}, ge = {} }
+    return { last = {}, counts = {}, starts = {}, slots = {}, ge = {} }
 end
 
 local function character(states, name)
@@ -76,20 +78,33 @@ local function readOffers(state, offers)
     end
 end
 
--- Call this on Have → Make. detected is the Detected stock of the Targets now.
--- offers are all the GE offers of the character now.
--- Other characters start at their next observation. Their slot data stays.
-function Made.start(states, name, detected, offers)
+local function hasCounts(states, item)
     for _, state in pairs(states) do
-        state.counts = {}
-        state.last = {}
-        state.ge = {}
+        if state.counts[item] ~= nil then
+            return true
+        end
     end
-    local state = character(states, name)
-    for item, count in pairs(detected) do
-        state.last[item] = count
+    return false
+end
+
+-- Call this when a Target changes to Make, or when the player adds a Make Target.
+-- detected is the Detected stock of the Make Targets now. offers are all the GE offers of the character now.
+-- The start value on each character is its item count now. The counts of other Make Targets do not change.
+function Made.startTarget(states, name, target, detected, offers)
+    local item = target.item
+    if not hasCounts(states, item) then
+        -- With no Make Target, stopTarget deleted all states. The first Make Target then reads the GE offers.
+        if next(states) == nil then
+            readOffers(character(states, name), offers)
+        end
+        -- The item starts here on this character, and at their next observation on other characters.
+        local state = character(states, name)
+        state.counts[item] = 0
+        state.last[item] = detected[item]
     end
-    readOffers(state, offers)
+    for _, state in pairs(states) do
+        state.starts[target.id] = state.counts[item] or 0
+    end
 end
 
 -- Call this when the plugin loads the state of a character in Make.
@@ -147,57 +162,57 @@ function Made.observe(states, name, tick)
     end
 end
 
--- Gives the made field of the Basis of Plan.calculate. scope is Made.CHARACTER or Made.ALL.
+-- Gives the Made count of each Make Target in targets, by Target id. scope is Made.CHARACTER or Made.ALL.
+-- On each character, the Made count is the item count minus the start value (ADR 0012).
 -- All characters is the sum of the states that the plugin has now.
-function Made.counts(states, name, scope)
+function Made.counts(states, name, scope, targets)
     checkScope(scope)
     local counts = {}
-    for stateName, state in pairs(states) do
-        if scope == Made.ALL or stateName == name then
-            for item, count in pairs(state.counts) do
-                counts[item] = (counts[item] or 0) + count
+    for _, target in ipairs(targets) do
+        counts[target.id] = 0
+        for stateName, state in pairs(states) do
+            if scope == Made.ALL or stateName == name then
+                local made = (state.counts[target.item] or 0) - (state.starts[target.id] or 0)
+                counts[target.id] = counts[target.id] + made
             end
         end
     end
     return counts
 end
 
--- Call this on Make → Have.
-function Made.stop(states)
-    for name in pairs(states) do
-        states[name] = nil
+-- Call this when a Target changes to Have, or when the player removes a Make Target.
+-- targets are the Make Targets that remain. It deletes the start values of the Target.
+-- When no Make Target remains for the item, it deletes the data of the item. When no Make Target remains, it deletes all states.
+function Made.stopTarget(states, target, targets)
+    if #targets == 0 then
+        for name in pairs(states) do
+            states[name] = nil
+        end
+        return
     end
-end
-
--- Call this when the player removes a Target. targets are the Targets that remain.
--- It deletes the data of each item that no Target is for. Two Targets for the same item share its count (issue 16).
--- If the player adds a Target for the item again, it starts at its next observation.
-function Made.forgetUnused(states, targets)
-    local used = {}
-    for _, target in ipairs(targets) do
-        used[target.item] = true
+    local used = false
+    for _, other in ipairs(targets) do
+        used = used or other.item == target.item
     end
     for _, state in pairs(states) do
-        for _, data in ipairs({ state.counts, state.last, state.ge }) do
-            for item in pairs(data) do
-                if not used[item] then
-                    data[item] = nil
-                end
-            end
+        state.starts[target.id] = nil
+        if not used then
+            state.counts[target.item], state.last[target.item], state.ge[target.item] = nil, nil, nil
         end
     end
 end
 
--- Sets the count of the current character. A reset sets it to 0.
--- In All characters, the other characters go to 0, so the sum is the new count.
-function Made.set(states, name, scope, item, count)
+-- Sets the Made count of a Make Target. A reset sets it to 0. It changes only the start values of the Target.
+-- In All characters, the other characters add 0, so the sum is the new count.
+function Made.set(states, name, scope, target, count)
     checkScope(scope)
     if scope == Made.ALL then
         for _, state in pairs(states) do
-            state.counts[item] = 0
+            state.starts[target.id] = state.counts[target.item] or 0
         end
     end
-    character(states, name).counts[item] = count
+    local state = character(states, name)
+    state.starts[target.id] = (state.counts[target.item] or 0) - count
 end
 
 return Made
