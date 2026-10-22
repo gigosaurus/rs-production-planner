@@ -258,17 +258,16 @@ local function findNext(basis, steps, loopOf)
 end
 
 -- Marks each Step in a Loop with the positions of the other Steps of the Loop (ADR 0010).
+-- A Step with no other Step in its Loop gets no mark.
 local function markLoops(steps, loopOf)
     for _, step in ipairs(steps) do
-        local loop = loopOf[step.item]
-        if loop then
-            step.loopWith = {}
-            for position, other in ipairs(steps) do
-                if other ~= step and loopOf[other.item] == loop then
-                    step.loopWith[#step.loopWith + 1] = position
-                end
+        local loop, others = loopOf[step.item], {}
+        for position, other in ipairs(steps) do
+            if loop and other ~= step and loopOf[other.item] == loop then
+                others[#others + 1] = position
             end
         end
+        step.loopWith = #others > 0 and others or nil
     end
 end
 

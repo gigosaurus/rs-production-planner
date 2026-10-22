@@ -513,7 +513,7 @@ describe("Plan.calculate", function()
         expectEqual(stepFor(plan, "TROLL_POTION").flags, { { unlock = "EADGARS_RUSE" } })
     end)
 
-    -- This is the interim behaviour in issue 7.
+    -- Fill and Empty give back only what goes in. The Loop reaches the pass limit (ADR 0010).
     it("stops with an error that names the items in a Loop", function()
         local ok, err = pcall(Plan.calculate, {
             targets = { { item = "BUCKET_OF_WATER", count = 5 } },
@@ -1472,6 +1472,14 @@ describe("Plan.calculate", function()
 
             expectEqual(stepFor(plan, "D").loopWith, { 2 })
             expectEqual(stepFor(plan, "A").loopWith, { 1 })
+        end)
+
+        -- The player owns all the A. R has no actions.
+        it("gives no mark to the only Step of a Loop", function()
+            local plan = loopPlan({ A = 10, B = 10 })
+
+            expectEqual(stepFor(plan, "A"), nil)
+            expectEqual(stepFor(plan, "D").loopWith, nil)
         end)
 
         local function itemsOf(plan)
