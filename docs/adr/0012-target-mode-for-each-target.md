@@ -13,11 +13,14 @@ The Plan is Complete when each Target is met.
 
 ## Made counts and start values
 
-The plugin keeps one Made count for each item on each character, as in ADR 0009. Each Make Target also stores a start value for each character: the item count of that character when the Target changed to Make. The Made count of a Target = item count − start value, on each character. Made count scope then adds the characters as in ADR 0009. A character with no start value uses 0, because its item count starts at its first observation.
+The plugin keeps one item count for each item on each character: the number that it saw the character make, as ADR 0009 counts it. Each Make Target also stores a start value for each character: the item count of that character when the Target changed to Make. The Made count of a Target = item count − start value, on each character. Made count scope then adds the characters as in ADR 0009. A character with no start value uses 0, because its item count starts at its first observation.
 
 - **A Target changes to Make, or the player adds a Make Target:** the start values are the item counts at that time. The item counts of other Targets do not change. If no Make Target was for the item, the plugin starts to count the item at its next observation.
 - **A Target changes to Have, or the player removes it:** the plugin deletes its start values. When no Make Target remains for the item, it also deletes the item counts. When no Make Target remains in the Plan, it deletes all Made data, as Make → Have does in ADR 0009. The next Make Target then reads the GE offers again.
 - **The player edits the Made count of a Target:** the plugin changes only the start values of that Target. In This character, start value of the current character = item count − new value. In All characters, the start value of each other character is its item count. The sum is then the new value. Other Targets for the same item do not change.
+- **A Make Target that has start values starts again:** the plugin stops with an error. A second start sets the Made count to 0. A reset is an edit to 0.
+
+Each of these changes applies to all characters that have saved data, also to a character that is not logged in. The plugin loads the `made` key of each character in `global:characters` (ADR 0011). A character that the plugin does not change can keep an item count from an earlier Make Target. Its old items then count towards a new Make Target.
 
 ## Need for an item
 
@@ -33,7 +36,7 @@ This replaces the rule of ADR 0009, Target part + Intermediate part. That rule p
 
 ## Saved data
 
-The Target mode is a field of each Target in `global:plan`. It is no longer in `global:settings`. The `made` key of each character also holds the start values of each Make Target.
+The Target mode is a field of each Target in `global:plan`. It is no longer in `global:settings`. Each Target also has an id, a whole number more than 0. The id stays the same between sessions, because the start values and the diff use it. The `made` key of each character also holds the start values of each Make Target.
 
 ## Example
 

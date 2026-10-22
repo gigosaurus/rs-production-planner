@@ -100,6 +100,18 @@ _Avoid_: Produce, craft mode
 The number of the item of a Target that the player made since the Target changed to Make, or since the player added it as Make. The plugin counts rises in Detected stock and subtracts known other sources. The player can edit it. It never falls on its own.
 _Avoid_: Progress, produced count, done count
 
+**Start value**:
+The number of the item that the plugin saw a character make before a Make Target started. Each Make Target has one start value on each character. On each character, the Made count of the Target is the number now minus the start value.
+_Avoid_: Baseline, offset
+
+**Make need**:
+The largest (quantity − Made count) of the Make Targets for an item. The need for an item is the larger of the Make need and the Have need, not the sum.
+_Avoid_: Target part
+
+**Have need**:
+The largest quantity of the Have Targets for an item, plus the need of the Steps that use the item, minus Counted stock.
+_Avoid_: Intermediate demand, Intermediate part
+
 **Made count scope**:
 The setting of a Plan that decides which Made counts the Plan uses. Its options are This character and All characters. All characters adds the Made counts of all characters together.
 _Avoid_: Count mode, tracking mode

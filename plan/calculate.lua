@@ -81,8 +81,8 @@ local function checkBasis(basis)
     local ids = {}
     for _, target in ipairs(basis.targets) do
         local item = tostring(target.item)
-        if target.id == nil then
-            error("A Target of " .. item .. " has no id.", 3)
+        if not Validate.isPositiveInteger(target.id) then
+            error("The Target id of " .. item .. " must be a whole number more than 0.", 3)
         end
         if ids[target.id] then
             error("Two Targets have the id " .. tostring(target.id) .. ".", 3)

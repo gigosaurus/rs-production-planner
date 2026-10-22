@@ -444,10 +444,10 @@ describe("Made count start values", function()
         return { id = id, item = "BREAD", count = 100 }
     end
 
-    -- The example of ADR 0012, for Targets a, b and d.
+    -- The example of ADR 0012, for Targets a, b and d (ids 1, 2 and 4).
     it("keeps the counts of other Make Targets when a new Make Target starts at 0", function()
         local states = {}
-        local a, b, d = bread("a"), bread("b"), bread("d")
+        local a, b, d = bread(1), bread(2), bread(4)
         Made.startTarget(states, "Alice", a, { BREAD = 0 }, {})
         Made.startTarget(states, "Alice", b, { BREAD = 0 }, {})
         Made.observe(states, "Alice", { detected = { BREAD = 3 } })
@@ -456,12 +456,12 @@ describe("Made count start values", function()
         Made.startTarget(states, "Alice", d, { BREAD = 3 }, {})
         Made.observe(states, "Alice", { detected = { BREAD = 17 } })
 
-        expectEqual(Made.counts(states, "Alice", Made.CHARACTER, { a, b, d }), { a = 20, b = 20, d = 14 })
+        expectEqual(Made.counts(states, "Alice", Made.CHARACTER, { a, b, d }), { [1] = 20, [2] = 20, [4] = 14 })
     end)
 
     it("subtracts the start value of each character in All characters", function()
         local states = {}
-        local a, b = bread("a"), bread("b")
+        local a, b = bread(1), bread(2)
         Made.startTarget(states, "Alice", a, { BREAD = 0 }, {})
         Made.observe(states, "Bob", { detected = { BREAD = 0 } })
         Made.observe(states, "Alice", { detected = { BREAD = 5 } })
@@ -470,24 +470,24 @@ describe("Made count start values", function()
         Made.observe(states, "Alice", { detected = { BREAD = 6 } })
         Made.observe(states, "Bob", { detected = { BREAD = 6 } })
 
-        expectEqual(Made.counts(states, "Alice", Made.ALL, { a, b }), { a = 12, b = 3 })
-        expectEqual(Made.counts(states, "Bob", Made.CHARACTER, { a, b }), { a = 6, b = 2 })
+        expectEqual(Made.counts(states, "Alice", Made.ALL, { a, b }), { [1] = 12, [2] = 3 })
+        expectEqual(Made.counts(states, "Bob", Made.CHARACTER, { a, b }), { [1] = 6, [2] = 2 })
     end)
 
     it("changes only the edited Target in This character", function()
         local states = {}
-        local a, b = bread("a"), bread("b")
+        local a, b = bread(1), bread(2)
         Made.startTarget(states, "Alice", a, { BREAD = 0 }, {})
         Made.startTarget(states, "Alice", b, { BREAD = 0 }, {})
         Made.observe(states, "Alice", { detected = { BREAD = 20 } })
         Made.set(states, "Alice", Made.CHARACTER, b, 5)
 
-        expectEqual(Made.counts(states, "Alice", Made.CHARACTER, { a, b }), { a = 20, b = 5 })
+        expectEqual(Made.counts(states, "Alice", Made.CHARACTER, { a, b }), { [1] = 20, [2] = 5 })
     end)
 
     it("changes only the edited Target in All characters", function()
         local states = {}
-        local a, b = bread("a"), bread("b")
+        local a, b = bread(1), bread(2)
         Made.startTarget(states, "Alice", a, { BREAD = 0 }, {})
         Made.startTarget(states, "Alice", b, { BREAD = 0 }, {})
         Made.observe(states, "Bob", { detected = { BREAD = 0 } })
@@ -495,19 +495,34 @@ describe("Made count start values", function()
         Made.observe(states, "Bob", { detected = { BREAD = 4 } })
         Made.set(states, "Alice", Made.ALL, b, 7)
 
-        expectEqual(Made.counts(states, "Alice", Made.ALL, { a, b }), { a = 24, b = 7 })
-        expectEqual(Made.counts(states, "Bob", Made.CHARACTER, { a, b }), { a = 4, b = 0 })
+        expectEqual(Made.counts(states, "Alice", Made.ALL, { a, b }), { [1] = 24, [2] = 7 })
+        expectEqual(Made.counts(states, "Bob", Made.CHARACTER, { a, b }), { [1] = 4, [2] = 0 })
     end)
 
     it("deletes only the start values of a stopped Target", function()
         local states = {}
-        local a, b = bread("a"), bread("b")
+        local a, b = bread(1), bread(2)
         Made.startTarget(states, "Alice", a, { BREAD = 0 }, {})
         Made.observe(states, "Alice", { detected = { BREAD = 2 } })
         Made.startTarget(states, "Alice", b, { BREAD = 2 }, {})
         Made.stopTarget(states, b, { a })
 
-        expectEqual(states.Alice.starts, { a = 0 })
+        expectEqual(states.Alice.starts, { [1] = 0 })
         expectEqual(states.Alice.counts, { BREAD = 2 })
+    end)
+
+    -- A start again sets the Made count to 0. A reset uses Made.set.
+    it("stops with an error when a Make Target that has start values starts again", function()
+        local states = {}
+        local a = bread(1)
+        Made.startTarget(states, "Alice", a, { BREAD = 0 }, {})
+        Made.observe(states, "Alice", { detected = { BREAD = 40 } })
+        local ok, message = pcall(function()
+            Made.startTarget(states, "Alice", a, { BREAD = 40 }, {})
+        end)
+
+        expectEqual(ok, false)
+        expectEqual(message:find("made_spec.lua:%d+: The Make Target 1 of BREAD has start values%.") ~= nil, true)
+        expectEqual(Made.counts(states, "Alice", Made.CHARACTER, { a }), { [1] = 40 })
     end)
 end)

@@ -2,6 +2,8 @@
 -- Its callers give it only the Make Targets.
 -- It does not use the game API. Tests run it outside the game client.
 -- states maps each displayName to the state of that character (ADR 0008).
+-- It must have the state of each character that has saved data, also a character that is not logged in (ADR 0012).
+-- startTarget and stopTarget change only the states in it.
 -- Each state is a plain table, so the plugin can save it with PersistentDB.
 local Validate = require("plan/validate")
 
@@ -35,7 +37,7 @@ local STAGES = {
 }
 
 -- Gives the state of one character.
--- counts has one Made count for each item. starts has one start value for each Make Target id (ADR 0012).
+-- counts has one item count for each item: the number that the plugin saw the character make. starts has one start value for each Make Target id (ADR 0012).
 function Made.new()
     return { last = {}, counts = {}, starts = {}, slots = {}, ge = {} }
 end
@@ -90,8 +92,14 @@ end
 -- Call this when a Target changes to Make, or when the player adds a Make Target.
 -- detected is the Detected stock of the Make Targets now. offers are all the GE offers of the character now.
 -- The start value on each character is its item count now. The counts of other Make Targets do not change.
+-- A Target that has start values does not start again, because that sets its Made count to 0. A reset uses Made.set.
 function Made.startTarget(states, name, target, detected, offers)
     local item = target.item
+    for _, state in pairs(states) do
+        if state.starts[target.id] ~= nil then
+            error("The Make Target " .. tostring(target.id) .. " of " .. tostring(item) .. " has start values.", 2)
+        end
+    end
     if not hasCounts(states, item) then
         -- With no Make Target, stopTarget deleted all states. The first Make Target then reads the GE offers.
         if next(states) == nil then

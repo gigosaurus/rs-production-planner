@@ -684,12 +684,20 @@ describe("Plan.calculate", function()
         end)
 
         -- The diff matches the Target lines by id (issue 28).
-        it("stops with an error for a Target with no id", function()
-            local basis = breadBasis()
-            basis.targets[1].id = nil
+        for _, case in ipairs({
+            { name = "no id", id = nil },
+            { name = "an id of 0", id = 0 },
+            { name = "an id that is a fraction", id = 1.5 },
+            { name = "an id that is NaN", id = 0 / 0 },
+            { name = "an id that is a string", id = "a" },
+        }) do
+            it("stops with an error for a Target with " .. case.name, function()
+                local basis = breadBasis()
+                basis.targets[1].id = case.id
 
-            expectEqual(errorOf(basis), "A Target of BREAD has no id.")
-        end)
+                expectEqual(errorOf(basis), "The Target id of BREAD must be a whole number more than 0.")
+            end)
+        end
 
         it("stops with an error when two Targets have the same id", function()
             local basis = breadBasis()
@@ -700,7 +708,7 @@ describe("Plan.calculate", function()
 
         it("accepts two Targets for the same item with different ids", function()
             local basis = breadBasis()
-            basis.targets[2] = { id = "b", item = "BREAD", count = 2, mode = Plan.HAVE }
+            basis.targets[2] = { id = 2, item = "BREAD", count = 2, mode = Plan.HAVE }
 
             expectEqual(#Plan.calculate(basis).targets, 2)
         end)
@@ -1495,15 +1503,15 @@ describe("Plan.calculate", function()
             expectEqual(stepFor(breadPlan(targets, { DOUGH = 100 }, { BREAD = 3 }), "BREAD").actions, 8)
         end)
 
-        -- The example of ADR 0012, at its end.
+        -- The example of ADR 0012, at its end. The ids 1 to 6 are the Targets a to f.
         local function examplePlan()
             return breadPlan({
-                { id = "a", item = "BREAD", count = 100, mode = Plan.MAKE, made = 20 },
-                { id = "b", item = "BREAD", count = 10, mode = Plan.MAKE, made = 20 },
-                { id = "c", item = "SANDWICH", count = 5, mode = Plan.HAVE },
-                { id = "d", item = "BREAD", count = 25, mode = Plan.MAKE, made = 14 },
-                { id = "e", item = "SANDWICH", count = 3, mode = Plan.MAKE, made = 2 },
-                { id = "f", item = "BREAD", count = 50, mode = Plan.HAVE },
+                { id = 1, item = "BREAD", count = 100, mode = Plan.MAKE, made = 20 },
+                { id = 2, item = "BREAD", count = 10, mode = Plan.MAKE, made = 20 },
+                { id = 3, item = "SANDWICH", count = 5, mode = Plan.HAVE },
+                { id = 4, item = "BREAD", count = 25, mode = Plan.MAKE, made = 14 },
+                { id = 5, item = "SANDWICH", count = 3, mode = Plan.MAKE, made = 2 },
+                { id = 6, item = "BREAD", count = 50, mode = Plan.HAVE },
             }, { BREAD = 15, SANDWICH = 4, DOUGH = 100 })
         end
 
@@ -1518,12 +1526,12 @@ describe("Plan.calculate", function()
             local plan = examplePlan()
 
             expectEqual(plan.targets, {
-                { id = "a", item = "BREAD", mode = Plan.MAKE, count = 100, made = 20, have = 15 },
-                { id = "b", item = "BREAD", mode = Plan.MAKE, count = 10, made = 20, have = 15 },
-                { id = "c", item = "SANDWICH", mode = Plan.HAVE, count = 5, have = 4 },
-                { id = "d", item = "BREAD", mode = Plan.MAKE, count = 25, made = 14, have = 15 },
-                { id = "e", item = "SANDWICH", mode = Plan.MAKE, count = 3, made = 2, have = 4 },
-                { id = "f", item = "BREAD", mode = Plan.HAVE, count = 50, have = 15 },
+                { id = 1, item = "BREAD", mode = Plan.MAKE, count = 100, made = 20, have = 15 },
+                { id = 2, item = "BREAD", mode = Plan.MAKE, count = 10, made = 20, have = 15 },
+                { id = 3, item = "SANDWICH", mode = Plan.HAVE, count = 5, have = 4 },
+                { id = 4, item = "BREAD", mode = Plan.MAKE, count = 25, made = 14, have = 15 },
+                { id = 5, item = "SANDWICH", mode = Plan.MAKE, count = 3, made = 2, have = 4 },
+                { id = 6, item = "BREAD", mode = Plan.HAVE, count = 50, have = 15 },
             })
         end)
 
