@@ -293,7 +293,7 @@ local function key(name, part)
 end
 
 function Saved.new(store)
-    return { store = store, changed = {}, blocked = {}, characters = nil, charactersUnsaved = false }
+    return { store = store, changed = {}, blocked = {}, loaded = {}, characters = nil, charactersUnsaved = false }
 end
 
 -- Gives the value of one key, decoded, or the start value.
@@ -331,6 +331,7 @@ function Saved.loadCharacter(saved, name)
     for part, codec in pairs(CODECS) do
         parts[part] = load(saved, codec, key(name, part), problems)
     end
+    saved.loaded[name] = true
     return parts, problems
 end
 
@@ -346,9 +347,13 @@ end
 -- Marks a part as changed. Saved.write writes it.
 -- The first change for a character adds its name to the saved characters.
 -- Until the store saves the characters, each change marks them again.
+-- Load the character first, so that a key with an unknown version is not written.
 function Saved.change(saved, name, part, value)
     if not saved.characters then
         error("Load the global data before a change.", 2)
+    end
+    if not saved.loaded[name] then
+        error("Load the character " .. name .. " before a change.", 2)
     end
     saved.changed[key(name, part)] = CODECS[part].encode(value)
     if not isKnown(saved.characters, name) then

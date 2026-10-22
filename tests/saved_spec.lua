@@ -42,10 +42,11 @@ local function aliceStore()
     return store
 end
 
--- Gives saved data that is ready for changes.
+-- Gives saved data that is ready for changes for Alice.
 local function newSaved(store)
     local saved = Saved.new(store)
     Saved.loadGlobal(saved)
+    Saved.loadCharacter(saved, "Alice")
     return saved
 end
 
@@ -549,8 +550,7 @@ describe("Saved data", function()
 
         it("adds a character the first time that it saves data for it", function()
             local store = fakeStore()
-            local saved = Saved.new(store)
-            Saved.loadGlobal(saved)
+            local saved = newSaved(store)
             Saved.change(saved, "Alice", "reserves", {})
             Saved.write(saved)
 
@@ -560,8 +560,8 @@ describe("Saved data", function()
         it("adds each character one time, after the characters that it saved before", function()
             local store = fakeStore()
             store:Set("global:characters", { v = 1, characters = { "Bob" } })
-            local saved = Saved.new(store)
-            Saved.loadGlobal(saved)
+            local saved = newSaved(store)
+            Saved.loadCharacter(saved, "Bob")
             Saved.change(saved, "Alice", "reserves", {})
             Saved.change(saved, "Bob", "reserves", {})
             Saved.change(saved, "Alice", "unlocks", {})
@@ -590,6 +590,7 @@ describe("Saved data", function()
             store:Set("global:characters", { v = 2, characters = { "Bob" } })
             local saved = Saved.new(store)
             local _, problems = Saved.loadGlobal(saved)
+            Saved.loadCharacter(saved, "Alice")
             Saved.change(saved, "Alice", "reserves", { COINS = 1 })
             Saved.write(saved)
 
@@ -603,6 +604,28 @@ describe("Saved data", function()
 
             expectEqual(ok, false)
             expectEqual(message:find("Load the global data before a change.", 1, true) ~= nil, true)
+        end)
+
+        it("gives an error for a change before the character is loaded", function()
+            local saved = Saved.new(fakeStore())
+            Saved.loadGlobal(saved)
+
+            local ok, message = pcall(Saved.change, saved, "Alice", "reserves", {})
+
+            expectEqual(ok, false)
+            expectEqual(message:find("Load the character Alice before a change.", 1, true) ~= nil, true)
+        end)
+
+        it("does not write a key with a newer version when the change comes before the load", function()
+            local store = fakeStore()
+            store:Set("char:Alice:bank", "v=2\nCOINS=5\n")
+            local saved = Saved.new(store)
+            Saved.loadGlobal(saved)
+
+            pcall(Saved.change, saved, "Alice", "bank", { COINS = 9 })
+            Saved.write(saved)
+
+            expectEqual(store.values["char:Alice:bank"], "v=2\nCOINS=5\n")
         end)
     end)
 end)
