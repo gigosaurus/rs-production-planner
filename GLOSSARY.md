@@ -97,7 +97,7 @@ The Target mode in which the player aims to make the quantity. The Target uses i
 _Avoid_: Produce, craft mode
 
 **Made count**:
-The number of the item of a Target that the player made since the Target changed to Make. The plugin counts rises in Detected stock and subtracts known other sources. The player can edit it. It never falls on its own.
+The number of the item of a Target that the player made since the Target changed to Make, or since the player added it as Make. The plugin counts rises in Detected stock and subtracts known other sources. The player can edit it. It never falls on its own.
 _Avoid_: Progress, produced count, done count
 
 **Made count scope**:

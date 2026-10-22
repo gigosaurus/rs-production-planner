@@ -41,7 +41,7 @@ describe("Made count", function()
         expectEqual(sharkCount(states, "Bob", Made.CHARACTER), 3)
     end)
 
-    it("starts an item with no Detected stock at its start at its first observation", function()
+    it("starts to count an item with no Detected stock at its first observation", function()
         local states = {}
         start(states, "Alice", { SHARK = 10 }, {})
         Made.startTarget(states, "Alice", ROCKTAIL, {}, {})
@@ -201,6 +201,24 @@ describe("Made count", function()
 
         expectEqual(pcall(Made.counts, states, "Alice", "BOTH", { SHARK }), false)
     end)
+
+    for _, case in ipairs({
+        { name = "a negative count", value = -3 },
+        { name = "a fraction", value = 2.5 },
+        { name = "no count", value = nil },
+    }) do
+        it("rejects " .. case.name .. " at an edit", function()
+            local states = {}
+            start(states, "Alice", { SHARK = 10 }, {})
+            local ok, message = pcall(Made.set, states, "Alice", Made.CHARACTER, SHARK, case.value)
+
+            expectEqual(ok, false)
+            expectEqual(
+                message:find("The Made count of SHARK must be a whole number of 0 or more.", 1, true) ~= nil,
+                true
+            )
+        end)
+    end
 end)
 
 describe("Made count GE amount", function()

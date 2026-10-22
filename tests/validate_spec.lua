@@ -26,6 +26,31 @@ describe("Validate.isPositiveInteger", function()
     end
 end)
 
+describe("Validate.isNonNegativeInteger", function()
+    for _, case in ipairs({
+        { name = "0", value = 0 },
+        { name = "1", value = 1 },
+        { name = "a whole float", value = 5.0 },
+    }) do
+        it("accepts " .. case.name, function()
+            expectEqual(Validate.isNonNegativeInteger(case.value), true)
+        end)
+    end
+
+    for _, case in ipairs({
+        { name = "a negative number", value = -1 },
+        { name = "a fraction", value = 2.5 },
+        { name = "NaN", value = 0 / 0 },
+        { name = "infinity", value = math.huge },
+        { name = "nil", value = nil },
+        { name = "a string", value = "5" },
+    }) do
+        it("rejects " .. case.name, function()
+            expectEqual(Validate.isNonNegativeInteger(case.value), false)
+        end)
+    end
+end)
+
 describe("Validate.isOneOf", function()
     local set = { BUY = true, SELL = true }
 

@@ -97,7 +97,7 @@ function Made.startTarget(states, name, target, detected, offers)
         if next(states) == nil then
             readOffers(character(states, name), offers)
         end
-        -- The item starts here on this character, and at their next observation on other characters.
+        -- The count of the item starts now on this character, and at the next observation on each other character.
         local state = character(states, name)
         state.counts[item] = 0
         state.last[item] = detected[item]
@@ -107,7 +107,7 @@ function Made.startTarget(states, name, target, detected, offers)
     end
 end
 
--- Call this when the plugin loads the state of a character in Make.
+-- Call this when the plugin loads the state of a character while a Make Target exists.
 -- A rise between sessions is not made, so the next observation is the starting point.
 -- offers are all the GE offers of the character now.
 function Made.load(states, name, offers)
@@ -133,7 +133,7 @@ local function observeOffer(state, offer, detected)
         -- Unverified (ADR 0009): the items that the offer did not sell come back.
         amount = offer.itemCount - offer.soldCount
     end
-    -- The keys of detected are the Targets.
+    -- The keys of detected are the items of the Make Targets.
     if detected[offer.item] then
         state.ge[offer.item] = (state.ge[offer.item] or 0) + amount
     end
@@ -206,6 +206,9 @@ end
 -- In All characters, the other characters add 0, so the sum is the new count.
 function Made.set(states, name, scope, target, count)
     checkScope(scope)
+    if not Validate.isNonNegativeInteger(count) then
+        error("The Made count of " .. tostring(target.item) .. " must be a whole number of 0 or more.", 2)
+    end
     if scope == Made.ALL then
         for _, state in pairs(states) do
             state.starts[target.id] = state.counts[target.item] or 0

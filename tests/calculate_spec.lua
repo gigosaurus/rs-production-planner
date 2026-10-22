@@ -1327,7 +1327,7 @@ describe("Plan.calculate", function()
             expectEqual(stepFor(plan, "BREAD").actions, 2)
         end)
 
-        it("uses the largest remaining amount of two Make Targets for the same item", function()
+        it("uses the largest remaining quantity of two Make Targets for the same item", function()
             local function plan(madeA, madeB)
                 return Plan.calculate({
                     targets = {

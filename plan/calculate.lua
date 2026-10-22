@@ -95,7 +95,7 @@ local function checkBasis(basis)
             error("The Target count of " .. item .. " must be a whole number more than 0.", 3)
         end
         if isMake(target) then
-            if target.made ~= 0 and not Validate.isPositiveInteger(target.made) then
+            if not Validate.isNonNegativeInteger(target.made) then
                 error("The Made count of " .. item .. " must be a whole number of 0 or more.", 3)
             end
         elseif target.made ~= nil then
@@ -106,7 +106,7 @@ end
 
 -- Gives the need of the Targets of each item. Two Targets can be for the same item.
 -- They do not add together: the same items count for each Target. Thus the largest need is the need (issue 16).
--- haveCounts is the largest count of the Have Targets. makeNeeds is the largest remaining amount of the Make Targets.
+-- haveCounts is the largest count of the Have Targets. makeNeeds is the largest remaining quantity of the Make Targets.
 local function targetNeeds(basis)
     local haveCounts, makeNeeds = {}, {}
     for _, target in ipairs(basis.targets) do
@@ -424,7 +424,7 @@ local function stepsFor(basis, levels, order)
     local haveCounts, makeNeeds = targetNeeds(basis)
     local demand = copyOf(haveCounts)
 
-    -- Counted stock covers the Have Targets and the Steps that use the item together.
+    -- One Counted stock covers both the Have Targets and the Steps that use the item.
     -- The Made count covers a Make Target, and Counted stock does not. The Steps can use the items that a Make Target counts.
     -- Thus the need is the larger of the two needs, not the sum (ADR 0012).
     local function stillNeededFor(item)
