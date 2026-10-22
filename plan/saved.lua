@@ -133,7 +133,7 @@ function unlocks.decode(value)
     return set
 end
 
--- Made.load clears the GE amounts and the last counts, so the plugin does not save them.
+-- Made.load clears the GE amounts and the last Detected counts, so the plugin does not save them.
 local made = { version = 1, versionOf = tableVersionOf, start = Made.new }
 
 function made.encode(state)
@@ -177,7 +177,7 @@ function plan.decode(value)
 end
 
 -- Gives a codec for a table of settings. Each setting that the saved data does not have gets its start value.
--- A new setting thus needs no new version.
+-- Then a new setting needs no new version.
 local function settingsCodec(startValues)
     local codec = { version = 1, versionOf = tableVersionOf }
     function codec.start()
@@ -241,7 +241,7 @@ local function key(name, part)
 end
 
 function Saved.new(store)
-    return { store = store, changed = {}, blocked = {}, characters = nil }
+    return { store = store, changed = {}, blocked = {}, characters = nil, charactersUnsaved = false }
 end
 
 -- Gives the value of one key, decoded, or the start value. A key with an unknown version is blocked.
@@ -280,20 +280,30 @@ function Saved.loadCharacter(saved, name)
     return parts, problems
 end
 
+local function isKnown(names, name)
+    for _, known in ipairs(names) do
+        if known == name then
+            return true
+        end
+    end
+    return false
+end
+
 -- Marks a part as changed. Saved.write writes it.
 -- The first change for a character adds its name to the saved characters.
+-- Until the store saves the characters, each change marks them again.
 function Saved.change(saved, name, part, value)
     if not saved.characters then
         error("Load the global data before a change.", 2)
     end
     saved.changed[key(name, part)] = CODECS[part].encode(value)
-    for _, known in ipairs(saved.characters) do
-        if known == name then
-            return
-        end
+    if not isKnown(saved.characters, name) then
+        saved.characters[#saved.characters + 1] = name
+        saved.charactersUnsaved = true
     end
-    saved.characters[#saved.characters + 1] = name
-    saved.changed[CHARACTERS_KEY] = characters.encode(saved.characters)
+    if saved.charactersUnsaved then
+        saved.changed[CHARACTERS_KEY] = characters.encode(saved.characters)
+    end
 end
 
 -- Marks a global part as changed. Saved.write writes it.
@@ -309,8 +319,12 @@ end
 function Saved.write(saved)
     local problems = {}
     for changedKey, value in pairs(saved.changed) do
-        if not saved.blocked[changedKey] and not saved.store:Set(changedKey, value) then
-            problems[#problems + 1] = { key = changedKey, kind = Saved.NOT_SAVED }
+        if not saved.blocked[changedKey] then
+            if not saved.store:Set(changedKey, value) then
+                problems[#problems + 1] = { key = changedKey, kind = Saved.NOT_SAVED }
+            elseif changedKey == CHARACTERS_KEY then
+                saved.charactersUnsaved = false
+            end
         end
     end
     saved.changed = {}

@@ -490,6 +490,19 @@ describe("Saved data", function()
             expectEqual(globals.characters, { "Bob", "Alice" })
         end)
 
+        it("tries again to save the characters after the next change for a character", function()
+            local store = fakeStore()
+            local saved = newSaved(store)
+            Saved.change(saved, "Alice", "reserves", {})
+            store.full = true
+            Saved.write(saved)
+            store.full = false
+            Saved.change(saved, "Alice", "reserves", {})
+            Saved.write(saved)
+
+            expectEqual(store.values["global:characters"], { v = 1, characters = { "Alice" } })
+        end)
+
         it("does not add a character when the version is newer, but saves its data", function()
             local store = fakeStore()
             store:Set("global:characters", { v = 2, characters = { "Bob" } })
