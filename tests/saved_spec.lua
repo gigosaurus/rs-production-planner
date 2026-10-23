@@ -152,6 +152,11 @@ describe("Saved data", function()
             { "Made counts with no slots", "char:Alice:made", { v = 1, counts = {} } },
             { "a GE slot with no soldCount", "char:Alice:made", { v = 1, counts = {}, slots = slot(nil) } },
             { "a Made count that is a number", "char:Alice:made", { v = 1, counts = { COINS = 5 }, slots = {} } },
+            {
+                "a GE amount that is a number",
+                "char:Alice:made",
+                { v = 1, counts = {}, slots = {}, ge = { COINS = 5 } },
+            },
             { "a Plan with no Targets", "global:plan", { v = 1 } },
             {
                 "a Target count that is not an integer",
@@ -382,10 +387,11 @@ describe("Saved data", function()
             local state = Made.new()
             state.counts = { COINS = 20000001 }
             state.slots = { [0] = { item = "COINS", type = Made.BUY, stage = Made.ADDED, soldCount = 16777217 } }
+            state.ge = { COINS = 16777219 }
             return state
         end
 
-        it("loads the Made counts and GE slots that it wrote", function()
+        it("loads the Made counts, GE slots and GE amounts that it wrote", function()
             local store = fakeStore()
             local saved = newSaved(store)
             Saved.change(saved, "Alice", "made", madeState())
@@ -396,12 +402,11 @@ describe("Saved data", function()
             expectEqual(parts.made, madeState())
         end)
 
-        it("writes each count as a decimal string, with no GE amounts and no last counts", function()
+        it("writes each count as a decimal string, with no last counts", function()
             local store = fakeStore()
             local saved = newSaved(store)
             local state = madeState()
             state.last = { COINS = 5 }
-            state.ge = { COINS = 3 }
             Saved.change(saved, "Alice", "made", state)
             Saved.write(saved)
 
@@ -409,7 +414,18 @@ describe("Saved data", function()
                 v = 1,
                 counts = { COINS = "20000001" },
                 slots = { [0] = { item = "COINS", type = Made.BUY, stage = Made.ADDED, soldCount = "16777217" } },
+                ge = { COINS = "16777219" },
             })
+        end)
+
+        it("gives GE amounts of 0 when the saved data has no GE amounts", function()
+            local store = fakeStore()
+            store.values["char:Alice:made"] = { v = 1, counts = { COINS = "20" }, slots = {} }
+
+            local parts = Saved.loadCharacter(Saved.new(store), "Alice")
+
+            expectEqual(parts.made.counts, { COINS = 20 })
+            expectEqual(parts.made.ge, {})
         end)
 
         it("gives Made counts of 0 to a character that the plugin has not seen", function()
