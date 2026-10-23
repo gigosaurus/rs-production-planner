@@ -4,8 +4,8 @@ local Validate = require("plan/validate")
 
 local Plan = {}
 
-local REQUIRED_FIELDS = { "targets", "recipes", "detected", "targetMode" }
-local OPTIONAL_FIELDS = { "assumed", "reserves", "made", "stackable", "levels", "unlocks" }
+local REQUIRED_FIELDS = { "targets", "recipes", "detected" }
+local OPTIONAL_FIELDS = { "assumed", "reserves", "stackable", "levels", "unlocks" }
 local OPTIONAL_RECIPE_LISTS = { "otherOutputs", "skills", "unlocks" }
 
 local function copyOf(source)
@@ -65,8 +65,9 @@ Plan.HAVE = HAVE
 Plan.MAKE = MAKE
 local TARGET_MODES = { [HAVE] = true, [MAKE] = true }
 
-local function isMake(basis)
-    return basis.targetMode == MAKE
+-- Each Target has its own Target mode (ADR 0012).
+local function isMake(target)
+    return target.mode == MAKE
 end
 
 -- Stops with an error at the line of the caller of Plan.calculate when the Basis is not complete.
@@ -76,34 +77,57 @@ local function checkBasis(basis)
             error("The Basis has no " .. field .. ".", 3)
         end
     end
-    if not Validate.isOneOf(basis.targetMode, TARGET_MODES) then
-        error("The Target mode " .. tostring(basis.targetMode) .. " is unknown.", 3)
-    end
+    -- The diff matches the Target lines by id (issue 28).
+    local ids = {}
     for _, target in ipairs(basis.targets) do
+        local item = tostring(target.item)
+        if not Validate.isPositiveInteger(target.id) then
+            error("The Target id of " .. item .. " must be a whole number more than 0.", 3)
+        end
+        if ids[target.id] then
+            error("Two Targets have the id " .. tostring(target.id) .. ".", 3)
+        end
+        ids[target.id] = true
+        if not Validate.isOneOf(target.mode, TARGET_MODES) then
+            error("The Target mode " .. tostring(target.mode) .. " of " .. item .. " is unknown.", 3)
+        end
         if not Validate.isPositiveInteger(target.count) then
-            error("The Target count of " .. tostring(target.item) .. " must be a whole number more than 0.", 3)
+            error("The Target count of " .. item .. " must be a whole number more than 0.", 3)
+        end
+        if isMake(target) then
+            if not Validate.isNonNegativeInteger(target.made) then
+                error("The Made count of " .. item .. " must be a whole number of 0 or more.", 3)
+            end
+        elseif target.made ~= nil then
+            error("A Have Target of " .. item .. " has a Made count.", 3)
         end
     end
 end
 
-local function madeCount(basis, item)
-    return basis.made[item] or 0
-end
-
--- Gives the amount of each Target item. Two Targets can be for the same item.
--- They do not add together: the same items count for each Target. Thus the largest Target is the amount (issue 16).
-local function targetTotals(basis)
-    local totals = {}
+-- Gives the need of the Targets of each item. Two Targets can be for the same item.
+-- They do not add together: the same items count for each Target. Thus the largest need is the need (issue 16).
+-- haveCounts is the largest count of the Have Targets. makeNeeds is the largest remaining quantity of the Make Targets.
+local function targetNeeds(basis)
+    local haveCounts, makeNeeds = {}, {}
     for _, target in ipairs(basis.targets) do
-        totals[target.item] = math.max(totals[target.item] or 0, target.count)
+        local item = target.item
+        if isMake(target) then
+            makeNeeds[item] = math.max(makeNeeds[item] or 0, target.count - target.made)
+        else
+            haveCounts[item] = math.max(haveCounts[item] or 0, target.count)
+        end
     end
-    return totals
+    return haveCounts, makeNeeds
 end
 
-local function isComplete(basis, totals)
-    for item, count in pairs(totals) do
-        local covered = isMake(basis) and madeCount(basis, item) or countedStock(basis, item)
-        if covered < count then
+local function isMet(basis, target)
+    local progress = isMake(target) and target.made or countedStock(basis, target.item)
+    return progress >= target.count
+end
+
+local function isComplete(basis)
+    for _, target in ipairs(basis.targets) do
+        if not isMet(basis, target) then
             return false
         end
     end
@@ -156,7 +180,7 @@ end
 
 -- Marks each Waiting step with the position of the Flagged step that causes it.
 -- A Flagged step is never also Waiting.
-local function markWaiting(basis, steps, totals)
+local function markWaiting(basis, steps)
     local function causeOf(position, step)
         return #step.flags > 0 and position or step.waitsOn
     end
@@ -175,8 +199,8 @@ local function markWaiting(basis, steps, totals)
     end
 
     local function makesTarget(step)
-        for item in pairs(totals) do
-            if makes(step, item) then
+        for _, target in ipairs(basis.targets) do
+            if makes(step, target.item) then
                 return true
             end
         end
@@ -468,7 +492,7 @@ local PASS_LIMIT = 1000
 -- Puts the items of the Steps of one Loop in production order (ADR 0010).
 -- items is in the order of the search. That order decides a tie.
 -- loop is all items of the Loop, also the items with no Step.
-local function loopOrder(basis, items, totals, order, loop)
+local function loopOrder(basis, items, targetItems, order, loop)
     local inLoop = {}
     for _, item in ipairs(loop) do
         inLoop[item] = true
@@ -508,11 +532,11 @@ local function loopOrder(basis, items, totals, order, loop)
         end
     end
     local function goesOut(item)
-        if totals[item] or usedOutside[item] then
+        if targetItems[item] or usedOutside[item] then
             return true
         end
         for _, other in ipairs(recipeFor(basis, item).otherOutputs) do
-            if totals[other.item] or usedOutside[other.item] then
+            if targetItems[other.item] or usedOutside[other.item] then
                 return true
             end
         end
@@ -555,14 +579,19 @@ end
 
 -- Makes the Steps in production order. It totals the demand and the supply of each item at its Planning level.
 -- It also gives the extra Output of each Step, the used supply of each item, and the Shortages.
-local function stepsFor(basis, levels, loopOf, order, totals)
+local function stepsFor(basis, levels, loopOf, order)
     local stepsByLevel, extraOf = {}, {}
     local shortBy = {}
     -- supply is the other Outputs of Steps. usedSupply is the part of it that the Plan uses.
     local supply, usedSupply = {}, {}
     local deepest = deepestLevel(levels)
 
-    local demand = copyOf(totals)
+    local haveCounts, makeNeeds = targetNeeds(basis)
+    local demand = copyOf(haveCounts)
+    local targetItems = {}
+    for _, target in ipairs(basis.targets) do
+        targetItems[target.item] = true
+    end
 
     -- seeded is the Seed Shortage of each item. The Steps count it as stock (ADR 0010).
     local seeded = {}
@@ -570,18 +599,20 @@ local function stepsFor(basis, levels, loopOf, order, totals)
         return countedStock(basis, item) + (seeded[item] or 0)
     end
 
-    -- In Make, the Made count covers a Target. Counted stock of the Target item does not (ADR 0009).
+    -- One Counted stock covers both the Have Targets and the Steps that use the item.
+    -- The Made count covers a Make Target, and Counted stock does not. The Steps can use the items that a Make Target counts.
+    -- Thus the need is the larger of the two needs, not the sum (ADR 0012).
     local function stillNeededFor(item)
-        if isMake(basis) and totals[item] then
-            local targetPart = math.max(0, totals[item] - madeCount(basis, item))
-            -- Counted stock changes only the Intermediate part. Thus, with no Intermediate part, a Reserve of the item adds no need.
-            local intermediateDemand = demand[item] - totals[item]
-            if intermediateDemand == 0 then
-                return targetPart
-            end
-            return targetPart + math.max(0, intermediateDemand - ownedFor(item))
+        local haveNeed = (demand[item] or 0) - ownedFor(item)
+        local makeNeed = makeNeeds[item]
+        if makeNeed == nil then
+            return haveNeed
         end
-        return (demand[item] or 0) - ownedFor(item)
+        -- With no Have Target and no Step that uses the item, a Reserve of the item adds no need.
+        if (demand[item] or 0) == 0 then
+            return makeNeed
+        end
+        return math.max(makeNeed, haveNeed)
     end
 
     -- Calculates the Step for an item from the current demand and supply. It changes no table.
@@ -693,7 +724,7 @@ local function stepsFor(basis, levels, loopOf, order, totals)
                     withSteps[#withSteps + 1] = item
                 end
             end
-            local sorted = not changed and loopOrder(basis, withSteps, totals, order, loop)
+            local sorted = not changed and loopOrder(basis, withSteps, targetItems, order, loop)
             local newSeed = sorted and addSeed(sorted, loop)
             if sorted and not newSeed then
                 for _, item in ipairs(loop) do
@@ -789,20 +820,19 @@ local function shortagesFor(basis, steps, order, shortBy)
     return shortages
 end
 
--- Gives one line for each Target item, in the order of the first Target for it (issue 16).
-local function targetLines(basis, totals)
-    local targets, listed = {}, {}
+-- Gives one line for each Target, in the order of the Targets (issue 28).
+-- A line has a Made count only in Make. It is the raw value, also when it is more than the count.
+local function targetLines(basis)
+    local targets = {}
     for _, target in ipairs(basis.targets) do
-        local item = target.item
-        if not listed[item] then
-            listed[item] = true
-            targets[#targets + 1] = {
-                item = item,
-                count = totals[item],
-                have = countedStock(basis, item),
-                made = isMake(basis) and madeCount(basis, item) or nil,
-            }
-        end
+        targets[#targets + 1] = {
+            id = target.id,
+            item = target.item,
+            mode = target.mode,
+            count = target.count,
+            have = countedStock(basis, target.item),
+            made = target.made,
+        }
     end
     return targets
 end
@@ -813,17 +843,16 @@ function Plan.calculate(basis)
     local order = itemsInPlan(basis)
     checkActionLimits(basis, order)
     local levels, loopOf = planningLevels(basis, order)
-    local totals = targetTotals(basis)
-    local steps, extraOf, usedSupply, shortBy = stepsFor(basis, levels, loopOf, order, totals)
-    markWaiting(basis, steps, totals)
+    local steps, extraOf, usedSupply, shortBy = stepsFor(basis, levels, loopOf, order)
+    markWaiting(basis, steps)
     markLoops(steps, loopOf)
     return {
-        targets = targetLines(basis, totals),
+        targets = targetLines(basis),
         steps = steps,
         leftovers = leftoversFor(basis, steps, extraOf, usedSupply),
         shortages = shortagesFor(basis, steps, order, shortBy),
         next = findNext(basis, steps),
-        complete = isComplete(basis, totals),
+        complete = isComplete(basis),
     }
 end
 

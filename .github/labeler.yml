@@ -4,6 +4,10 @@ area:plan:
   - changed-files:
       - any-glob-to-any-file: plan/**
 
+area:data:
+  - changed-files:
+      - any-glob-to-any-file: data/**
+
 area:tests:
   - changed-files:
       - any-glob-to-any-file: tests/**
