@@ -493,6 +493,8 @@ end
 -- It also gives the extra Output of each Step, the used supply of each item, and the Shortages.
 local function stepsFor(basis, levels, order)
     local stepsByLevel, extraOf = {}, {}
+    -- poolLeftoversOf gives the Leftovers of a Dose pool, after the last Step of the pool.
+    local poolLeftoversOf = {}
     local shortBy = {}
     -- supply is the other Outputs of Steps. usedSupply is the part of it that the Plan uses.
     local supply, usedSupply = {}, {}
@@ -534,44 +536,66 @@ local function stepsFor(basis, levels, order)
 
     -- Adds the Steps of a Dose pool. The Plan counts the pool as doses (ADR 0005).
     -- A Recipe makes the doses that the stock does not have. Then Decant steps give each Dose size that is short.
-    -- A Decant step takes the smallest Dose size first.
+    -- A Decant step takes the smallest Dose size first. In each Dose size, it takes stock before made containers.
+    -- The doses that remain go into one container. The made containers that the Plan does not use are Leftovers.
     local function addPoolSteps(level, pool)
-        local items, sizes, short, spare = basis.pools[pool], basis.poolSizes[pool], {}, {}
-        local balance, doses = {}, 0
+        local items, sizes = basis.pools[pool], basis.poolSizes[pool]
+        local balance, short, spareStock, spareMade, doses = {}, {}, {}, {}, 0
+        local lastStep
         for _, size in ipairs(sizes) do
             balance[size] = countedStock(basis, items[size]) - (demand[items[size]] or 0)
+            spareStock[size] = math.max(0, balance[size])
+            spareMade[size] = 0
             doses = doses + balance[size] * size
         end
         for _, size in ipairs(sizes) do
             local recipe = recipeFor(basis, items[size])
             if doses < 0 and recipe then
-                local step = addStep(level, items[size], recipe, math.ceil(-doses / size))
-                extraOf[step] = 0
-                balance[size] = balance[size] + step.actions * recipe.output
+                lastStep = addStep(level, items[size], recipe, math.ceil(-doses / size))
+                extraOf[lastStep] = 0
+                balance[size] = balance[size] + lastStep.actions * recipe.output
+                spareMade[size] = math.max(0, balance[size]) - spareStock[size]
                 break
             end
         end
         for _, size in ipairs(sizes) do
             short[size] = math.max(0, -balance[size])
-            spare[size] = math.max(0, balance[size])
         end
         for _, size in ipairs(sizes) do
             if short[size] > 0 then
                 local step = { item = items[size], verb = DECANT, actions = short[size], flags = {}, inputs = {} }
                 local missing = short[size] * size
                 for _, from in ipairs(sizes) do
-                    local taken = math.min(spare[from], math.ceil(missing / from))
-                    if taken > 0 then
-                        spare[from] = spare[from] - taken
-                        missing = missing - taken * from
-                        step.inputs[#step.inputs + 1] =
-                            { item = items[from], count = taken, detected = basis.detected[items[from]] or 0 }
+                    local wanted = math.max(0, math.ceil(missing / from))
+                    local fromStock = math.min(spareStock[from], wanted)
+                    local fromMade = math.min(spareMade[from], wanted - fromStock)
+                    if fromStock + fromMade > 0 then
+                        spareStock[from] = spareStock[from] - fromStock
+                        spareMade[from] = spareMade[from] - fromMade
+                        missing = missing - (fromStock + fromMade) * from
+                        step.inputs[#step.inputs + 1] = {
+                            item = items[from],
+                            count = fromStock + fromMade,
+                            detected = basis.detected[items[from]] or 0,
+                        }
                     end
+                end
+                if missing < 0 then
+                    spareMade[-missing] = spareMade[-missing] + 1
                 end
                 extraOf[step] = 0
                 basis.decants[step] = true
                 local steps = stepsByLevel[level]
                 steps[#steps + 1] = step
+                lastStep = step
+            end
+        end
+        if lastStep then
+            poolLeftoversOf[lastStep] = {}
+            for _, size in ipairs(sizes) do
+                if spareMade[size] > 0 then
+                    table.insert(poolLeftoversOf[lastStep], { item = items[size], count = spareMade[size] })
+                end
             end
         end
     end
@@ -607,15 +631,18 @@ local function stepsFor(basis, levels, order)
             steps[#steps + 1] = step
         end
     end
-    return steps, extraOf, usedSupply, shortBy
+    return steps, extraOf, usedSupply, shortBy, poolLeftoversOf
 end
 
-local function leftoversFor(basis, steps, extraOf, usedSupply)
+local function leftoversFor(basis, steps, extraOf, usedSupply, poolLeftoversOf)
     -- notYetMade is the part of the used supply that no Step before this one makes.
     local leftovers, notYetMade = {}, copyOf(usedSupply)
     for _, step in ipairs(steps) do
         if extraOf[step] > 0 then
             leftovers[#leftovers + 1] = { item = step.item, count = extraOf[step] }
+        end
+        for _, leftover in ipairs(poolLeftoversOf[step] or {}) do
+            leftovers[#leftovers + 1] = leftover
         end
         -- The used supply comes from the first Steps in production order.
         for _, other in ipairs(otherOutputsOf(basis, step)) do
@@ -688,12 +715,12 @@ function Plan.calculate(basis)
         -- A Loop is not a data error (ADR 0010). Until issue 7 is done, the Plan cannot calculate one.
         error("The Plan cannot calculate a Loop: " .. table.concat(loop, ", ") .. ".", 2)
     end
-    local steps, extraOf, usedSupply, shortBy = stepsFor(basis, levels, order)
+    local steps, extraOf, usedSupply, shortBy, poolLeftoversOf = stepsFor(basis, levels, order)
     markWaiting(basis, steps)
     return {
         targets = targetLines(basis),
         steps = steps,
-        leftovers = leftoversFor(basis, steps, extraOf, usedSupply),
+        leftovers = leftoversFor(basis, steps, extraOf, usedSupply, poolLeftoversOf),
         shortages = shortagesFor(basis, steps, order, shortBy),
         assumptions = assumptionsFor(basis, steps),
         next = findNext(basis, steps),

@@ -1637,5 +1637,41 @@ describe("Plan.calculate", function()
             expectEqual(plan.steps[1].item, "SUPER_RESTORE_3")
             expectEqual(plan.steps[1].actions, 2)
         end)
+
+        it("puts the doses that remain after a Decant step in one container, and lists it as a Leftover", function()
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "SUPER_RESTORE_4", count = 1, mode = Plan.HAVE } },
+                recipes = {},
+                pools = restorePool,
+                detected = { SUPER_RESTORE_1 = 2, SUPER_RESTORE_3 = 3 },
+            })
+
+            expectEqual(plan.steps[1].inputs, {
+                { item = "SUPER_RESTORE_1", count = 2, detected = 2 },
+                { item = "SUPER_RESTORE_3", count = 1, detected = 3 },
+            })
+            expectEqual(plan.leftovers, { { item = "SUPER_RESTORE_1", count = 1 } })
+        end)
+
+        it("lists the made containers that the Plan does not use as a Leftover", function()
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "SUPER_RESTORE_3", count = 1, mode = Plan.HAVE } },
+                recipes = {
+                    SUPER_RESTORE_3 = {
+                        {
+                            verb = "Mix",
+                            output = 2,
+                            actionLimit = 14,
+                            inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
+                        },
+                    },
+                },
+                pools = restorePool,
+                detected = { SNAPDRAGON_UNF = 1 },
+            })
+
+            expectEqual(#plan.steps, 1)
+            expectEqual(plan.leftovers, { { item = "SUPER_RESTORE_3", count = 1 } })
+        end)
     end)
 end)
