@@ -1,6 +1,7 @@
 # Save each part in its own key, with counts as strings
 
 Amends ADR 0008.
+Amended by ADR 0012 (Target mode for each Target).
 
 ADR 0008 says which data the plugin saves for each character and which data is global. This ADR says how the plugin saves it in PersistentDB. The limits come from `docs/client-behaviour.md`.
 

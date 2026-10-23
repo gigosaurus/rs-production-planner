@@ -8,6 +8,11 @@ function Validate.isPositiveInteger(n)
     return type(n) == "number" and n % 1 == 0 and n > 0
 end
 
+-- Gives true for a whole number of 0 or more, for example a Made count.
+function Validate.isNonNegativeInteger(n)
+    return type(n) == "number" and n % 1 == 0 and n >= 0
+end
+
 -- Gives true when set has the key value, for example a Target mode.
 -- The keys of set are the permitted values, and each key has the value true.
 function Validate.isOneOf(value, set)
