@@ -1,7 +1,7 @@
 """Gets the recipe rows of the covered items from the RuneScape Wiki Bucket API.
 
 Command: python3 tools/fetch.py
-It reads tools/scope.json and writes tools/wiki-snapshot.json (ADR 0015).
+It reads tools/scope.json and writes tools/wiki-snapshot.json (ADR 0016).
 It sends only GET requests, one at a time, with 1 second between requests.
 It has no login, edit or post code. Only a human edits the wiki.
 """

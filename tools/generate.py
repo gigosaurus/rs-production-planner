@@ -1,4 +1,4 @@
-"""Makes data/recipes.lua from the wiki snapshot, the overrides and the config names (ADR 0015).
+"""Makes data/recipes.lua from the wiki snapshot, the overrides and the config names (ADR 0016).
 
 Command: python3 tools/generate.py
 It reads tools/wiki-snapshot.json, tools/overrides.lua and tools/config-names.lua.

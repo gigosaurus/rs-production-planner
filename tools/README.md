@@ -1,6 +1,6 @@
 # Recipe data tools
 
-These scripts make the recipe data at development time (ADR 0015). The plugin does not contain them. They use Python 3.12 or later, with only the standard library.
+These scripts make the recipe data at development time (ADR 0016). The plugin does not contain them. They use Python 3.12 or later, with only the standard library.
 
 ## Nobody edits the wiki with a tool
 
