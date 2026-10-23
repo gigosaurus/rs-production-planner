@@ -2,8 +2,9 @@
 -- It does not use the game API. Tests run it outside the game client.
 -- The adapter gives it a store with Get and Set, for example PersistentDB.
 local Assumed = require("plan/assumed")
+local CountText = require("plan/counttext")
 local Made = require("plan/made")
-local Plan = require("plan/calculate")
+local Targets = require("plan/targets")
 
 local Saved = {}
 
@@ -11,45 +12,19 @@ local Saved = {}
 Saved.UNKNOWN_VERSION = "UNKNOWN_VERSION"
 Saved.NOT_SAVED = "NOT_SAVED"
 
--- PersistentDB keeps numbers as 32-bit floats, so each count is saved as a decimal string (ADR 0011).
-local function countText(count)
-    return string.format("%d", count)
-end
-
--- Gives nil when the text is not a decimal integer.
-local function countOf(text)
-    if type(text) ~= "string" or not text:match("^%-?%d+$") then
-        return nil
-    end
-    return math.tointeger(tonumber(text))
-end
-
-local function countTexts(counts)
-    local texts = {}
-    for item, count in pairs(counts) do
-        texts[item] = countText(count)
-    end
-    return texts
-end
-
--- Gives nil when a count is bad.
-local function countsOf(texts)
-    if type(texts) ~= "table" then
-        return nil
-    end
-    local counts = {}
-    for item, text in pairs(texts) do
-        local count = countOf(text)
-        if type(item) ~= "string" or not count then
-            return nil
-        end
-        counts[item] = count
-    end
-    return counts
-end
-
 local function tableVersionOf(value)
     return type(value) == "table" and math.tointeger(value.v) or nil
+end
+
+-- Gives the codec of a module that encodes and decodes its own state. The codec adds the version.
+local function moduleCodec(module)
+    local codec = { version = 1, versionOf = tableVersionOf, start = module.new, decode = module.decode }
+    function codec.encode(state)
+        local value = module.encode(state)
+        value.v = codec.version
+        return value
+    end
+    return codec
 end
 
 -- The Bank snapshot is one string: a version line, then one line `<name>=<count>` for each item.
@@ -67,7 +42,7 @@ function bank.encode(snapshot)
     table.sort(names)
     local lines = { "v=1\n" }
     for _, name in ipairs(names) do
-        lines[#lines + 1] = name .. "=" .. countText(snapshot[name]) .. "\n"
+        lines[#lines + 1] = name .. "=" .. CountText.text(snapshot[name]) .. "\n"
     end
     return table.concat(lines)
 end
@@ -80,7 +55,7 @@ function bank.decode(text)
     local snapshot = {}
     for line in lines:gmatch("([^\n]*)\n") do
         local name, digits = line:match("^(.*)=([^=]*)$")
-        local count = countOf(digits)
+        local count = CountText.count(digits)
         if not count then
             return nil
         end
@@ -94,38 +69,7 @@ function bank.start()
     return nil
 end
 
-local assumed = { version = 1, versionOf = tableVersionOf, start = Assumed.new }
-
-function assumed.encode(state)
-    local entries = {}
-    for index, entry in ipairs(state.entries) do
-        entries[index] = {
-            item = entry.item,
-            entered = countText(entry.entered),
-            remaining = countText(entry.remaining),
-            baseline = countText(entry.baseline),
-        }
-    end
-    return { v = assumed.version, entries = entries }
-end
-
-function assumed.decode(value)
-    if type(value.entries) ~= "table" then
-        return nil
-    end
-    local state = Assumed.new()
-    for index, entry in ipairs(value.entries) do
-        if type(entry) ~= "table" or type(entry.item) ~= "string" then
-            return nil
-        end
-        local entered, remaining, baseline = countOf(entry.entered), countOf(entry.remaining), countOf(entry.baseline)
-        if not entered or not remaining or not baseline then
-            return nil
-        end
-        state.entries[index] = { item = entry.item, entered = entered, remaining = remaining, baseline = baseline }
-    end
-    return state
-end
+local assumed = moduleCodec(Assumed)
 
 local function empty()
     return {}
@@ -134,11 +78,11 @@ end
 local reserves = { version = 1, versionOf = tableVersionOf, start = empty }
 
 function reserves.encode(counts)
-    return { v = reserves.version, reserves = countTexts(counts) }
+    return { v = reserves.version, reserves = CountText.texts(counts) }
 end
 
 function reserves.decode(value)
-    return countsOf(value.reserves)
+    return CountText.counts(value.reserves)
 end
 
 local unlocks = { version = 1, versionOf = tableVersionOf, start = empty }
@@ -162,62 +106,9 @@ function unlocks.decode(value)
     return set
 end
 
--- Made.load clears the last Detected counts, so the plugin does not save them.
--- The GE amounts stay between sessions (issue 53). Data with no GE amounts gives GE amounts of 0.
-local made = { version = 1, versionOf = tableVersionOf, start = Made.new }
+local made = moduleCodec(Made)
 
-function made.encode(state)
-    local slots = {}
-    for slot, data in pairs(state.slots) do
-        slots[slot] = { item = data.item, type = data.type, stage = data.stage, soldCount = countText(data.soldCount) }
-    end
-    return { v = made.version, counts = countTexts(state.counts), slots = slots, ge = countTexts(state.ge) }
-end
-
-function made.decode(value)
-    local state = Made.new()
-    state.counts = countsOf(value.counts)
-    state.ge = countsOf(value.ge or {})
-    if not state.counts or not state.ge or type(value.slots) ~= "table" then
-        return nil
-    end
-    for slot, data in pairs(value.slots) do
-        if type(data) ~= "table" or not countOf(data.soldCount) then
-            return nil
-        end
-        state.slots[slot] =
-            { item = data.item, type = data.type, stage = data.stage, soldCount = countOf(data.soldCount) }
-    end
-    return state
-end
-
-local plan = { version = 1, versionOf = tableVersionOf }
-
-function plan.start()
-    return { targets = {} }
-end
-
-function plan.encode(value)
-    local targets = {}
-    for index, target in ipairs(value.targets) do
-        targets[index] = { item = target.item, count = countText(target.count) }
-    end
-    return { v = plan.version, targets = targets }
-end
-
-function plan.decode(value)
-    if type(value.targets) ~= "table" then
-        return nil
-    end
-    local targets = {}
-    for index, target in ipairs(value.targets) do
-        if type(target) ~= "table" or type(target.item) ~= "string" or not countOf(target.count) then
-            return nil
-        end
-        targets[index] = { item = target.item, count = countOf(target.count) }
-    end
-    return { targets = targets }
-end
+local plan = moduleCodec(Targets)
 
 -- Gives a codec for a table of settings. Each setting that the saved data does not have gets its start value.
 -- Then a new setting needs no new version.
@@ -262,7 +153,7 @@ local CODECS = {
 
 local GLOBAL_CODECS = {
     plan = plan,
-    settings = settingsCodec({ targetMode = Plan.HAVE, madeCountScope = Made.CHARACTER }),
+    settings = settingsCodec({ madeCountScope = Made.CHARACTER }),
 }
 
 local function globalKey(part)
