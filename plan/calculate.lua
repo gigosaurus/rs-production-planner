@@ -555,8 +555,18 @@ local function stepsFor(basis, levels, order)
                 extraOf[lastStep] = 0
                 balance[size] = balance[size] + lastStep.actions * recipe.output
                 spareMade[size] = math.max(0, balance[size]) - spareStock[size]
+                doses = 0
                 break
             end
+        end
+        -- With no Recipe, the Shortage is in containers of the largest Dose size.
+        -- The player gets them before the Decant steps, so they count as stock.
+        if doses < 0 then
+            local largest = sizes[#sizes]
+            local count = math.ceil(-doses / largest)
+            shortBy[items[largest]] = count
+            balance[largest] = balance[largest] + count
+            spareStock[largest] = math.max(0, balance[largest])
         end
         for _, size in ipairs(sizes) do
             short[size] = math.max(0, -balance[size])

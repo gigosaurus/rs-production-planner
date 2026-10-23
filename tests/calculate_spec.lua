@@ -1700,5 +1700,26 @@ describe("Plan.calculate", function()
             expectEqual(plan.next, 1)
             expectEqual(plan.shortages, {})
         end)
+
+        it("gives the Shortage of a pool with no Recipe in containers of the largest Dose size", function()
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "SUPER_RESTORE_4", count = 3, mode = Plan.HAVE } },
+                recipes = {},
+                pools = restorePool,
+                detected = { SUPER_RESTORE_3 = 2 },
+            })
+
+            expectEqual(plan.shortages, { { item = "SUPER_RESTORE_4", count = 2 } })
+            expectEqual(plan.steps, {
+                {
+                    item = "SUPER_RESTORE_4",
+                    verb = "Decant",
+                    actions = 1,
+                    flags = {},
+                    inputs = { { item = "SUPER_RESTORE_3", count = 2, detected = 2 } },
+                },
+            })
+            expectEqual(plan.leftovers, { { item = "SUPER_RESTORE_2", count = 1 } })
+        end)
     end)
 end)
