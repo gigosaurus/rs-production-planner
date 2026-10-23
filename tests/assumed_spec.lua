@@ -1,4 +1,5 @@
 local Assumed = require("plan/assumed")
+local Made = require("plan/made")
 
 local AMOUNT_ERROR = "The Assumed amount of SNAPE_GRASS must be a whole number more than 0."
 
@@ -86,7 +87,7 @@ describe("Assumed stock", function()
         )
     end)
 
-    it("uses up nothing when the bank is seen for the first time", function()
+    it("uses up nothing at the first Bank snapshot", function()
         local states = {}
         Assumed.add(states, "Alice", "SNAPE_GRASS", 50, { SNAPE_GRASS = 0 })
         Assumed.observe(states, "Alice", { detected = { SNAPE_GRASS = 200 }, firstBank = true })
@@ -103,19 +104,38 @@ describe("Assumed stock", function()
         it("uses up a rise when " .. case.name, function()
             local states = {}
             Assumed.add(states, "Alice", "SNAPE_GRASS", 50, { SNAPE_GRASS = 0 })
-            case.tick.detected = { SNAPE_GRASS = 36 }
-            Assumed.observe(states, "Alice", case.tick)
+            local tick = { detected = { SNAPE_GRASS = 36 } }
+            for key, value in pairs(case.tick) do
+                tick[key] = value
+            end
+            Assumed.observe(states, "Alice", tick)
 
             expectEqual(Assumed.lines(states, "Alice")[1].remaining, 14)
         end)
     end
 
-    it("starts a character that it has not seen with no Assumed stock", function()
+    it("makes no state at an observation of a character that it has not seen", function()
         local states = {}
         local changes = Assumed.observe(states, "Bob", { detected = { SNAPE_GRASS = 36 } })
 
         expectEqual(changes, { arrived = {}, fulfilled = {} })
-        expectEqual(Assumed.lines(states, "Bob"), {})
+        expectEqual(states, {})
+    end)
+
+    it("uses the same tick record as Made", function()
+        local assumedStates, madeStates = {}, {}
+        Assumed.add(assumedStates, "Alice", "SNAPE_GRASS", 50, { SNAPE_GRASS = 0 })
+        Made.startTarget(madeStates, "Alice", { id = 1, item = "SHARK", count = 100 }, { SHARK = 10 }, {})
+        for _, tick in ipairs({
+            { detected = { SHARK = 10, SNAPE_GRASS = 0 } },
+            { detected = { SHARK = 13, SNAPE_GRASS = 36 } },
+        }) do
+            Assumed.observe(assumedStates, "Alice", tick)
+            Made.observe(madeStates, "Alice", tick)
+        end
+
+        expectEqual(Assumed.remaining(assumedStates, "Alice"), { SNAPE_GRASS = 14 })
+        expectEqual(madeStates.Alice.counts, { SHARK = 3 })
     end)
 
     it("gives no lines and no remaining stock for a character that it has not seen", function()

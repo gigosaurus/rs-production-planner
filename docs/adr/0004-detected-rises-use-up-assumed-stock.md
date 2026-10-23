@@ -14,3 +14,5 @@ The obvious alternative is "assume I have N in total" (Counted stock = max(detec
 ## Consequences
 
 The plugin always shows Assumed stock as Assumed stock. It can be only a plan, or an intention to buy. The player must never think that they actually have these items.
+
+When the plugin sees the bank of a character for the first time, a rise in the Inventory in the same tick does not use up Assumed stock. The tick record does not separate the bank from the Inventory (#41). This case is rare. Made counts have the same limit.

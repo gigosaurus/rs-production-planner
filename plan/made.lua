@@ -1,5 +1,5 @@
 -- Keeps the Made counts of the Make Targets, as ADR 0009 and ADR 0012 describe.
--- Its callers give it only the Make Targets.
+-- Its callers give it the Detected stock of all items. It counts only the items of the Make Targets.
 -- It does not use the game API. Tests run it outside the game client.
 -- states maps each displayName to the state of that character (ADR 0008).
 -- It must have the state of each character that has saved data, also a character that is not logged in (ADR 0012).
@@ -80,6 +80,17 @@ local function readOffers(state, offers)
     end
 end
 
+-- Gives the items of the Make Targets. startTarget gives a count to each of them.
+local function targetItems(states)
+    local items = {}
+    for _, state in pairs(states) do
+        for item in pairs(state.counts) do
+            items[item] = true
+        end
+    end
+    return items
+end
+
 local function hasCounts(states, item)
     for _, state in pairs(states) do
         if state.counts[item] ~= nil then
@@ -90,7 +101,7 @@ local function hasCounts(states, item)
 end
 
 -- Call this when a Target changes to Make, or when the player adds a Make Target.
--- detected is the Detected stock of the Make Targets now. offers are all the GE offers of the character now.
+-- detected is the Detected stock now. offers are all the GE offers of the character now.
 -- The start value on each character is its item count now. The counts of other Make Targets do not change.
 -- A Target that has start values does not start again, because that sets its Made count to 0. A reset uses Made.set.
 function Made.startTarget(states, name, target, detected, offers)
@@ -126,7 +137,7 @@ function Made.load(states, name, offers)
 end
 
 -- Items that the GE gives to the player add to the GE amount of the character.
-local function observeOffer(state, offer, detected)
+local function observeOffer(state, offer, items)
     checkOffer(offer)
     local slot = state.slots[offer.slot]
     -- A slot has a new offer when it has no saved data, a different item or type, or a lower soldCount.
@@ -141,20 +152,22 @@ local function observeOffer(state, offer, detected)
         -- Unverified (ADR 0009): the items that the offer did not sell come back.
         amount = offer.itemCount - offer.soldCount
     end
-    -- The keys of detected are the items of the Make Targets.
-    if detected[offer.item] then
+    if items[offer.item] then
         state.ge[offer.item] = (state.ge[offer.item] or 0) + amount
     end
     saveSlot(state, offer)
 end
 
--- tick has the facts of one server tick for one character.
+-- tick has the facts of one server tick for one character. Assumed.observe takes the same record.
+-- An item that is not in tick.detected has a Detected stock of 0.
 function Made.observe(states, name, tick)
     local state = character(states, name)
+    local items = targetItems(states)
     for _, offer in ipairs(tick.ge or {}) do
-        observeOffer(state, offer, tick.detected)
+        observeOffer(state, offer, items)
     end
-    for item, now in pairs(tick.detected) do
+    for item in pairs(items) do
+        local now = tick.detected[item] or 0
         -- With no last count, a first Bank snapshot or an open shop, this observation is the starting point.
         local rise = (tick.firstBank or tick.shopOpen) and 0 or now - (state.last[item] or now)
         -- A rise in the same tick as a ground stack decrease is a pickup.

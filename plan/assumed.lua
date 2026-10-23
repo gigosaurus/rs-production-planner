@@ -60,10 +60,16 @@ end
 
 -- tick has the facts of one server tick for one character, as Made.observe takes them.
 -- tick.detected is the Detected stock now: the Inventory and the bank together.
--- A rise since the last call uses up Assumed stock of that item. Pickups, shops and the GE count too.
+-- An item that is not in tick.detected has a Detected stock of 0.
+-- A rise since the last call uses up Assumed stock of that item. Pickups, shop purchases and GE purchases count too.
 -- On the first Bank snapshot, Detected stock rises by all the contents of the bank. This rise is not an arrival.
+-- The tick record does not separate the bank from the Inventory. So a rise in the Inventory in that tick also uses up nothing.
+-- A character that has no state has no Assumed stock, so this function makes no state.
 function Assumed.observe(states, name, tick)
-    local state = character(states, name)
+    local state = states[name]
+    if not state then
+        return { arrived = {}, fulfilled = {} }
+    end
     local arrived, fulfilled, kept = {}, {}, {}
     for _, entry in ipairs(state.entries) do
         local now = tick.detected[entry.item] or 0
