@@ -39,3 +39,66 @@ describe("Detected.count", function()
         expectEqual(Detected.count({}, {}), {})
     end)
 end)
+
+describe("Detected.count with bad input", function()
+    local function expectError(backpack, bank, text)
+        local ok, message = pcall(Detected.count, backpack, bank)
+
+        expectEqual(ok, false)
+        expectEqual(message:find(text, 1, true) ~= nil, true)
+    end
+
+    for _, case in ipairs({
+        { name = "nil", value = nil },
+        { name = "a number", value = 5 },
+    }) do
+        it("stops with an error for a config name that is " .. case.name, function()
+            local bank = { { configName = "COAL", count = 1 }, { configName = case.value, count = 1 } }
+
+            expectError(
+                {},
+                bank,
+                "The adapter gave a bank slot with a bad config name. The config name must be a string. The value is "
+                    .. tostring(case.value)
+                    .. "."
+            )
+        end)
+    end
+
+    for _, case in ipairs({
+        { name = "0", value = 0 },
+        { name = "negative", value = -1 },
+        { name = "a fraction", value = 1.5 },
+        { name = "nil", value = nil },
+        { name = "a string", value = "1" },
+    }) do
+        it("stops with an error for a count that is " .. case.name, function()
+            local backpack = { { configName = "COAL", count = case.value } }
+
+            expectError(
+                backpack,
+                nil,
+                "The adapter gave a backpack slot with a bad count. "
+                    .. "The count must be a whole number more than 0. The value is "
+                    .. tostring(case.value)
+                    .. "."
+            )
+        end)
+    end
+
+    it("names the bank in the error for a bad bank slot", function()
+        expectError({}, { { configName = "COAL", count = 0 } }, "The adapter gave a bank slot with a bad count.")
+    end)
+
+    it("names the backpack in the error for a bad backpack slot", function()
+        expectError({ { configName = 5, count = 1 } }, {}, "The adapter gave a backpack slot with a bad config name.")
+    end)
+
+    it("stops with an error for a backpack that is not a table", function()
+        expectError(nil, {}, "The adapter gave a bad backpack. The backpack must be a table. The value is nil.")
+    end)
+
+    it("stops with an error for a bank that is not a table or nil", function()
+        expectError({}, 5, "The adapter gave a bad bank. The bank must be a table or nil. The value is 5.")
+    end)
+end)
