@@ -1807,4 +1807,427 @@ describe("Plan.calculate", function()
             expectEqual(plan.complete, true)
         end)
     end)
+
+    describe("Dose pools", function()
+        local restorePool = {
+            SUPER_RESTORE = {
+                [1] = "SUPER_RESTORE_1",
+                [2] = "SUPER_RESTORE_2",
+                [3] = "SUPER_RESTORE_3",
+                [4] = "SUPER_RESTORE_4",
+            },
+        }
+
+        it("decants other Dose sizes to the Dose size of a Target", function()
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "SUPER_RESTORE_4", count = 3, mode = Plan.HAVE } },
+                recipes = {},
+                pools = restorePool,
+                detected = { SUPER_RESTORE_3 = 4 },
+            })
+
+            expectEqual(plan.steps, {
+                {
+                    item = "SUPER_RESTORE_4",
+                    verb = "Decant",
+                    decant = true,
+                    actions = 3,
+                    flags = {},
+                    inputs = { { item = "SUPER_RESTORE_3", count = 4, detected = 4 } },
+                },
+            })
+            expectEqual(plan.shortages, {})
+            expectEqual(plan.leftovers, {})
+            expectEqual(plan.assumptions, { "The Plan assumes that you have the empty vials to decant." })
+            expectEqual(plan.complete, false)
+        end)
+
+        it("makes doses with the Recipe of one Dose size, then decants them to the Dose size of a Target", function()
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "SUPER_RESTORE_4", count = 3, mode = Plan.HAVE } },
+                recipes = {
+                    SUPER_RESTORE_3 = {
+                        {
+                            verb = "Mix",
+                            output = 1,
+                            actionLimit = 14,
+                            inputs = {
+                                { item = "SNAPDRAGON_UNF", count = 1 },
+                                { item = "RED_SPIDERS_EGGS", count = 1 },
+                            },
+                        },
+                    },
+                },
+                pools = restorePool,
+                detected = { SNAPDRAGON_UNF = 4, RED_SPIDERS_EGGS = 4 },
+            })
+
+            expectEqual(#plan.steps, 2)
+            expectEqual(plan.steps[1].item, "SUPER_RESTORE_3")
+            expectEqual(plan.steps[1].verb, "Mix")
+            expectEqual(plan.steps[1].actions, 4)
+            expectEqual(plan.steps[2], {
+                item = "SUPER_RESTORE_4",
+                verb = "Decant",
+                decant = true,
+                actions = 3,
+                flags = {},
+                inputs = { { item = "SUPER_RESTORE_3", count = 4, detected = 0 } },
+            })
+            expectEqual(plan.shortages, {})
+            expectEqual(plan.leftovers, {})
+        end)
+
+        it("uses the Recipe of the smallest Dose size when more than one Dose size has a Recipe", function()
+            local function mix(item)
+                return { { verb = "Mix", output = 1, actionLimit = 14, inputs = { { item = item, count = 1 } } } }
+            end
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "SUPER_RESTORE_3", count = 2, mode = Plan.HAVE } },
+                recipes = { SUPER_RESTORE_4 = mix("FOUR_DOSE_INPUT"), SUPER_RESTORE_3 = mix("THREE_DOSE_INPUT") },
+                pools = restorePool,
+                detected = { FOUR_DOSE_INPUT = 2, THREE_DOSE_INPUT = 2 },
+            })
+
+            expectEqual(#plan.steps, 1)
+            expectEqual(plan.steps[1].item, "SUPER_RESTORE_3")
+            expectEqual(plan.steps[1].actions, 2)
+        end)
+
+        it("puts the doses that remain after a Decant step in one container, and lists it as a Leftover", function()
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "SUPER_RESTORE_4", count = 1, mode = Plan.HAVE } },
+                recipes = {},
+                pools = restorePool,
+                detected = { SUPER_RESTORE_1 = 2, SUPER_RESTORE_3 = 3 },
+            })
+
+            expectEqual(plan.steps[1].inputs, {
+                { item = "SUPER_RESTORE_1", count = 2, detected = 2 },
+                { item = "SUPER_RESTORE_3", count = 1, detected = 3 },
+            })
+            expectEqual(plan.leftovers, { { item = "SUPER_RESTORE_1", count = 1 } })
+        end)
+
+        it("lists the made containers that the Plan does not use as a Leftover", function()
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "SUPER_RESTORE_3", count = 1, mode = Plan.HAVE } },
+                recipes = {
+                    SUPER_RESTORE_3 = {
+                        {
+                            verb = "Mix",
+                            output = 2,
+                            actionLimit = 14,
+                            inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
+                        },
+                    },
+                },
+                pools = restorePool,
+                detected = { SNAPDRAGON_UNF = 1 },
+            })
+
+            expectEqual(#plan.steps, 1)
+            expectEqual(plan.leftovers, { { item = "SUPER_RESTORE_3", count = 1 } })
+        end)
+
+        it("decants for a Recipe Input that names a Dose size, before the Step that uses it", function()
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "MIXED_DRINK", count = 3, mode = Plan.HAVE } },
+                recipes = {
+                    MIXED_DRINK = {
+                        {
+                            verb = "Mix",
+                            output = 1,
+                            actionLimit = 14,
+                            inputs = { { item = "SUPER_RESTORE_4", count = 1 } },
+                        },
+                    },
+                },
+                pools = restorePool,
+                detected = { SUPER_RESTORE_3 = 4 },
+            })
+
+            expectEqual(#plan.steps, 2)
+            expectEqual(plan.steps[1].verb, "Decant")
+            expectEqual(plan.steps[1].item, "SUPER_RESTORE_4")
+            expectEqual(plan.steps[1].actions, 3)
+            expectEqual(plan.steps[2].item, "MIXED_DRINK")
+            expectEqual(plan.steps[2].actions, 3)
+            expectEqual(plan.next, 1)
+            expectEqual(plan.shortages, {})
+        end)
+
+        it("gives the Shortage of a pool with no Recipe in containers of the largest Dose size", function()
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "SUPER_RESTORE_4", count = 3, mode = Plan.HAVE } },
+                recipes = {},
+                pools = restorePool,
+                detected = { SUPER_RESTORE_3 = 2 },
+            })
+
+            expectEqual(plan.shortages, { { item = "SUPER_RESTORE_4", count = 2 } })
+            expectEqual(plan.steps, {
+                {
+                    item = "SUPER_RESTORE_4",
+                    verb = "Decant",
+                    decant = true,
+                    actions = 1,
+                    flags = {},
+                    inputs = { { item = "SUPER_RESTORE_3", count = 2, detected = 2 } },
+                },
+            })
+            expectEqual(plan.leftovers, { { item = "SUPER_RESTORE_2", count = 1 } })
+        end)
+
+        it("makes a Decant step Waiting when it uses an item that a Flagged step makes", function()
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "SUPER_RESTORE_4", count = 1, mode = Plan.HAVE } },
+                recipes = {
+                    SUPER_RESTORE_3 = {
+                        {
+                            verb = "Mix",
+                            output = 1,
+                            actionLimit = 14,
+                            inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
+                            skills = { { skill = "HERBLORE", level = 63 } },
+                        },
+                    },
+                },
+                pools = restorePool,
+                detected = { SNAPDRAGON_UNF = 2 },
+                levels = { HERBLORE = 61 },
+            })
+
+            expectEqual(plan.steps[1].item, "SUPER_RESTORE_3")
+            expectEqual(#plan.steps[1].flags, 1)
+            expectEqual(plan.steps[2].verb, "Decant")
+            expectEqual(plan.steps[2].waitsOn, 1)
+            expectEqual(plan.next, nil)
+        end)
+
+        -- A Decant step also raises the Made count of an item. Issue 58 decides how Make counts a pool.
+        it("stops with an error for a Make Target of an item in a Dose pool", function()
+            local ok, err = pcall(Plan.calculate, {
+                targets = { { id = 1, item = "SUPER_RESTORE_4", count = 3, mode = Plan.MAKE, made = 0 } },
+                recipes = {},
+                pools = restorePool,
+                detected = {},
+            })
+
+            expectEqual(ok, false)
+            expectEqual(err, "A Make Target of SUPER_RESTORE_4 is not possible, because the item is in a Dose pool.")
+        end)
+
+        -- The Plan uses only the Recipe of one Dose size. The Recipes of the other Dose sizes are not in the Plan.
+        it("does not check the Recipe of a Dose size that the Plan does not use", function()
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "SUPER_RESTORE_3", count = 1, mode = Plan.HAVE } },
+                recipes = {
+                    SUPER_RESTORE_3 = {
+                        {
+                            verb = "Mix",
+                            output = 1,
+                            actionLimit = 14,
+                            inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
+                        },
+                    },
+                    SUPER_RESTORE_4 = {
+                        { verb = "Mix", output = 1, inputs = { { item = "UNUSED_INPUT", count = 1 } } },
+                    },
+                },
+                pools = restorePool,
+                detected = { SNAPDRAGON_UNF = 1 },
+            })
+
+            expectEqual(#plan.steps, 1)
+            expectEqual(plan.steps[1].item, "SUPER_RESTORE_3")
+            expectEqual(plan.shortages, {})
+        end)
+
+        it(
+            "uses the other Outputs of a Step as doses, and lists the part that it does not use as a Leftover",
+            function()
+                local function plan(target, count)
+                    return Plan.calculate({
+                        targets = {
+                            { id = 1, item = "SIDE_PRODUCT", count = 1, mode = Plan.HAVE },
+                            { id = 2, item = target, count = count, mode = Plan.HAVE },
+                        },
+                        recipes = {
+                            MIXED_DRINK = {
+                                {
+                                    verb = "Mix",
+                                    output = 1,
+                                    actionLimit = 14,
+                                    inputs = { { item = "SUPER_RESTORE_4", count = 1 } },
+                                },
+                            },
+                            SIDE_PRODUCT = {
+                                {
+                                    verb = "Mix",
+                                    output = 1,
+                                    actionLimit = 14,
+                                    inputs = { { item = "HERB", count = 1 } },
+                                    otherOutputs = { { item = "SUPER_RESTORE_3", count = 4 } },
+                                },
+                            },
+                            SUPER_RESTORE_3 = {
+                                {
+                                    verb = "Mix",
+                                    output = 1,
+                                    actionLimit = 14,
+                                    inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
+                                },
+                            },
+                        },
+                        pools = restorePool,
+                        detected = { HERB = 1, SNAPDRAGON_UNF = 5 },
+                    })
+                end
+
+                local direct = plan("SUPER_RESTORE_3", 3)
+                expectEqual(#direct.steps, 1)
+                expectEqual(direct.steps[1].item, "SIDE_PRODUCT")
+                expectEqual(direct.leftovers, { { item = "SUPER_RESTORE_3", count = 1 } })
+
+                local decanted = plan("SUPER_RESTORE_4", 3)
+                expectEqual(#decanted.steps, 2)
+                expectEqual(decanted.steps[1].item, "SIDE_PRODUCT")
+                expectEqual(decanted.steps[2].verb, "Decant")
+                expectEqual(decanted.steps[2].inputs, { { item = "SUPER_RESTORE_3", count = 4, detected = 0 } })
+                expectEqual(decanted.leftovers, {})
+                expectEqual(decanted.shortages, {})
+
+                -- The Decant step comes after the Step that makes its Inputs, and before the Step that uses its Output.
+                local used = plan("MIXED_DRINK", 3)
+                expectEqual(#used.steps, 3)
+                expectEqual(used.steps[1].item, "SIDE_PRODUCT")
+                expectEqual(used.steps[2].verb, "Decant")
+                expectEqual(used.steps[3].item, "MIXED_DRINK")
+                expectEqual(used.shortages, {})
+            end
+        )
+
+        it("marks only a Decant step with the decant field, also when a Recipe has the verb Decant", function()
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "SUPER_RESTORE_3", count = 3, mode = Plan.HAVE } },
+                recipes = {
+                    SUPER_RESTORE_3 = {
+                        {
+                            verb = "Decant",
+                            output = 1,
+                            actionLimit = 14,
+                            inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
+                        },
+                    },
+                },
+                pools = restorePool,
+                detected = { SUPER_RESTORE_4 = 2, SNAPDRAGON_UNF = 1 },
+            })
+
+            expectEqual(#plan.steps, 2)
+            expectEqual(plan.steps[1].decant, nil)
+            expectEqual(plan.steps[2].decant, true)
+        end)
+
+        describe("stops with an error for Dose pools that are not correct", function()
+            local function errorFor(pools)
+                local ok, err = pcall(Plan.calculate, {
+                    targets = { { id = 1, item = "BREAD", count = 1, mode = Plan.HAVE } },
+                    recipes = {},
+                    pools = pools,
+                    detected = {},
+                })
+                expectEqual(ok, false)
+                return err
+            end
+
+            it("when the Dose pools are not a table", function()
+                expectEqual(errorFor("SUPER_RESTORE"), "The Dose pools must be a table.")
+            end)
+
+            it("when a Dose pool is not a table", function()
+                expectEqual(
+                    errorFor({ SUPER_RESTORE = "SUPER_RESTORE_4" }),
+                    "The Dose pool SUPER_RESTORE must be a table."
+                )
+            end)
+
+            it("when a Dose size is not a whole number more than 0", function()
+                local message = "The Dose pool SUPER_RESTORE has a Dose size that is not a whole number more than 0."
+                expectEqual(errorFor({ SUPER_RESTORE = { [0] = "SUPER_RESTORE_0", [1] = "SUPER_RESTORE_1" } }), message)
+                expectEqual(errorFor({ SUPER_RESTORE = { [1.5] = "SUPER_RESTORE_1" } }), message)
+                expectEqual(errorFor({ SUPER_RESTORE = { one = "SUPER_RESTORE_1" } }), message)
+            end)
+
+            it("when the Dose sizes do not start at 1 or have a gap", function()
+                local message = "The Dose sizes of the Dose pool SUPER_RESTORE must start at 1 and have no gap."
+                expectEqual(errorFor({ SUPER_RESTORE = { [1] = "SUPER_RESTORE_1", [3] = "SUPER_RESTORE_3" } }), message)
+                expectEqual(errorFor({ SUPER_RESTORE = { [2] = "SUPER_RESTORE_2" } }), message)
+                expectEqual(errorFor({ SUPER_RESTORE = {} }), message)
+            end)
+
+            it("when an item is not a string", function()
+                expectEqual(
+                    errorFor({ SUPER_RESTORE = { [1] = 3024 } }),
+                    "The item of Dose size 1 in the Dose pool SUPER_RESTORE must be a string."
+                )
+            end)
+
+            it("when an item is in the Dose pools two times", function()
+                local message = "The item SUPER_RESTORE_1 is in the Dose pools two times."
+                expectEqual(
+                    errorFor({ SUPER_RESTORE = { [1] = "SUPER_RESTORE_1" }, PRAYER = { [1] = "SUPER_RESTORE_1" } }),
+                    message
+                )
+                expectEqual(errorFor({ SUPER_RESTORE = { [1] = "SUPER_RESTORE_1", [2] = "SUPER_RESTORE_1" } }), message)
+            end)
+        end)
+
+        -- The Plan cannot calculate a Dose pool in a Loop yet (issue 61).
+        it("stops with an error when the Recipe of a Dose size uses a Dose size of the same pool", function()
+            local ok, err = pcall(Plan.calculate, {
+                targets = { { id = 1, item = "SUPER_RESTORE_4", count = 1, mode = Plan.HAVE } },
+                recipes = {
+                    SUPER_RESTORE_3 = {
+                        {
+                            verb = "Mix",
+                            output = 1,
+                            actionLimit = 14,
+                            inputs = { { item = "SUPER_RESTORE_1", count = 1 } },
+                        },
+                    },
+                },
+                pools = restorePool,
+                detected = { SUPER_RESTORE_1 = 3 },
+            })
+
+            expectEqual(ok, false)
+            expectEqual(err:find("The Plan cannot calculate a Loop with a Dose pool: ", 1, true) ~= nil, true)
+        end)
+
+        it("stops with an error when a Dose pool is in a Loop with other items", function()
+            local ok, err = pcall(Plan.calculate, {
+                targets = { { id = 1, item = "SUPER_RESTORE_3", count = 1, mode = Plan.HAVE } },
+                recipes = {
+                    SUPER_RESTORE_3 = {
+                        { verb = "Mix", output = 1, actionLimit = 14, inputs = { { item = "CATALYST", count = 1 } } },
+                    },
+                    CATALYST = {
+                        {
+                            verb = "Mix",
+                            output = 2,
+                            actionLimit = 14,
+                            inputs = { { item = "SUPER_RESTORE_2", count = 1 } },
+                        },
+                    },
+                },
+                pools = restorePool,
+                detected = {},
+            })
+
+            expectEqual(ok, false)
+            expectEqual(err:find("The Plan cannot calculate a Loop with a Dose pool: ", 1, true) ~= nil, true)
+        end)
+    end)
 end)
