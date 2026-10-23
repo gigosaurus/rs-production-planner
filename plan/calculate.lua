@@ -806,13 +806,15 @@ local function stepsFor(basis, levels, loopOf, order)
 
     -- decantsAfter gives the Decant steps that come after the Steps of a Planning level.
     -- A Decant step that can use other Outputs comes after the Steps that make them.
-    -- The Steps that use a Dose size link to these Steps, so they come after the Decant step.
+    -- A Step that uses a Dose size links to each Step that makes an other Output in the same pool.
+    -- Thus that Step comes after the Decant step.
     local decantsAfter = {}
 
     -- Adds the Steps of a Dose pool. The Plan counts the pool as doses (ADR 0005).
     -- A Recipe makes the doses that Counted stock and the other Outputs of Steps do not give.
     -- Then Decant steps give each Dose size that is short. A Decant step takes the smallest Dose size first.
-    -- The demand and the Decant steps take containers from the sources in the order of POOL_SOURCES.
+    -- The demand and the Decant steps take Counted stock first, then the other Outputs of Steps,
+    -- then the containers that the Recipe makes (POOL_SOURCES).
     -- The doses that remain after a Decant step go into one container.
     -- The made containers that the Plan does not use are Leftovers of the pool.
     -- The other Outputs that the Plan does not use are Leftovers of the Steps that make them.

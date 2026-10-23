@@ -276,7 +276,7 @@ describe("Diff.compare", function()
     end)
 
     describe("Decant steps", function()
-        -- Only Super restore (4) has a Recipe. With 4x (3) in stock, the Plan decants them.
+        -- Only Super restore (4) has a Recipe. With a Counted stock of 4x (3), the Plan decants them.
         local function restorePoolPlan(detected)
             return Plan.calculate({
                 targets = { { id = 1, item = "SUPER_RESTORE_4", count = 3, mode = Plan.HAVE } },
