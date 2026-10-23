@@ -41,7 +41,7 @@ jobs:
       - uses: actions/checkout@v7
       - run: ./scripts/check-manifests.sh
 
-  # The recipe data tools (ADR 0015). ubuntu-latest has Python 3.12.
+  # The recipe data tools (ADR 0016). ubuntu-latest has Python 3.12.
   # The tests run lua5.4, stylua and luacheck on the generated Lua.
   tools:
     runs-on: ubuntu-latest
