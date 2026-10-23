@@ -57,7 +57,7 @@ A group of items whose Recipes need each other. For example, A + B → D + C, an
 _Avoid_: Cycle, circular recipe
 
 **Seed**:
-The stock that a Loop needs before it can start: the Inputs of one action of the first Step of the Loop.
+The stock that a Loop needs before it can start: the Inputs of one action of the first Step of the Loop. Only the Inputs that a Recipe of the Loop makes count.
 _Avoid_: Starter, catalyst
 
 **Shortage**:

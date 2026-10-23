@@ -261,10 +261,16 @@ local function markWaiting(basis, steps)
 end
 
 -- Finds the Next step. This is the first Step that the player can usefully do now.
+-- It uses the Loop marks, so markLoops must run first.
 local function findNext(basis, steps)
     for position, step in ipairs(steps) do
         -- One full Inventory is the Batch hint, or less when fewer actions remain. With no Batch hint, it is all remaining actions.
         local actions = math.min(step.batchHint or step.actions, step.actions)
+        -- A Loop returns its Inputs, so a Step with a Loop mark is ready with one action (ADR 0010).
+        -- The only Step of a Loop has no mark. No other Step returns its Inputs.
+        if step.loopWith then
+            actions = 1
+        end
         local ready = #step.flags == 0 and not step.waitsOn
         for _, input in ipairs(recipeFor(basis, step.item).inputs) do
             if freeDetected(basis, input.item) < input.count * actions then
@@ -274,6 +280,20 @@ local function findNext(basis, steps)
         if ready then
             return position
         end
+    end
+end
+
+-- Marks each Step in a Loop with the positions of the other Steps of the Loop (ADR 0010).
+-- A Step with no other Step in its Loop gets no mark.
+local function markLoops(steps, loopOf)
+    for _, step in ipairs(steps) do
+        local loop, others = loopOf[step.item], {}
+        for position, other in ipairs(steps) do
+            if loop and other ~= step and loopOf[other.item] == loop then
+                others[#others + 1] = position
+            end
+        end
+        step.loopWith = #others > 0 and others or nil
     end
 end
 
@@ -315,7 +335,8 @@ local function checkActionLimits(basis, order)
 end
 
 -- Finds the Planning level of each item (ADR 0002).
--- When the links contain a Loop, it gives nil and the items of the Loop.
+-- It also gives the Loop of each item that is in a Loop (ADR 0010).
+-- A Loop is a list of its items in the order of the search.
 local function planningLevels(basis, order)
     local makers = {}
     for _, item in ipairs(order) do
@@ -330,8 +351,14 @@ local function planningLevels(basis, order)
     -- An item that uses an other Output also links to the item whose Step makes it.
     -- These links make sure that the Plan knows the supply of an item before it calculates the need for the item.
     -- They also put the Step that makes an other Output before the Steps that use it.
+    -- The links of an item do not change, so the function makes them one time for each item.
+    local linksOf = {}
     local function links(item)
+        if linksOf[item] then
+            return linksOf[item]
+        end
         local recipe, linked = recipeFor(basis, item), {}
+        linksOf[item] = linked
         if not recipe then
             return linked
         end
@@ -349,37 +376,84 @@ local function planningLevels(basis, order)
         return linked
     end
 
-    -- The Planning level is the length of the longest path from a Target.
-    -- An item that is already on the path of the search is in a Loop (issue 7).
-    local levels, path = {}, {}
-    local function visit(item, depth)
-        for index, onPath in ipairs(path) do
-            if onPath == item then
-                local loop = { table.unpack(path, index) }
-                loop[#loop + 1] = item
-                return loop
-            end
-        end
-        if levels[item] and levels[item] >= depth then
-            return
-        end
-        levels[item] = depth
-        path[#path + 1] = item
+    -- Puts the items into groups. Each item in a group links to each other item of the group.
+    -- A link can go through other items of the group.
+    -- This is the method of Tarjan for strongly connected components.
+    local groupOf, index, lowest, stack, onStack = {}, {}, {}, {}, {}
+    local nextIndex = 0
+    local function connect(item)
+        nextIndex = nextIndex + 1
+        index[item], lowest[item] = nextIndex, nextIndex
+        stack[#stack + 1] = item
+        onStack[item] = true
         for _, linked in ipairs(links(item)) do
-            local loop = visit(linked, depth + 1)
-            if loop then
-                return loop
+            if not index[linked] then
+                connect(linked)
+                lowest[item] = math.min(lowest[item], lowest[linked])
+            elseif onStack[linked] then
+                lowest[item] = math.min(lowest[item], index[linked])
             end
         end
-        path[#path] = nil
+        if lowest[item] == index[item] then
+            local group = {}
+            repeat
+                local member = table.remove(stack)
+                onStack[member] = nil
+                groupOf[member] = group
+                group[#group + 1] = member
+            until member == item
+        end
     end
     for _, target in ipairs(basis.targets) do
-        local loop = visit(target.item, 0)
-        if loop then
-            return nil, loop
+        if not index[target.item] then
+            connect(target.item)
         end
     end
-    return levels
+
+    -- A group is a Loop when it has more than one item, or when its item links to itself.
+    local function isLoop(group)
+        for _, linked in ipairs(links(group[1])) do
+            if linked == group[1] then
+                return true
+            end
+        end
+        return #group > 1
+    end
+    local loopOf, loopOfGroup = {}, {}
+    for _, item in ipairs(order) do
+        local group = groupOf[item]
+        if isLoop(group) then
+            loopOfGroup[group] = loopOfGroup[group] or {}
+            table.insert(loopOfGroup[group], item)
+            loopOf[item] = loopOfGroup[group]
+        end
+    end
+
+    -- The Planning level is the length of the longest path from a Target. All items of one group have the same level.
+    -- The links between groups contain no Loop, so the search stops.
+    local levelOf = {}
+    local function visit(group, depth)
+        if levelOf[group] and levelOf[group] >= depth then
+            return
+        end
+        levelOf[group] = depth
+        for _, member in ipairs(group) do
+            for _, linked in ipairs(links(member)) do
+                if groupOf[linked] ~= group then
+                    visit(groupOf[linked], depth + 1)
+                end
+            end
+        end
+    end
+    for _, target in ipairs(basis.targets) do
+        visit(groupOf[target.item], 0)
+    end
+
+    local levels = {}
+    for _, item in ipairs(order) do
+        levels[item] = levelOf[groupOf[item]]
+    end
+    return levels, loopOf
 end
 
 local function deepestLevel(levels)
@@ -412,9 +486,100 @@ local function newStep(basis, item, recipe, need)
     return step, actions * recipe.output - need
 end
 
+-- The largest number of times that the Plan calculates the items of one Loop (ADR 0010).
+local PASS_LIMIT = 1000
+
+-- Puts the items of the Steps of one Loop in production order (ADR 0010).
+-- items is in the order of the search. That order decides a tie.
+-- loop is all items of the Loop, also the items with no Step.
+local function loopOrder(basis, items, targetItems, order, loop)
+    local inLoop = {}
+    for _, item in ipairs(loop) do
+        inLoop[item] = true
+    end
+
+    -- The Step of an item makes the item and the other Outputs of its Recipe.
+    local function makesOnly(item, made)
+        if item ~= made then
+            return false
+        end
+        for _, other in ipairs(recipeFor(basis, item).otherOutputs) do
+            if other.item ~= made then
+                return false
+            end
+        end
+        return true
+    end
+
+    -- A Step that turns an Input into a different item comes before a Step that makes only that Input.
+    local function mustComeBefore(first, second)
+        for _, input in ipairs(recipeFor(basis, first).inputs) do
+            if makesOnly(second, input.item) and not makesOnly(first, input.item) then
+                return true
+            end
+        end
+        return false
+    end
+
+    -- An Output goes toward the Target when it is a Target or an Input of a Recipe outside the Loop.
+    local usedOutside = {}
+    for _, item in ipairs(order) do
+        local recipe = recipeFor(basis, item)
+        if recipe and not inLoop[item] then
+            for _, input in ipairs(recipe.inputs) do
+                usedOutside[input.item] = true
+            end
+        end
+    end
+    local function goesOut(item)
+        if targetItems[item] or usedOutside[item] then
+            return true
+        end
+        for _, other in ipairs(recipeFor(basis, item).otherOutputs) do
+            if targetItems[other.item] or usedOutside[other.item] then
+                return true
+            end
+        end
+        return false
+    end
+
+    local remaining, sorted = { table.unpack(items) }, {}
+    while #remaining > 0 do
+        local candidates = {}
+        for _, item in ipairs(remaining) do
+            local free = true
+            for _, other in ipairs(remaining) do
+                free = free and not (other ~= item and mustComeBefore(other, item))
+            end
+            if free then
+                candidates[#candidates + 1] = item
+            end
+        end
+        -- Each remaining Step must come after a different one. The rule gives no first Step.
+        if #candidates == 0 then
+            candidates = remaining
+        end
+        local chosen = candidates[1]
+        for _, item in ipairs(candidates) do
+            if goesOut(item) then
+                chosen = item
+                break
+            end
+        end
+        sorted[#sorted + 1] = chosen
+        for index, item in ipairs(remaining) do
+            if item == chosen then
+                table.remove(remaining, index)
+                break
+            end
+        end
+    end
+    return sorted
+end
+
 -- Makes the Steps in production order. It totals the demand and the supply of each item at its Planning level.
 -- It also gives the extra Output of each Step, the used supply of each item, and the Shortages.
-local function stepsFor(basis, levels, order)
+local function stepsFor(basis, levels, loopOf, order)
     local stepsByLevel, extraOf = {}, {}
     local shortBy = {}
     -- supply is the other Outputs of Steps. usedSupply is the part of it that the Plan uses.
@@ -423,12 +588,22 @@ local function stepsFor(basis, levels, order)
 
     local haveCounts, makeNeeds = targetNeeds(basis)
     local demand = copyOf(haveCounts)
+    local targetItems = {}
+    for _, target in ipairs(basis.targets) do
+        targetItems[target.item] = true
+    end
+
+    -- seeded is the Seed Shortage of each item. The Steps count it as stock (ADR 0010).
+    local seeded = {}
+    local function ownedFor(item)
+        return countedStock(basis, item) + (seeded[item] or 0)
+    end
 
     -- One Counted stock covers both the Have Targets and the Steps that use the item.
     -- The Made count covers a Make Target, and Counted stock does not. The Steps can use the items that a Make Target counts.
     -- Thus the need is the larger of the two needs, not the sum (ADR 0012).
     local function stillNeededFor(item)
-        local haveNeed = (demand[item] or 0) - countedStock(basis, item)
+        local haveNeed = (demand[item] or 0) - ownedFor(item)
         local makeNeed = makeNeeds[item]
         if makeNeed == nil then
             return haveNeed
@@ -440,30 +615,158 @@ local function stepsFor(basis, levels, order)
         return math.max(makeNeed, haveNeed)
     end
 
-    for level = 0, deepest do
-        stepsByLevel[level] = {}
-        for _, item in ipairs(order) do
-            if levels[item] == level then
-                local stillNeeded = stillNeededFor(item)
-                usedSupply[item] = math.max(0, math.min(stillNeeded, supply[item] or 0))
-                local need = stillNeeded - (supply[item] or 0)
-                local recipe = recipeFor(basis, item)
-                if need > 0 and recipe then
-                    local step, extra = newStep(basis, item, recipe, need)
-                    extraOf[step] = extra
-                    local steps = stepsByLevel[level]
-                    steps[#steps + 1] = step
-                    for _, input in ipairs(recipe.inputs) do
-                        demand[input.item] = (demand[input.item] or 0) + input.count * step.actions
-                    end
-                    for _, other in ipairs(recipe.otherOutputs) do
-                        supply[other.item] = (supply[other.item] or 0) + other.count * step.actions
-                    end
-                elseif need > 0 then
-                    shortBy[item] = need
+    -- Calculates the Step for an item from the current demand and supply. It changes no table.
+    local function planItem(item)
+        local stillNeeded = stillNeededFor(item)
+        local result = { used = math.max(0, math.min(stillNeeded, supply[item] or 0)) }
+        local need = stillNeeded - (supply[item] or 0)
+        local recipe = recipeFor(basis, item)
+        if need > 0 and recipe then
+            result.step, result.extra = newStep(basis, item, recipe, need)
+        elseif need > 0 then
+            result.short = need
+        end
+        return result
+    end
+
+    -- Adds the demand and the supply that a Step causes. A sign of -1 removes them.
+    local function addStep(step, sign)
+        if not step then
+            return
+        end
+        local recipe = recipeFor(basis, step.item)
+        for _, input in ipairs(recipe.inputs) do
+            demand[input.item] = (demand[input.item] or 0) + sign * input.count * step.actions
+        end
+        for _, other in ipairs(recipe.otherOutputs) do
+            supply[other.item] = (supply[other.item] or 0) + sign * other.count * step.actions
+        end
+    end
+
+    local function record(item, result, level)
+        usedSupply[item] = result.used
+        shortBy[item] = result.short
+        if result.step then
+            extraOf[result.step] = result.extra
+            local steps = stepsByLevel[level]
+            steps[#steps + 1] = result.step
+        end
+    end
+
+    local function actionsOf(result)
+        return result and result.step and result.step.actions or 0
+    end
+
+    -- A Recipe of the Loop makes the item, as its Output or as an other Output.
+    local function loopMakes(loop, item)
+        for _, member in ipairs(loop) do
+            if member == item then
+                return true
+            end
+            for _, other in ipairs(recipeFor(basis, member).otherOutputs) do
+                if other.item == item then
+                    return true
                 end
             end
         end
+        return false
+    end
+
+    -- Only the Inputs that the Loop makes count.
+    -- A Step outside the Loop makes each other Input before the Loop starts, or it is a Shortage.
+    local function canDoOneAction(item, loop)
+        for _, input in ipairs(recipeFor(basis, item).inputs) do
+            if loopMakes(loop, input.item) and ownedFor(input.item) < input.count then
+                return false
+            end
+        end
+        return true
+    end
+
+    -- A Loop needs stock to start: the Seed. It is the Loop Inputs of one action of the first Step.
+    -- The Loop needs no Seed when the player can do one action of any Step of the Loop.
+    -- Gives true when it adds a Seed Shortage.
+    local function addSeed(sorted, loop)
+        for _, item in ipairs(sorted) do
+            if canDoOneAction(item, loop) then
+                return false
+            end
+        end
+        local added = false
+        for _, input in ipairs(sorted[1] and recipeFor(basis, sorted[1]).inputs or {}) do
+            local short = input.count - ownedFor(input.item)
+            if loopMakes(loop, input.item) and short > 0 then
+                seeded[input.item] = (seeded[input.item] or 0) + short
+                added = true
+            end
+        end
+        return added
+    end
+
+    -- Calculates all items of a Loop in passes, until no amount changes (ADR 0010).
+    -- Each item uses the newest Steps. For the items before it, these are the Steps of this pass.
+    -- For the other items, these are the Steps of the pass before.
+    -- It gives false when the Loop reaches the pass limit.
+    local function planLoop(loop, level)
+        local results = {}
+        for _ = 1, PASS_LIMIT do
+            local changed = false
+            for _, item in ipairs(loop) do
+                local old = results[item]
+                results[item] = planItem(item)
+                addStep(old and old.step, -1)
+                addStep(results[item].step, 1)
+                changed = changed or actionsOf(results[item]) ~= actionsOf(old)
+            end
+            local withSteps = {}
+            for _, item in ipairs(loop) do
+                if results[item].step then
+                    withSteps[#withSteps + 1] = item
+                end
+            end
+            local sorted = not changed and loopOrder(basis, withSteps, targetItems, order, loop)
+            local newSeed = sorted and addSeed(sorted, loop)
+            if sorted and not newSeed then
+                for _, item in ipairs(loop) do
+                    if not results[item].step then
+                        record(item, results[item], level)
+                    end
+                end
+                for _, item in ipairs(sorted) do
+                    record(item, results[item], level)
+                end
+                return true
+            end
+            -- A new Seed Shortage changes the stock. Then the Loop starts again with no Steps.
+            -- From more actions, the passes can stop at more actions than the Loop needs.
+            if newSeed then
+                for _, item in ipairs(loop) do
+                    addStep(results[item].step, -1)
+                end
+                results = {}
+            end
+        end
+        return false
+    end
+
+    for level = 0, deepest do
+        stepsByLevel[level] = {}
+        for _, item in ipairs(order) do
+            local loop = loopOf[item]
+            if levels[item] == level and not loop then
+                local result = planItem(item)
+                record(item, result, level)
+                addStep(result.step, 1)
+            elseif levels[item] == level and loop[1] == item and not planLoop(loop, level) then
+                -- A Loop that gains nothing never becomes stable.
+                error("The Plan cannot calculate a Loop: " .. table.concat(loop, ", ") .. ", " .. loop[1] .. ".", 3)
+            end
+        end
+    end
+
+    -- The Shortage of an item is its Seed part and the need that remains after it.
+    for item, count in pairs(seeded) do
+        shortBy[item] = (shortBy[item] or 0) + count
     end
 
     -- Production order starts at the deepest level (ADR 0002).
@@ -539,13 +842,10 @@ function Plan.calculate(basis)
     basis = withDefaults(basis)
     local order = itemsInPlan(basis)
     checkActionLimits(basis, order)
-    local levels, loop = planningLevels(basis, order)
-    if not levels then
-        -- A Loop is not a data error (ADR 0010). Until issue 7 is done, the Plan cannot calculate one.
-        error("The Plan cannot calculate a Loop: " .. table.concat(loop, ", ") .. ".", 2)
-    end
-    local steps, extraOf, usedSupply, shortBy = stepsFor(basis, levels, order)
+    local levels, loopOf = planningLevels(basis, order)
+    local steps, extraOf, usedSupply, shortBy = stepsFor(basis, levels, loopOf, order)
     markWaiting(basis, steps)
+    markLoops(steps, loopOf)
     return {
         targets = targetLines(basis),
         steps = steps,
