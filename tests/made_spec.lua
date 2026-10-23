@@ -432,7 +432,7 @@ describe("Made count GE amount", function()
         expectEqual(sharkCount(states, "Alice", Made.CHARACTER), 7)
     end)
 
-    it("deletes the GE amount at a load", function()
+    it("keeps the GE amount at a load", function()
         local states = {}
         start(states, "Alice", { SHARK = 10 }, {})
         Made.observe(states, "Alice", {
@@ -443,10 +443,10 @@ describe("Made count GE amount", function()
         Made.observe(states, "Alice", { detected = { SHARK = 10 } })
         Made.observe(states, "Alice", { detected = { SHARK = 15 } })
 
-        expectEqual(sharkCount(states, "Alice", Made.CHARACTER), 5)
+        expectEqual(sharkCount(states, "Alice", Made.CHARACTER), 0)
     end)
 
-    it("starts the GE slots from the offers at a load", function()
+    it("does not count items that a BUY offer bought between sessions", function()
         local states = {}
         start(states, "Alice", { SHARK = 10 }, { offer(1, Made.BUY, Made.ADDED, "SHARK", 100, 20) })
         Made.load(states, "Alice", { offer(1, Made.BUY, Made.ADDED, "SHARK", 100, 70) })
@@ -457,15 +457,97 @@ describe("Made count GE amount", function()
         Made.observe(states, "Alice", { detected = { SHARK = 90 } })
         Made.observe(states, "Alice", { detected = { SHARK = 140 } })
 
+        expectEqual(sharkCount(states, "Alice", Made.CHARACTER), 0)
+    end)
+
+    it("adds no GE amount at a load for an item that is not a Make Target", function()
+        local states = {}
+        start(states, "Alice", { SHARK = 10 }, { offer(2, Made.BUY, Made.ADDED, "ROCKTAIL", 100, 0) })
+        Made.load(states, "Alice", { offer(2, Made.BUY, Made.ADDED, "ROCKTAIL", 100, 30) })
+        Made.startTarget(states, "Alice", ROCKTAIL, { ROCKTAIL = 0 }, {})
+        Made.observe(states, "Alice", { detected = { SHARK = 10, ROCKTAIL = 30 } })
+
+        expectEqual(Made.counts(states, "Alice", Made.CHARACTER, { ROCKTAIL }), { [2] = 30 })
+    end)
+
+    it("adds no GE amount at the first load of a character", function()
+        local states = {}
+        start(states, "Alice", { SHARK = 10 }, {})
+        Made.load(states, "Bob", { offer(1, Made.BUY, Made.ADDED, "SHARK", 100, 70) })
+        Made.observe(states, "Bob", { detected = { SHARK = 10 } })
+        Made.observe(states, "Bob", { detected = { SHARK = 80 } })
+
+        expectEqual(sharkCount(states, "Bob", Made.CHARACTER), 70)
+    end)
+
+    it("adds no GE amount at a load when the state has no saved slots", function()
+        local states = {}
+        start(states, "Alice", { SHARK = 10 }, {})
+        states.Bob = Made.new()
+        Made.load(states, "Bob", { offer(1, Made.BUY, Made.ADDED, "SHARK", 1000, 1000) })
+        Made.observe(states, "Bob", { detected = { SHARK = 10 } })
+        Made.observe(states, "Bob", { detected = { SHARK = 80 } })
+
+        expectEqual(sharkCount(states, "Bob", Made.CHARACTER), 70)
+    end)
+
+    it("deletes the GE amount at a load when no offer has the item", function()
+        local states = {}
+        start(states, "Alice", { SHARK = 10 }, { offer(1, Made.BUY, Made.ADDED, "SHARK", 100, 0) })
+        Made.observe(states, "Alice", {
+            detected = { SHARK = 10 },
+            ge = { offer(1, Made.BUY, Made.ADDED, "SHARK", 100, 50) },
+        })
+        Made.load(states, "Alice", { offer(2, Made.BUY, Made.ADDED, "ROCKTAIL", 100, 0) })
+        Made.observe(states, "Alice", { detected = { SHARK = 60 } })
+        Made.observe(states, "Alice", { detected = { SHARK = 110 } })
+
         expectEqual(sharkCount(states, "Alice", Made.CHARACTER), 50)
+    end)
+
+    it("deletes the saved slots that have no offer at a load", function()
+        local states = {}
+        start(states, "Alice", { SHARK = 10 }, {
+            offer(1, Made.BUY, Made.ADDED, "SHARK", 100, 20),
+            offer(2, Made.BUY, Made.ADDED, "ROCKTAIL", 100, 0),
+        })
+        Made.load(states, "Alice", { offer(2, Made.BUY, Made.ADDED, "ROCKTAIL", 100, 0) })
+        Made.observe(states, "Alice", {
+            detected = { SHARK = 10 },
+            ge = { offer(1, Made.BUY, Made.ADDED, "SHARK", 100, 30) },
+        })
+        Made.observe(states, "Alice", { detected = { SHARK = 40 } })
+
+        expectEqual(sharkCount(states, "Alice", Made.CHARACTER), 0)
     end)
 
     it("rejects an unknown offer stage at a load", function()
         local states = {}
-        local ok, message = pcall(Made.load, states, "Alice", { offer(1, Made.BUY, "ADED", "SHARK", 100, 5) })
+        local ok, message = pcall(function()
+            Made.load(states, "Alice", { offer(1, Made.BUY, "ADED", "SHARK", 100, 5) })
+        end)
 
         expectEqual(ok, false)
-        expectEqual(message:find("The GE offer stage ADED is unknown.", 1, true) ~= nil, true)
+        expectEqual(message:find("made_spec.lua:%d+: The GE offer stage ADED is unknown%.") ~= nil, true)
+    end)
+
+    it("changes no state when a load has an unknown offer stage", function()
+        local function saved()
+            local states = {}
+            start(states, "Alice", { SHARK = 10 }, { offer(1, Made.BUY, Made.ADDED, "SHARK", 100, 20) })
+            return states
+        end
+        local states = saved()
+        local ok, message = pcall(function()
+            Made.load(states, "Alice", {
+                offer(1, Made.BUY, Made.ADDED, "SHARK", 100, 70),
+                offer(2, Made.BUY, "ADED", "SHARK", 100, 5),
+            })
+        end)
+
+        expectEqual(ok, false)
+        expectEqual(message:find("made_spec.lua:%d+: The GE offer stage ADED is unknown%.") ~= nil, true)
+        expectEqual(states, saved())
     end)
 end)
 

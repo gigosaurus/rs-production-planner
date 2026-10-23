@@ -104,6 +104,10 @@ _Avoid_: Progress, produced count, done count
 The number of the item that the plugin saw a character make before a Make Target started. Each Make Target has one start value on each character. On each character, the Made count of the Target is the number now minus the start value.
 _Avoid_: Baseline, offset
 
+**GE amount**:
+The number of an item that the Grand Exchange gave a character and that the player did not collect yet. Rises in Detected stock use it up first, so they do not add to the Made count. Each character has one GE amount for each Make Target item.
+_Avoid_: GE buffer, uncollected count
+
 **Make need**:
 The largest (quantity − Made count) of the Make Targets for an item. The need for an item is the larger of the Make need and the Have need, not the sum.
 _Avoid_: Target part
