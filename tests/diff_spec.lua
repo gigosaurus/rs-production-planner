@@ -274,4 +274,43 @@ describe("Diff.compare", function()
             expectEqual(diff.compare(havePlan, makePlan(0, 50)).targets, {})
         end)
     end)
+
+    describe("Decant steps", function()
+        -- Only Super restore (4) has a Recipe. With 4x (3) in stock, the Plan decants them.
+        local function restorePoolPlan(detected)
+            return Plan.calculate({
+                targets = { { id = 1, item = "SUPER_RESTORE_4", count = 3, mode = Plan.HAVE } },
+                recipes = {
+                    SUPER_RESTORE_4 = {
+                        {
+                            verb = "Mix",
+                            output = 1,
+                            actionLimit = 14,
+                            inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
+                        },
+                    },
+                },
+                pools = {
+                    SUPER_RESTORE = {
+                        [1] = "SUPER_RESTORE_1",
+                        [2] = "SUPER_RESTORE_2",
+                        [3] = "SUPER_RESTORE_3",
+                        [4] = "SUPER_RESTORE_4",
+                    },
+                },
+                detected = detected,
+            })
+        end
+
+        it("reports a Decant step and a Step that makes the same item as different Steps", function()
+            local decant = restorePoolPlan({ SUPER_RESTORE_3 = 4 })
+            local mix = restorePoolPlan({ SNAPDRAGON_UNF = 4 })
+
+            local result = diff.compare(decant, mix)
+
+            expectEqual(result.former, { "SUPER_RESTORE_4" })
+            expectEqual(result.back, { "SUPER_RESTORE_4" })
+            expectEqual(result.next, { from = "SUPER_RESTORE_4", to = "SUPER_RESTORE_4", backwards = false })
+        end)
+    end)
 end)
