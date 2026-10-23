@@ -2041,6 +2041,70 @@ describe("Plan.calculate", function()
             expectEqual(plan.shortages, {})
         end)
 
+        it(
+            "uses the other Outputs of a Step as doses, and lists the part that it does not use as a Leftover",
+            function()
+                local function plan(target, count)
+                    return Plan.calculate({
+                        targets = {
+                            { id = 1, item = "SIDE_PRODUCT", count = 1, mode = Plan.HAVE },
+                            { id = 2, item = target, count = count, mode = Plan.HAVE },
+                        },
+                        recipes = {
+                            MIXED_DRINK = {
+                                {
+                                    verb = "Mix",
+                                    output = 1,
+                                    actionLimit = 14,
+                                    inputs = { { item = "SUPER_RESTORE_4", count = 1 } },
+                                },
+                            },
+                            SIDE_PRODUCT = {
+                                {
+                                    verb = "Mix",
+                                    output = 1,
+                                    actionLimit = 14,
+                                    inputs = { { item = "HERB", count = 1 } },
+                                    otherOutputs = { { item = "SUPER_RESTORE_3", count = 4 } },
+                                },
+                            },
+                            SUPER_RESTORE_3 = {
+                                {
+                                    verb = "Mix",
+                                    output = 1,
+                                    actionLimit = 14,
+                                    inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
+                                },
+                            },
+                        },
+                        pools = restorePool,
+                        detected = { HERB = 1, SNAPDRAGON_UNF = 5 },
+                    })
+                end
+
+                local direct = plan("SUPER_RESTORE_3", 3)
+                expectEqual(#direct.steps, 1)
+                expectEqual(direct.steps[1].item, "SIDE_PRODUCT")
+                expectEqual(direct.leftovers, { { item = "SUPER_RESTORE_3", count = 1 } })
+
+                local decanted = plan("SUPER_RESTORE_4", 3)
+                expectEqual(#decanted.steps, 2)
+                expectEqual(decanted.steps[1].item, "SIDE_PRODUCT")
+                expectEqual(decanted.steps[2].verb, "Decant")
+                expectEqual(decanted.steps[2].inputs, { { item = "SUPER_RESTORE_3", count = 4, detected = 0 } })
+                expectEqual(decanted.leftovers, {})
+                expectEqual(decanted.shortages, {})
+
+                -- The Decant step comes after the Step that makes its Inputs, and before the Step that uses its Output.
+                local used = plan("MIXED_DRINK", 3)
+                expectEqual(#used.steps, 3)
+                expectEqual(used.steps[1].item, "SIDE_PRODUCT")
+                expectEqual(used.steps[2].verb, "Decant")
+                expectEqual(used.steps[3].item, "MIXED_DRINK")
+                expectEqual(used.shortages, {})
+            end
+        )
+
         describe("stops with an error for Dose pools that are not correct", function()
             local function errorFor(pools)
                 local ok, err = pcall(Plan.calculate, {

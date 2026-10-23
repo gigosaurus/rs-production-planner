@@ -440,6 +440,19 @@ local function planningLevels(basis, order)
         end
     end
 
+    -- Gives each item of the Dose pool of item, or only item when it is not in a pool.
+    local function doseSizeItems(item)
+        local inPool = basis.poolOf[item]
+        if not inPool then
+            return { item }
+        end
+        local items = {}
+        for _, size in ipairs(basis.poolSizes[inPool.pool]) do
+            items[#items + 1] = basis.pools[inPool.pool][size]
+        end
+        return items
+    end
+
     -- An item links to its Inputs and its other Outputs.
     -- An item that uses an other Output also links to the item whose Step makes it.
     -- These links make sure that the Plan knows the supply of an item before it calculates the need for the item.
@@ -457,9 +470,12 @@ local function planningLevels(basis, order)
         end
         for _, input in ipairs(recipe.inputs) do
             linked[#linked + 1] = input.item
-            for _, maker in ipairs(makers[input.item] or {}) do
-                if maker ~= item then
-                    linked[#linked + 1] = maker
+            -- A Decant step can give a Dose size from each Dose size of the pool.
+            for _, usable in ipairs(doseSizeItems(input.item)) do
+                for _, maker in ipairs(makers[usable] or {}) do
+                    if maker ~= item then
+                        linked[#linked + 1] = maker
+                    end
                 end
             end
         end
@@ -774,6 +790,8 @@ local function stepsFor(basis, levels, loopOf, order)
         end
     end
 
+    -- supplyLevelOf gives the lowest Planning level of a Step that makes the item as an other Output.
+    local supplyLevelOf = {}
     local function record(item, result, level)
         usedSupply[item] = result.used
         shortBy[item] = result.short
@@ -781,21 +799,41 @@ local function stepsFor(basis, levels, loopOf, order)
             extraOf[result.step] = result.extra
             local steps = stepsByLevel[level]
             steps[#steps + 1] = result.step
+            for _, other in ipairs(recipeFor(basis, item).otherOutputs) do
+                supplyLevelOf[other.item] = math.min(supplyLevelOf[other.item] or level, level)
+            end
         end
     end
 
+    -- decantsAfter gives the Decant steps that come after the Steps of a Planning level.
+    -- A Decant step that can use other Outputs comes after the Steps that make them.
+    -- The Steps that use a Dose size link to these Steps, so they come after the Decant step.
+    local decantsAfter = {}
+
     -- Adds the Steps of a Dose pool. The Plan counts the pool as doses (ADR 0005).
-    -- A Recipe makes the doses that the stock does not have. Then Decant steps give each Dose size that is short.
-    -- A Decant step takes the smallest Dose size first. In each Dose size, it takes stock before made containers.
-    -- The doses that remain go into one container. The made containers that the Plan does not use are Leftovers.
+    -- A Recipe makes the doses that Counted stock and the other Outputs of Steps do not give.
+    -- Then Decant steps give each Dose size that is short. A Decant step takes the smallest Dose size first.
+    -- The demand and the Decant steps take containers from the sources in the order of POOL_SOURCES.
+    -- The doses that remain after a Decant step go into one container.
+    -- The made containers that the Plan does not use are Leftovers of the pool.
+    -- The other Outputs that the Plan does not use are Leftovers of the Steps that make them.
+    local POOL_SOURCES = { "counted", "supplied", "made" }
     local function addPoolSteps(level, pool)
         local items, sizes = basis.pools[pool], basis.poolSizes[pool]
-        local balance, short, spareStock, spareMade, doses = {}, {}, {}, {}, 0
-        local lastStep
+        -- spare gives the containers of each source and Dose size that the demand does not use.
+        local balance, short, doses = {}, {}, 0
+        local spare = { counted = {}, supplied = {}, made = {} }
+        local lastStep, decantLevel
         for _, size in ipairs(sizes) do
-            balance[size] = countedStock(basis, items[size]) - (demand[items[size]] or 0)
-            spareStock[size] = math.max(0, balance[size])
-            spareMade[size] = 0
+            local item = items[size]
+            if (supply[item] or 0) > 0 then
+                decantLevel = math.min(decantLevel or supplyLevelOf[item], supplyLevelOf[item])
+            end
+            local counted, supplied, demanded = countedStock(basis, item), supply[item] or 0, demand[item] or 0
+            balance[size] = counted + supplied - demanded
+            spare.counted[size] = math.max(0, counted - demanded)
+            spare.supplied[size] = math.max(0, math.min(supplied, balance[size]))
+            spare.made[size] = 0
             doses = doses + balance[size] * size
         end
         for _, size in ipairs(sizes) do
@@ -805,19 +843,19 @@ local function stepsFor(basis, levels, loopOf, order)
                 record(items[size], { used = 0, step = lastStep, extra = 0 }, level)
                 addStep(lastStep, 1)
                 balance[size] = balance[size] + lastStep.actions * recipe.output
-                spareMade[size] = math.max(0, balance[size]) - spareStock[size]
+                spare.made[size] = math.max(0, balance[size]) - spare.counted[size] - spare.supplied[size]
                 doses = 0
                 break
             end
         end
         -- With no Recipe, the Shortage is in containers of the largest Dose size.
-        -- The player gets them before the Decant steps, so they count as stock.
+        -- The player gets them before the Decant steps, so they count as Counted stock.
         if doses < 0 then
             local largest = sizes[#sizes]
             local count = math.ceil(-doses / largest)
             shortBy[items[largest]] = count
             balance[largest] = balance[largest] + count
-            spareStock[largest] = math.max(0, balance[largest])
+            spare.counted[largest] = math.max(0, balance[largest]) - spare.supplied[largest]
         end
         for _, size in ipairs(sizes) do
             short[size] = math.max(0, -balance[size])
@@ -827,35 +865,39 @@ local function stepsFor(basis, levels, loopOf, order)
                 local step = { item = items[size], verb = DECANT, actions = short[size], flags = {}, inputs = {} }
                 local missing = short[size] * size
                 for _, from in ipairs(sizes) do
-                    local wanted = math.max(0, math.ceil(missing / from))
-                    local fromStock = math.min(spareStock[from], wanted)
-                    local fromMade = math.min(spareMade[from], wanted - fromStock)
-                    if fromStock + fromMade > 0 then
-                        spareStock[from] = spareStock[from] - fromStock
-                        spareMade[from] = spareMade[from] - fromMade
-                        missing = missing - (fromStock + fromMade) * from
+                    local wanted, taken = math.max(0, math.ceil(missing / from)), 0
+                    for _, source in ipairs(POOL_SOURCES) do
+                        local take = math.min(spare[source][from], wanted - taken)
+                        spare[source][from] = spare[source][from] - take
+                        taken = taken + take
+                    end
+                    if taken > 0 then
+                        missing = missing - taken * from
                         step.inputs[#step.inputs + 1] = {
                             item = items[from],
-                            count = fromStock + fromMade,
+                            count = taken,
                             detected = basis.detected[items[from]] or 0,
                         }
                     end
                 end
                 if missing < 0 then
-                    spareMade[-missing] = spareMade[-missing] + 1
+                    spare.made[-missing] = spare.made[-missing] + 1
                 end
                 extraOf[step] = 0
                 basis.decants[step] = true
-                local steps = stepsByLevel[level]
+                local steps = decantLevel and decantsAfter[decantLevel] or stepsByLevel[level]
                 steps[#steps + 1] = step
                 lastStep = step
             end
         end
+        for _, size in ipairs(sizes) do
+            usedSupply[items[size]] = (supply[items[size]] or 0) - spare.supplied[size]
+        end
         if lastStep then
             poolLeftoversOf[lastStep] = {}
             for _, size in ipairs(sizes) do
-                if spareMade[size] > 0 then
-                    table.insert(poolLeftoversOf[lastStep], { item = items[size], count = spareMade[size] })
+                if spare.made[size] > 0 then
+                    table.insert(poolLeftoversOf[lastStep], { item = items[size], count = spare.made[size] })
                 end
             end
         end
@@ -958,7 +1000,7 @@ local function stepsFor(basis, levels, loopOf, order)
     end
 
     for level = 0, deepest do
-        stepsByLevel[level] = {}
+        stepsByLevel[level], decantsAfter[level] = {}, {}
         local poolsDone = {}
         for _, item in ipairs(order) do
             local loop, inPool = loopOf[item], basis.poolOf[item]
@@ -988,6 +1030,9 @@ local function stepsFor(basis, levels, loopOf, order)
     local steps = {}
     for level = deepest, 0, -1 do
         for _, step in ipairs(stepsByLevel[level]) do
+            steps[#steps + 1] = step
+        end
+        for _, step in ipairs(decantsAfter[level]) do
             steps[#steps + 1] = step
         end
     end
