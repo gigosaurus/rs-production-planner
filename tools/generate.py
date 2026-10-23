@@ -27,7 +27,9 @@ HEADER = (
     "-- Recipe data from the RuneScape Wiki (https://runescape.wiki), CC BY-NC-SA 3.0.\n"
 )
 # The order of the fields of a Recipe in data/recipes.lua.
-RECIPE_FIELDS = ["id", "wiki", "verb", "output", "otherOutputs", "inputs", "skills", "actionLimit", "actionTime"]
+RECIPE_FIELDS = [
+    "id", "wiki", "verb", "output", "otherOutputs", "inputs", "skills", "unlocks", "actionLimit", "actionTime",
+]  # fmt: skip
 
 
 class GenerateError(Exception):
@@ -76,10 +78,18 @@ def check_override(where, field, entry, errors):
         )
 
 
-class Items:
-    """Finds the config name of a wiki item from its page and name."""
+def value_of(fields, field):
+    return as_map(fields.get(field)).get("value")
 
-    def __init__(self, infobox, item_overrides, config_names, errors):
+
+def not_necessary(where, field, why):
+    return f"The override {field} of {where} is not necessary: {why}"
+
+
+class Items:
+    """Finds the config name of a wiki item from its page and name, and keeps the wiki name of each item."""
+
+    def __init__(self, infobox, item_overrides, config_names, errors, warnings):
         self.ids = {}
         for row in infobox:
             key = (row.get("page_name"), row.get("item_name"))
@@ -87,15 +97,15 @@ class Items:
         self.overrides = item_overrides
         self.config_names = config_names
         self.errors = errors
+        self.warnings = warnings
+        self.names = {}
+        self.checked = set()
 
-    def config_name(self, entry):
-        name = entry["name"]
-        page = entry.get("page", name)
-        override = self.overrides.get(name)
-        if override is not None:
-            ids = [override.get("id")]
-        else:
-            ids = sorted(self.ids.get((page, name), ()))
+    def config_name(self, name, page):
+        fields = as_map(self.overrides.get(name))
+        wiki_ids = sorted(self.ids.get((page, name), ()))
+        chosen = value_of(fields, "id")
+        ids = [chosen] if chosen is not None else wiki_ids
         if not ids:
             self.errors.append(f"The item {name} (page {page}) has no item ID in the infobox_item rows.")
             return None
@@ -110,7 +120,24 @@ class Items:
         if known is None:
             self.errors.append(f"The item {name} has the item ID {ids[0]}, which is not in tools/config-names.lua.")
             return None
+        if (name, page) not in self.checked:
+            self.checked.add((name, page))
+            if chosen is not None and wiki_ids == [chosen]:
+                self.warnings.append(
+                    not_necessary("the item " + name, "id", f"the wiki gives only the item ID {chosen}.")
+                )
+            self.check_name(name, known["name"], value_of(fields, "gameName"))
+        self.names[known["configName"]] = name
         return known["configName"]
+
+    def check_name(self, name, game_name, accepted):
+        if game_name == name:
+            if accepted is not None:
+                self.warnings.append(
+                    not_necessary("the item " + name, "gameName", "the game name is equal to the wiki name.")
+                )
+        elif game_name != accepted:
+            self.warnings.append(f"The wiki name {name} is different from the game name {game_name}.")
 
 
 def entries(items, raw):
@@ -118,8 +145,52 @@ def entries(items, raw):
     result = []
     for entry in raw:
         count = whole_number(entry.get("quantity"), "The quantity of " + entry["name"])
-        result.append({"item": items.config_name(entry), "count": count})
+        result.append({"item": items.config_name(entry["name"], entry.get("page", entry["name"])), "count": count})
     return result
+
+
+DOSE_SIZE = re.compile(r"\((\d+)\)\Z")
+
+
+def pool_key(page):
+    return re.sub(r"[^A-Za-z0-9]+", "_", page).strip("_").upper()
+
+
+def make_pools(pages, infobox, items, errors, warnings):
+    """Makes a Dose pool from all versions of each wiki page that has an item with a Dose size (ADR 0005)."""
+    pools = {}
+    for page in sorted(pages):
+        sizes = {}
+        for row in infobox:
+            if row.get("page_name") != page:
+                continue
+            anchor = row.get("version_anchor", "")
+            match = DOSE_SIZE.match(anchor)
+            if not match:
+                warnings.append(f"The version {anchor} of the wiki page {page} is not a Dose size. It is not in the pool.")
+                continue
+            sizes[int(match.group(1))] = items.config_name(row["item_name"], page)
+        listed = sorted(sizes)
+        if listed != list(range(1, len(listed) + 1)):
+            errors.append(
+                f"The Dose sizes of the wiki page {page} must start at 1 and have no gap."
+                f" The sizes are {', '.join(str(s) for s in listed)}."
+            )
+            continue
+        pools[pool_key(page)] = [sizes[size] for size in listed]
+    return pools
+
+
+def read_unlocks(overrides, errors):
+    unlocks = {}
+    for key, entry in as_map(overrides.get("unlocks")).items():
+        check_override("the Unlock " + key, "text", entry, errors)
+        text = as_map(entry).get("text")
+        if not isinstance(text, str) or not text:
+            errors.append(f"The Unlock {key} has no text.")
+            continue
+        unlocks[key] = text
+    return unlocks
 
 
 def generate(snapshot, overrides, config_names):
@@ -127,18 +198,21 @@ def generate(snapshot, overrides, config_names):
     errors, warnings = [], []
     recipe_overrides = as_map(overrides.get("recipes"))
     item_overrides = as_map(overrides.get("items"))
-    for name, entry in item_overrides.items():
-        check_override("the item " + name, "id", entry, errors)
+    for name, fields in item_overrides.items():
+        for field, entry in as_map(fields).items():
+            check_override("the item " + name, field, entry, errors)
     for rid, fields in recipe_overrides.items():
         for field, entry in as_map(fields).items():
             check_override("the Recipe " + rid, field, entry, errors)
-    items = Items(snapshot["infobox_item"], item_overrides, config_names, errors)
+    unlocks = read_unlocks(overrides, errors)
+    items = Items(snapshot["infobox_item"], item_overrides, config_names, errors, warnings)
 
-    recipes, seen = {}, set()
+    recipes, seen, used_unlocks, dose_pages = {}, set(), set(), set()
     for row in snapshot["recipe"]:
         page = row["page_name"]
         production = row["production_json"]
         outputs = production.get("outputs") or []
+        materials = production.get("materials", [])
         try:
             action_time = whole_number(production.get("ticks"), "The ticks")
             skills = [
@@ -146,7 +220,7 @@ def generate(snapshot, overrides, config_names):
                 for skill in production.get("skills", [])
             ]
             made = entries(items, outputs)
-            inputs = entries(items, production.get("materials", []))
+            inputs = entries(items, materials)
         except NotANumber as reason:
             warnings.append(f"Skipped a row of the wiki page {page}: {reason}.")
             continue
@@ -165,13 +239,25 @@ def generate(snapshot, overrides, config_names):
         fields = as_map(recipe_overrides.get(rid))
         if "skip" in fields:
             continue
+        dose_pages.update(e.get("page", e["name"]) for e in outputs + materials if "portion" in e)
 
-        verb = production.get("facility") or fields.get("verb", {}).get("value")
+        facility = production.get("facility")
+        verb = facility or value_of(fields, "verb")
         if verb is None:
             errors.append(f"The Recipe {rid} has no verb. The row has no facility. Give a verb in tools/overrides.lua.")
-        action_limit = fields.get("actionLimit", {}).get("value")
+        elif facility and "verb" in fields:
+            warnings.append(not_necessary("the Recipe " + rid, "verb", f"the row has the facility {facility}."))
+        action_limit = value_of(fields, "actionLimit")
         if action_limit is None:
             errors.append(f"The Recipe {rid} has no Action limit. Give it in tools/overrides.lua.")
+        recipe_unlocks = value_of(fields, "unlocks") or []
+        for key in recipe_unlocks:
+            if key not in unlocks:
+                errors.append(f"The Recipe {rid} names the unknown Unlock {key}. Add it to the unlocks table.")
+        used_unlocks.update(recipe_unlocks)
+        quest = production.get("quest")
+        if quest and not recipe_unlocks:
+            warnings.append(f"The wiki gives the quest {quest} for the Recipe {rid}, but the Recipe has no Unlocks.")
 
         recipes.setdefault(output["item"], []).append(
             {
@@ -182,16 +268,24 @@ def generate(snapshot, overrides, config_names):
                 "otherOutputs": made[1:],
                 "inputs": inputs,
                 "skills": skills,
+                "unlocks": recipe_unlocks,
                 "actionLimit": action_limit,
                 "actionTime": action_time,
             }
         )
 
+    pools = make_pools(dose_pages, snapshot["infobox_item"], items, errors, warnings)
+    for rid in sorted(set(recipe_overrides) - seen):
+        warnings.append(not_necessary("the Recipe " + rid, "", "no wiki row has this Recipe id."))
+    for key in sorted(set(unlocks) - used_unlocks):
+        warnings.append(not_necessary("the Unlock " + key, "", "no Recipe names it."))
+
     if errors:
         raise GenerateError("\n".join(errors))
     for item_recipes in recipes.values():
         item_recipes.sort(key=lambda r: r["id"])
-    return {"recipes": recipes}, warnings
+    names = {item: {"name": name} for item, name in items.names.items()}
+    return {"recipes": recipes, "items": names, "pools": pools, "unlocks": unlocks}, warnings
 
 
 IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")

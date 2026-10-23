@@ -107,11 +107,35 @@
   },
   {
    "item_id": [
+    3030
+   ],
+   "item_name": "Super restore (1)",
+   "page_name": "Super restore",
+   "version_anchor": "(1)"
+  },
+  {
+   "item_id": [
+    3028
+   ],
+   "item_name": "Super restore (2)",
+   "page_name": "Super restore",
+   "version_anchor": "(2)"
+  },
+  {
+   "item_id": [
     3026
    ],
    "item_name": "Super restore (3)",
    "page_name": "Super restore",
    "version_anchor": "(3)"
+  },
+  {
+   "item_id": [
+    3024
+   ],
+   "item_name": "Super restore (4)",
+   "page_name": "Super restore",
+   "version_anchor": "(4)"
   },
   {
    "item_id": [

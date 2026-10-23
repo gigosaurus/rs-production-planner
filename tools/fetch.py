@@ -103,13 +103,19 @@ def first_output(row):
     return outputs[0].get("name")
 
 
-def item_names(rows):
-    names = set()
+def entries_of(rows):
     for row in rows:
         production = row["production_json"]
-        for entry in production.get("outputs", []) + production.get("materials", []):
-            names.add(entry["name"])
-    return sorted(names)
+        yield from production.get("outputs", []) + production.get("materials", [])
+
+
+def item_names(rows):
+    return sorted({entry["name"] for entry in entries_of(rows)})
+
+
+def dose_pages(rows):
+    """Gives the wiki page of each item with a Dose size. The Dose pool needs all versions of the page (ADR 0005)."""
+    return sorted({entry.get("page", entry["name"]) for entry in entries_of(rows) if "portion" in entry})
 
 
 def row_key(row):
@@ -135,6 +141,8 @@ def fetch(scope, get, sleep, date):
             recipes.append(row)
 
     infobox = rows_of(requests, "infobox_item", INFOBOX_FIELDS, "item_name", item_names(recipes))
+    infobox += rows_of(requests, "infobox_item", INFOBOX_FIELDS, "page_name", dose_pages(recipes))
+    infobox = list({row_key(row): row for row in infobox}.values())
 
     return {
         "source": SOURCE,

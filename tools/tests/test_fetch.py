@@ -33,7 +33,8 @@ class FakeWiki:
         self.calls.append("get")
         query = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)["query"][0]
         if query.startswith('bucket("infobox_item")'):
-            rows = [r for r in self.infobox if json.dumps(r["item_name"]) in query]
+            field = "page_name" if '{"page_name", ' in query else "item_name"
+            rows = [r for r in self.infobox if '{"%s", %s}' % (field, json.dumps(r[field])) in query]
         else:
             rows = [r for r in self.recipes if json.dumps(r["page_name"]) in query]
         return {"bucketQuery": query, "bucket": rows}
@@ -51,7 +52,7 @@ INFOBOX = [
 RECIPES = [
     recipe_row(
         "Super restore",
-        [item("Super restore (3)")],
+        [dict(item("Super restore (3)"), page="Super restore", variant="(3)", portion=3)],
         [item("Snapdragon potion (unfinished)"), item("Red spiders' eggs")],
     ),
     recipe_row("Super restore", [item("Super restore (4)")], [item("Super restore (3)", "4")]),
@@ -109,7 +110,14 @@ class FetchTest(unittest.TestCase):
         _, snapshot = run(["Super restore (3)"])
 
         names = [row["item_name"] for row in snapshot["infobox_item"]]
-        self.assertEqual(names, ["Red spiders' eggs", "Snapdragon potion (unfinished)", "Super restore (3)"])
+        self.assertIn("Red spiders' eggs", names)
+        self.assertIn("Snapdragon potion (unfinished)", names)
+
+    def test_gets_all_versions_of_the_page_of_a_dose_item_once(self):
+        _, snapshot = run(["Super restore (3)"])
+
+        names = [row["item_name"] for row in snapshot["infobox_item"] if row["page_name"] == "Super restore"]
+        self.assertEqual(names, ["Super restore (3)", "Super restore (4)"])
 
     def test_header_gives_the_source_date_and_licence(self):
         _, snapshot = run(["Super restore (3)"])
