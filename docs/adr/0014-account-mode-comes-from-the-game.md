@@ -1,6 +1,7 @@
 # Account mode comes from the game
 
 Amends ADR 0008 and ADR 0011.
+Amended by ADR 0015 (Effects).
 
 In ADR 0008, the plugin saves Account mode for each character. A new character starts with Account mode not ironman. Then the player must set it. `probes/account-mode-probe` (#70) found that the game gives Account mode. Now the plugin reads Account mode from the game. It does not save it.
 
