@@ -419,7 +419,7 @@ describe("Saved data", function()
         end)
     end)
 
-    describe("character settings", function()
+    describe("Account mode", function()
         it("gives no settings to a character, because the game gives Account mode (ADR 0014)", function()
             local parts = Saved.loadCharacter(Saved.new(fakeStore()), "Alice")
 

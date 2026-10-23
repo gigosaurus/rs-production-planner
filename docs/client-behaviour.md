@@ -13,6 +13,23 @@ Game client version for these tests: 950-1.
 
 ADR 0007 gives the Inventory API facts: `isValid` and not `valid`, empty slots with id -1, Noted items as `CERT_<name>`, and the bank in one `InventoryAdded` event. (`probes/bank-probe`, `probes/stack-probe`)
 
+## Vars
+
+### Account mode
+
+`VarPlayer.IRONMAN` (id 4818) is an Integer that holds bit flags. (`probes/account-mode-probe`)
+
+| Character | Value | Bits set |
+| --- | --- | --- |
+| Not ironman | 4096 | 12 |
+| Ironman | 4097 | 12, 0 |
+| Hardcore ironman | 4099 | 12, 1, 0 |
+| Group ironman | 528385 | 19, 12, 0 |
+
+- Bit 0 is set for each ironman type.
+- Bit 12 was always set. We do not know what it means.
+- A `VarTransmit` event comes after each cheat (`!setironman`, `!sethardcore`, `!setgroupironman`). A new login is not necessary.
+
 ## PersistentDB
 
 We tested PersistentDB on 2026-10-21 with `probes/persistentdb-probe` and `probes/persistentdb-limits-probe`. The data survived `prl`. It also survived a full restart of the game client. The probe cannot detect a restart. The person who ran the probe gave this fact.
