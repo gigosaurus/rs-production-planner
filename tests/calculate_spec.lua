@@ -520,7 +520,7 @@ describe("Plan.calculate", function()
         expectEqual(stepFor(plan, "TROLL_POTION").flags, { { unlock = "EADGARS_RUSE" } })
     end)
 
-    -- This is the interim behaviour in issue 7.
+    -- Fill and Empty give back only what goes in. The Loop reaches the pass limit (ADR 0010).
     it("stops with an error that names the items in a Loop", function()
         local ok, err = pcall(Plan.calculate, {
             targets = { { id = 1, item = "BUCKET_OF_WATER", count = 5, mode = Plan.HAVE } },
@@ -1462,6 +1462,260 @@ describe("Plan.calculate", function()
 
                 expectEqual(stepFor(plan, "SHARK"), nil)
             end)
+        end)
+    end)
+
+    -- ADR 0010. Recipe X is A + B -> D + C. Recipe R is C -> A.
+    describe("in a Loop", function()
+        local function loopPlan(detected)
+            return Plan.calculate({
+                targets = { { id = 1, item = "D", count = 10, mode = Plan.HAVE } },
+                recipes = {
+                    D = {
+                        {
+                            verb = "X",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "A", count = 1 }, { item = "B", count = 1 } },
+                            otherOutputs = { { item = "C", count = 1 } },
+                        },
+                    },
+                    A = { { verb = "R", output = 1, actionLimit = 60, inputs = { { item = "C", count = 1 } } } },
+                },
+                detected = detected,
+            })
+        end
+
+        it("calculates the actions of each Step again until no amount changes", function()
+            local plan = loopPlan({ A = 1, B = 10 })
+
+            expectEqual(stepFor(plan, "D").actions, 10)
+            expectEqual(stepFor(plan, "A").actions, 9)
+            expectEqual(plan.leftovers, { { item = "C", count = 1 } })
+            expectEqual(plan.shortages, {})
+        end)
+
+        -- The Seed is the Inputs of one action of X. The Steps count the Seed Shortage as stock.
+        it("gives a Shortage of the Seed that the player does not own", function()
+            local plan = loopPlan({ B = 10 })
+
+            expectEqual(plan.shortages, { { item = "A", count = 1 } })
+            expectEqual(stepFor(plan, "D").actions, 10)
+            expectEqual(stepFor(plan, "A").actions, 9)
+        end)
+
+        it("adds the Seed to the Shortage of a Raw material", function()
+            local plan = loopPlan({})
+
+            expectEqual(plan.shortages, { { item = "A", count = 1 }, { item = "B", count = 10 } })
+        end)
+
+        -- R can start with the C.
+        it("gives no Seed Shortage when the player can do one action of a Step of the Loop", function()
+            local plan = loopPlan({ B = 10, C = 1 })
+
+            expectEqual(plan.shortages, {})
+        end)
+
+        -- P is A -> B. Q is B -> 2 A. The Seed is 1x B.
+        it("gives the same Steps when the player gets the Seed", function()
+            local function plan(detected)
+                return Plan.calculate({
+                    targets = { { id = 1, item = "A", count = 5, mode = Plan.HAVE } },
+                    recipes = {
+                        A = { { verb = "Q", output = 2, actionLimit = 60, inputs = { { item = "B", count = 1 } } } },
+                        B = { { verb = "P", output = 1, actionLimit = 60, inputs = { { item = "A", count = 1 } } } },
+                    },
+                    detected = detected,
+                })
+            end
+            local without, with = plan({}), plan({ B = 1 })
+
+            expectEqual(without.shortages, { { item = "B", count = 1 } })
+            expectEqual(stepFor(without, "A").actions, 4)
+            expectEqual(stepFor(without, "B").actions, 3)
+            expectEqual(without.leftovers, {})
+            expectEqual(stepFor(with, "A").actions, 4)
+            expectEqual(stepFor(with, "B").actions, 3)
+        end)
+
+        -- MA is Z -> A + B. MB is Z -> B + A. Each Step makes the other item of the Loop.
+        -- When each Step uses only the amounts of the pass before, the actions change between 10 and 0 in each pass.
+        it("calculates each item of a Loop from the newest amounts of the pass", function()
+            local plan = Plan.calculate({
+                targets = {
+                    { id = 1, item = "A", count = 10, mode = Plan.HAVE },
+                    { id = 2, item = "B", count = 10, mode = Plan.HAVE },
+                },
+                recipes = {
+                    A = {
+                        {
+                            verb = "MA",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "Z", count = 1 } },
+                            otherOutputs = { { item = "B", count = 1 } },
+                        },
+                    },
+                    B = {
+                        {
+                            verb = "MB",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "Z", count = 1 } },
+                            otherOutputs = { { item = "A", count = 1 } },
+                        },
+                    },
+                },
+                detected = { Z = 50 },
+            })
+
+            expectEqual(stepFor(plan, "A").actions, 10)
+            expectEqual(stepFor(plan, "B"), nil)
+            expectEqual(plan.shortages, {})
+        end)
+
+        -- S is ORE -> B. B is not in the Loop, and S makes it before the Loop starts.
+        it("gives no Seed Shortage of an Input that a Step outside the Loop makes", function()
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "D", count = 10, mode = Plan.HAVE } },
+                recipes = {
+                    D = {
+                        {
+                            verb = "X",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "A", count = 1 }, { item = "B", count = 1 } },
+                            otherOutputs = { { item = "C", count = 1 } },
+                        },
+                    },
+                    A = { { verb = "R", output = 1, actionLimit = 60, inputs = { { item = "C", count = 1 } } } },
+                    B = { { verb = "S", output = 1, actionLimit = 60, inputs = { { item = "ORE", count = 1 } } } },
+                },
+                detected = { A = 1, ORE = 10 },
+            })
+
+            expectEqual(plan.shortages, {})
+            expectEqual(stepFor(plan, "B").actions, 10)
+        end)
+
+        -- One full Inventory is 14 X or 28 R. The player has less, but a Step in a Loop is ready with one action.
+        it("makes a Step in a Loop the Next step when the player has the Inputs for one action", function()
+            local first = loopPlan({ A = 1, B = 10 })
+            local after = loopPlan({ B = 9, C = 1, D = 1 })
+
+            expectEqual(first.steps[first.next].item, "D")
+            expectEqual(after.steps[after.next].item, "A")
+        end)
+
+        -- The player owns all the A, so R has no actions and X has no mark. X needs 10x B for its remaining actions.
+        it("uses the Batch hint rule for the only Step of a Loop", function()
+            local plan = loopPlan({ A = 10, B = 1 })
+
+            expectEqual(stepFor(plan, "D").loopWith, nil)
+            expectEqual(plan.next, nil)
+        end)
+
+        -- The view shows the mark as "Loop: repeat with <Steps>" (issue 26).
+        it("marks each Step in a Loop with the positions of the other Steps of the Loop", function()
+            local plan = loopPlan({ A = 1, B = 10 })
+
+            expectEqual(stepFor(plan, "D").loopWith, { 2 })
+            expectEqual(stepFor(plan, "A").loopWith, { 1 })
+        end)
+
+        -- The player owns all the A. R has no actions.
+        it("gives no mark to the only Step of a Loop", function()
+            local plan = loopPlan({ A = 10, B = 10 })
+
+            expectEqual(stepFor(plan, "A"), nil)
+            expectEqual(stepFor(plan, "D").loopWith, nil)
+        end)
+
+        local function itemsOf(plan)
+            local items = {}
+            for _, step in ipairs(plan.steps) do
+                items[#items + 1] = step.item
+            end
+            return items
+        end
+
+        -- The data order puts R first. X turns A into C and E. R makes only A.
+        it("puts a Step that turns an item into a different item before a Step that makes only that item", function()
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "T", count = 5, mode = Plan.HAVE } },
+                recipes = {
+                    T = { { verb = "Use", output = 1, actionLimit = 60, inputs = { { item = "A", count = 1 } } } },
+                    A = { { verb = "R", output = 1, actionLimit = 60, inputs = { { item = "C", count = 1 } } } },
+                    C = {
+                        {
+                            verb = "X",
+                            output = 2,
+                            actionLimit = 60,
+                            inputs = { { item = "A", count = 1 }, { item = "B", count = 1 } },
+                            otherOutputs = { { item = "E", count = 1 } },
+                        },
+                    },
+                },
+                detected = { A = 1, B = 10 },
+            })
+
+            expectEqual(itemsOf(plan), { "C", "A", "T" })
+            expectEqual(stepFor(plan, "T").loopWith, nil)
+        end)
+
+        -- P is A -> B. Q is B -> 2 A. Each Step must come after the other, so the order rule gives no first Step.
+        it("puts first the Step whose Output goes toward the Target when the order rule gives no first Step", function()
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "A", count = 5, mode = Plan.HAVE } },
+                recipes = {
+                    A = { { verb = "Q", output = 2, actionLimit = 60, inputs = { { item = "B", count = 1 } } } },
+                    B = { { verb = "P", output = 1, actionLimit = 60, inputs = { { item = "A", count = 1 } } } },
+                },
+                detected = { B = 1 },
+            })
+
+            expectEqual(itemsOf(plan), { "A", "B" })
+        end)
+
+        -- R is B -> Z. P is C -> 2 B + E. Y is B + D -> C + Z. The order rule gives no order to P and Y.
+        -- The player owns the Z, so R has no actions. R is in the Loop, so its Input B does not go toward the Target.
+        it("puts first the Step whose Output goes toward the Target when a Step of the Loop has no actions", function()
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "T", count = 5, mode = Plan.HAVE } },
+                recipes = {
+                    T = {
+                        {
+                            verb = "Use",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "Z", count = 1 }, { item = "C", count = 1 } },
+                        },
+                    },
+                    Z = { { verb = "R", output = 1, actionLimit = 60, inputs = { { item = "B", count = 1 } } } },
+                    B = {
+                        {
+                            verb = "P",
+                            output = 2,
+                            actionLimit = 60,
+                            inputs = { { item = "C", count = 1 } },
+                            otherOutputs = { { item = "E", count = 1 } },
+                        },
+                    },
+                    C = {
+                        {
+                            verb = "Y",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "B", count = 1 }, { item = "D", count = 1 } },
+                            otherOutputs = { { item = "Z", count = 1 } },
+                        },
+                    },
+                },
+                detected = { Z = 5, B = 1, D = 20 },
+            })
+
+            expectEqual(itemsOf(plan), { "C", "B", "T" })
         end)
     end)
 
