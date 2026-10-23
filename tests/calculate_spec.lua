@@ -1605,8 +1605,8 @@ describe("Plan.calculate", function()
             expectEqual(stepFor(plan, "T").loopWith, nil)
         end)
 
-        -- P is A -> B. Q is B -> 2 A. The order rule contradicts itself.
-        it("puts first the Step whose Output goes toward the Target when the order rule contradicts itself", function()
+        -- P is A -> B. Q is B -> 2 A. Each Step must come after the other, so the order rule gives no first Step.
+        it("puts first the Step whose Output goes toward the Target when the order rule gives no first Step", function()
             local plan = Plan.calculate({
                 targets = { { item = "A", count = 5 } },
                 recipes = {
