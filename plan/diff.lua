@@ -6,22 +6,37 @@ local function isFlaggedOrWaiting(step)
     return #step.flags > 0 or step.waitsOn ~= nil
 end
 
--- A Step in one Plan is the same Step in the other when it is for the same item.
-local function stepsByItem(plan)
-    local byItem = {}
+-- A Step in one Plan is the same Step in the other when it has the same key.
+-- The key of a Decant step is different from the key of a Step that makes the same item (issue 29).
+-- The field decant identifies a Decant step, because the verb of a Recipe can also be "Decant".
+-- The reports give the item.
+local function keyOf(step)
+    return step.decant and "decant:" .. step.item or step.item
+end
+
+local function stepsByKey(plan)
+    local byKey = {}
     for _, step in ipairs(plan.steps) do
-        byItem[step.item] = step
+        byKey[keyOf(step)] = step
     end
-    return byItem
+    return byKey
+end
+
+local function nextStep(plan)
+    return plan.next and plan.steps[plan.next]
+end
+
+local function nextKey(plan)
+    return nextStep(plan) and keyOf(nextStep(plan))
 end
 
 local function nextItem(plan)
-    return plan.next and plan.steps[plan.next].item
+    return nextStep(plan) and nextStep(plan).item
 end
 
-local function positionOf(plan, item)
+local function positionOf(plan, key)
     for position, step in ipairs(plan.steps) do
-        if step.item == item then
+        if keyOf(step) == key then
             return position
         end
     end
@@ -29,20 +44,20 @@ end
 
 -- The Next step moves backwards when the old Next step is still in the Plan, after the new one.
 local function movedBackwards(before, after)
-    local oldPosition = nextItem(before) and positionOf(after, nextItem(before))
+    local oldPosition = nextKey(before) and positionOf(after, nextKey(before))
     return oldPosition ~= nil and after.next ~= nil and after.next < oldPosition
 end
 
 function Diff.compare(before, after)
-    local beforeSteps, afterSteps = stepsByItem(before), stepsByItem(after)
+    local beforeSteps, afterSteps = stepsByKey(before), stepsByKey(after)
     local former, back, ready = {}, {}, {}
     for _, step in ipairs(before.steps) do
-        if not afterSteps[step.item] then
+        if not afterSteps[keyOf(step)] then
             former[#former + 1] = step.item
         end
     end
     for _, step in ipairs(after.steps) do
-        local earlier = beforeSteps[step.item]
+        local earlier = beforeSteps[keyOf(step)]
         if not earlier then
             back[#back + 1] = step.item
         elseif isFlaggedOrWaiting(earlier) and not isFlaggedOrWaiting(step) then
@@ -50,7 +65,7 @@ function Diff.compare(before, after)
         end
     end
     local nextChange
-    if nextItem(before) ~= nextItem(after) then
+    if nextKey(before) ~= nextKey(after) then
         nextChange = { from = nextItem(before), to = nextItem(after), backwards = movedBackwards(before, after) }
     end
 

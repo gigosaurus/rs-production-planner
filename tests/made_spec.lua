@@ -1,6 +1,6 @@
 local Made = require("plan/made")
 
--- The Make Targets of the tests. Made gets only the Make Targets from its caller.
+-- The Make Targets of the tests. Made gets the Detected stock of all items from its caller.
 local SHARK = { id = 1, item = "SHARK", count = 100 }
 local ROCKTAIL = { id = 2, item = "ROCKTAIL", count = 100 }
 
@@ -49,6 +49,25 @@ describe("Made count", function()
         Made.observe(states, "Alice", { detected = { SHARK = 10, ROCKTAIL = 46 } })
 
         expectEqual(Made.counts(states, "Alice", Made.CHARACTER, { SHARK, ROCKTAIL }), { [1] = 0, [2] = 6 })
+    end)
+
+    it("counts only the items of the Make Targets", function()
+        local states = {}
+        start(states, "Alice", { SHARK = 10 }, {})
+        Made.observe(states, "Alice", { detected = { SHARK = 10, VIAL_OF_WATER = 5 } })
+        Made.observe(states, "Alice", { detected = { SHARK = 13, VIAL_OF_WATER = 9 } })
+
+        expectEqual(states.Alice.counts, { SHARK = 3 })
+        expectEqual(states.Alice.last, { SHARK = 13 })
+    end)
+
+    it("counts an item that is not in Detected stock as 0", function()
+        local states = {}
+        start(states, "Alice", { SHARK = 10 }, {})
+        Made.observe(states, "Alice", { detected = {} })
+        Made.observe(states, "Alice", { detected = { SHARK = 8 } })
+
+        expectEqual(sharkCount(states, "Alice", Made.CHARACTER), 8)
     end)
 
     it("starts again from a first Bank snapshot", function()
@@ -325,6 +344,17 @@ describe("Made count GE amount", function()
         expectEqual(Made.counts(states, "Alice", Made.CHARACTER, { ROCKTAIL }), { [2] = 7 })
     end)
 
+    it("adds no GE amount for an item that is in Detected stock but is not a Make Target", function()
+        local states = {}
+        start(states, "Alice", { SHARK = 10 }, {})
+        Made.observe(states, "Alice", {
+            detected = { SHARK = 10, ROCKTAIL = 0 },
+            ge = { offer(1, Made.BUY, Made.ADDED, "ROCKTAIL", 100, 30) },
+        })
+
+        expectEqual(states.Alice.ge.ROCKTAIL, nil)
+    end)
+
     it("rejects an unknown offer type", function()
         local states = {}
         local tick = { detected = { SHARK = 10 }, ge = { offer(1, "BYU", Made.ADDED, "SHARK", 100, 5) } }
@@ -395,7 +425,7 @@ describe("Made count GE amount", function()
         local states = {}
         start(states, "Alice", { SHARK = 10 }, {})
         Made.observe(states, "Alice", { detected = { SHARK = 15 } })
-        Made.load(states, "Alice", {}, { SHARK })
+        Made.load(states, "Alice", {})
         Made.observe(states, "Alice", { detected = { SHARK = 40 } })
         Made.observe(states, "Alice", { detected = { SHARK = 42 } })
 
@@ -409,7 +439,7 @@ describe("Made count GE amount", function()
             detected = { SHARK = 10 },
             ge = { offer(1, Made.BUY, Made.ADDED, "SHARK", 100, 5) },
         })
-        Made.load(states, "Alice", { offer(1, Made.BUY, Made.ADDED, "SHARK", 100, 5) }, { SHARK })
+        Made.load(states, "Alice", { offer(1, Made.BUY, Made.ADDED, "SHARK", 100, 5) })
         Made.observe(states, "Alice", { detected = { SHARK = 10 } })
         Made.observe(states, "Alice", { detected = { SHARK = 15 } })
 
@@ -419,7 +449,7 @@ describe("Made count GE amount", function()
     it("does not count items that a BUY offer bought between sessions", function()
         local states = {}
         start(states, "Alice", { SHARK = 10 }, { offer(1, Made.BUY, Made.ADDED, "SHARK", 100, 20) })
-        Made.load(states, "Alice", { offer(1, Made.BUY, Made.ADDED, "SHARK", 100, 70) }, { SHARK })
+        Made.load(states, "Alice", { offer(1, Made.BUY, Made.ADDED, "SHARK", 100, 70) })
         Made.observe(states, "Alice", {
             detected = { SHARK = 80 },
             ge = { offer(1, Made.BUY, Made.ADDED, "SHARK", 100, 80) },
@@ -433,7 +463,7 @@ describe("Made count GE amount", function()
     it("adds no GE amount at a load for an item that is not a Make Target", function()
         local states = {}
         start(states, "Alice", { SHARK = 10 }, { offer(2, Made.BUY, Made.ADDED, "ROCKTAIL", 100, 0) })
-        Made.load(states, "Alice", { offer(2, Made.BUY, Made.ADDED, "ROCKTAIL", 100, 30) }, { SHARK })
+        Made.load(states, "Alice", { offer(2, Made.BUY, Made.ADDED, "ROCKTAIL", 100, 30) })
         Made.startTarget(states, "Alice", ROCKTAIL, { ROCKTAIL = 0 }, {})
         Made.observe(states, "Alice", { detected = { SHARK = 10, ROCKTAIL = 30 } })
 
@@ -443,7 +473,7 @@ describe("Made count GE amount", function()
     it("adds no GE amount at the first load of a character", function()
         local states = {}
         start(states, "Alice", { SHARK = 10 }, {})
-        Made.load(states, "Bob", { offer(1, Made.BUY, Made.ADDED, "SHARK", 100, 70) }, { SHARK })
+        Made.load(states, "Bob", { offer(1, Made.BUY, Made.ADDED, "SHARK", 100, 70) })
         Made.observe(states, "Bob", { detected = { SHARK = 10 } })
         Made.observe(states, "Bob", { detected = { SHARK = 80 } })
 
@@ -452,13 +482,7 @@ describe("Made count GE amount", function()
 
     it("rejects an unknown offer stage at a load", function()
         local states = {}
-        local ok, message = pcall(
-            Made.load,
-            states,
-            "Alice",
-            { offer(1, Made.BUY, "ADED", "SHARK", 100, 5) },
-            { SHARK }
-        )
+        local ok, message = pcall(Made.load, states, "Alice", { offer(1, Made.BUY, "ADED", "SHARK", 100, 5) })
 
         expectEqual(ok, false)
         expectEqual(message:find("The GE offer stage ADED is unknown.", 1, true) ~= nil, true)

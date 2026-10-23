@@ -274,4 +274,79 @@ describe("Diff.compare", function()
             expectEqual(diff.compare(havePlan, makePlan(0, 50)).targets, {})
         end)
     end)
+
+    describe("Decant steps", function()
+        -- Only Super restore (4) has a Recipe. With a Counted stock of 4x (3), the Plan decants them.
+        local function restorePoolPlan(detected)
+            return Plan.calculate({
+                targets = { { id = 1, item = "SUPER_RESTORE_4", count = 3, mode = Plan.HAVE } },
+                recipes = {
+                    SUPER_RESTORE_4 = {
+                        {
+                            verb = "Mix",
+                            output = 1,
+                            actionLimit = 14,
+                            inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
+                        },
+                    },
+                },
+                pools = {
+                    SUPER_RESTORE = {
+                        [1] = "SUPER_RESTORE_1",
+                        [2] = "SUPER_RESTORE_2",
+                        [3] = "SUPER_RESTORE_3",
+                        [4] = "SUPER_RESTORE_4",
+                    },
+                },
+                detected = detected,
+            })
+        end
+
+        it("reports a Decant step and a Step that makes the same item as different Steps", function()
+            local decant = restorePoolPlan({ SUPER_RESTORE_3 = 4 })
+            local mix = restorePoolPlan({ SNAPDRAGON_UNF = 4 })
+
+            local result = diff.compare(decant, mix)
+
+            expectEqual(result.former, { "SUPER_RESTORE_4" })
+            expectEqual(result.back, { "SUPER_RESTORE_4" })
+            expectEqual(result.next, { from = "SUPER_RESTORE_4", to = "SUPER_RESTORE_4", backwards = false })
+        end)
+
+        -- The verb of a Recipe can also be "Decant". Only the decant field identifies a Decant step.
+        it("reports a Decant step and a Recipe with the verb Decant for the same item as different Steps", function()
+            local function plan(detected)
+                return Plan.calculate({
+                    targets = { { id = 1, item = "SUPER_RESTORE_3", count = 3, mode = Plan.HAVE } },
+                    recipes = {
+                        SUPER_RESTORE_3 = {
+                            {
+                                verb = "Decant",
+                                output = 1,
+                                actionLimit = 14,
+                                inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
+                            },
+                        },
+                    },
+                    pools = {
+                        SUPER_RESTORE = {
+                            [1] = "SUPER_RESTORE_1",
+                            [2] = "SUPER_RESTORE_2",
+                            [3] = "SUPER_RESTORE_3",
+                            [4] = "SUPER_RESTORE_4",
+                        },
+                    },
+                    detected = detected,
+                })
+            end
+            local both = plan({ SUPER_RESTORE_4 = 2, SNAPDRAGON_UNF = 1 })
+            local decantOnly = plan({ SUPER_RESTORE_4 = 3, SNAPDRAGON_UNF = 1 })
+            expectEqual(#both.steps, 2)
+
+            local result = diff.compare(both, decantOnly)
+
+            expectEqual(result.former, { "SUPER_RESTORE_3" })
+            expectEqual(result.back, {})
+        end)
+    end)
 end)
