@@ -1,6 +1,6 @@
 # Rises in Detected stock use up Assumed stock
 
-The plugin stores Assumed stock as an amount to add to Detected stock. After the player enters an assumption, Detected stock of that item can rise. Each rise decreases the assumption by the same amount, until the assumption is Fulfilled. A fall in Detected stock never increases the assumption again. The plugin measures the rise on the backpack and the bank together. Items that the player moves between them do not count.
+The plugin stores Assumed stock as an amount to add to Detected stock. After the player enters an assumption, Detected stock of that item can rise. Each rise decreases the assumption by the same amount, until the assumption is Fulfilled. A fall in Detected stock never increases the assumption again. The plugin measures the rise on the Inventory and the Bank snapshot together. Items that the player moves between them do not count.
 
 The plugin measures each rise from a starting point:
 
