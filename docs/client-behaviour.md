@@ -9,9 +9,42 @@ Game client version for these tests: 950-1.
 - The game client stops a Lua call after 1000 ms. The error is `Maximum function execution time of 1000 ms exceeded`. The limit is for the total time of one call. Do slow work in parts, for example one part in each `Logic` tick. (`probes/persistentdb-probe`)
 - `require` returns `nil` for a module that returns a function. Every module must return a table. (`probes/require-probe`)
 
+## Vars
+
+`VarPlayer.IRONMAN` (id 4818) tells if the character is an ironman. It is an Integer that holds bit flags. (`probes/account-mode-probe`, #52)
+
+| Character | Value | Bits set |
+| --- | --- | --- |
+| Not ironman | 4096 | 12 |
+| Ironman | 4097 | 12, 0 |
+| Hardcore ironman | 4099 | 12, 1, 0 |
+| Group ironman | 528385 | 19, 12, 0 |
+
+- The game sets bit 0 for each ironman type.
+- Bit 12 was set in each test. We do not know what it means.
+- A `VarTransmit` event comes after each change. A new login is not necessary.
+
 ## Inventory API
 
 ADR 0007 gives the Inventory API facts: `isValid` and not `valid`, empty slots with id -1, Noted items as `CERT_<name>`, and the bank in one `InventoryAdded` event. (`probes/bank-probe`, `probes/stack-probe`)
+
+## Vars
+
+### Account mode
+
+`VarPlayer.IRONMAN` (id 4818) is an Integer that holds bit flags. (`probes/account-mode-probe`)
+
+| Character | Value | Bits set |
+| --- | --- | --- |
+| Not ironman | 4096 | 12 |
+| Ironman | 4097 | 12, 0 |
+| Hardcore ironman | 4099 | 12, 1, 0 |
+| Group ironman | 528385 | 19, 12, 0 |
+
+- Bit 0 is set for each ironman type.
+- Bit 12 was always set. We do not know what it means.
+- A `VarTransmit` event comes after each cheat (`!setironman`, `!sethardcore`, `!setgroupironman`). A new login is not necessary.
+- After `prl` while the player was logged in, the start read gave 4096. This was the value after the last cheat. The probe did not start before login.
 
 ## PersistentDB
 
