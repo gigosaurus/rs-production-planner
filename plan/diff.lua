@@ -8,9 +8,10 @@ end
 
 -- A Step in one Plan is the same Step in the other when it has the same key.
 -- The key of a Decant step is different from the key of a Step that makes the same item (issue 29).
+-- The field decant identifies a Decant step, because the verb of a Recipe can also be "Decant".
 -- The reports give the item.
 local function keyOf(step)
-    return step.verb == "Decant" and "decant:" .. step.item or step.item
+    return step.decant and "decant:" .. step.item or step.item
 end
 
 local function stepsByKey(plan)

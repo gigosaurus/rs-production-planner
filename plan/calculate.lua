@@ -28,8 +28,6 @@ local function withDefaults(basis, poolOf, poolSizes)
     end
     filled.chosenRecipes = {}
     filled.poolOf, filled.poolSizes = poolOf, poolSizes
-    -- decants marks the Decant steps. The verb of a Recipe can also be "Decant".
-    filled.decants = {}
     return filled
 end
 
@@ -78,13 +76,14 @@ end
 
 local DECANT = "Decant"
 
-local function isDecant(basis, step)
-    return basis.decants[step] == true
+-- A Decant step has the field decant. The verb of a Recipe can also be "Decant" (issue 29).
+local function isDecant(step)
+    return step.decant == true
 end
 
 -- Gives the Inputs of one action of a Step. A Decant step has no Recipe. Its Inputs are for all its actions.
 local function inputsOf(basis, step)
-    if isDecant(basis, step) then
+    if isDecant(step) then
         return step.inputs
     end
     return recipeFor(basis, step.item).inputs
@@ -92,7 +91,7 @@ end
 
 -- Gives the other Outputs of a Step. A Decant step has none.
 local function otherOutputsOf(basis, step)
-    if isDecant(basis, step) then
+    if isDecant(step) then
         return {}
     end
     return recipeFor(basis, step.item).otherOutputs
@@ -358,7 +357,7 @@ local function findNext(basis, steps)
         local ready = #step.flags == 0 and not step.waitsOn
         for _, input in ipairs(inputsOf(basis, step)) do
             -- The Inputs of a Decant step are for all its actions.
-            local needed = isDecant(basis, step) and input.count or input.count * actions
+            local needed = isDecant(step) and input.count or input.count * actions
             if freeDetected(basis, input.item) < needed then
                 ready = false
             end
@@ -862,7 +861,8 @@ local function stepsFor(basis, levels, loopOf, order)
         end
         for _, size in ipairs(sizes) do
             if short[size] > 0 then
-                local step = { item = items[size], verb = DECANT, actions = short[size], flags = {}, inputs = {} }
+                local step =
+                    { item = items[size], verb = DECANT, decant = true, actions = short[size], flags = {}, inputs = {} }
                 local missing = short[size] * size
                 for _, from in ipairs(sizes) do
                     local wanted, taken = math.max(0, math.ceil(missing / from)), 0
@@ -884,7 +884,6 @@ local function stepsFor(basis, levels, loopOf, order)
                     spare.made[-missing] = spare.made[-missing] + 1
                 end
                 extraOf[step] = 0
-                basis.decants[step] = true
                 local steps = decantLevel and decantsAfter[decantLevel] or stepsByLevel[level]
                 steps[#steps + 1] = step
                 lastStep = step
@@ -1100,9 +1099,9 @@ local function targetLines(basis)
     return targets
 end
 
-local function assumptionsFor(basis, steps)
+local function assumptionsFor(steps)
     for _, step in ipairs(steps) do
-        if isDecant(basis, step) then
+        if isDecant(step) then
             -- The plugin does not track empty vials (ADR 0005).
             return { "The Plan assumes that you have the empty vials to decant." }
         end
@@ -1123,7 +1122,7 @@ function Plan.calculate(basis)
         steps = steps,
         leftovers = leftoversFor(basis, steps, extraOf, usedSupply, poolLeftoversOf),
         shortages = shortagesFor(basis, steps, order, shortBy),
-        assumptions = assumptionsFor(basis, steps),
+        assumptions = assumptionsFor(steps),
         next = findNext(basis, steps),
         complete = isComplete(basis),
     }

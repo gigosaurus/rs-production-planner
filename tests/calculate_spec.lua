@@ -1830,6 +1830,7 @@ describe("Plan.calculate", function()
                 {
                     item = "SUPER_RESTORE_4",
                     verb = "Decant",
+                    decant = true,
                     actions = 3,
                     flags = {},
                     inputs = { { item = "SUPER_RESTORE_3", count = 4, detected = 4 } },
@@ -1868,6 +1869,7 @@ describe("Plan.calculate", function()
             expectEqual(plan.steps[2], {
                 item = "SUPER_RESTORE_4",
                 verb = "Decant",
+                decant = true,
                 actions = 3,
                 flags = {},
                 inputs = { { item = "SUPER_RESTORE_3", count = 4, detected = 0 } },
@@ -1968,6 +1970,7 @@ describe("Plan.calculate", function()
                 {
                     item = "SUPER_RESTORE_4",
                     verb = "Decant",
+                    decant = true,
                     actions = 1,
                     flags = {},
                     inputs = { { item = "SUPER_RESTORE_3", count = 2, detected = 2 } },
@@ -2104,6 +2107,28 @@ describe("Plan.calculate", function()
                 expectEqual(used.shortages, {})
             end
         )
+
+        it("marks only a Decant step with the decant field, also when a Recipe has the verb Decant", function()
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "SUPER_RESTORE_3", count = 3, mode = Plan.HAVE } },
+                recipes = {
+                    SUPER_RESTORE_3 = {
+                        {
+                            verb = "Decant",
+                            output = 1,
+                            actionLimit = 14,
+                            inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
+                        },
+                    },
+                },
+                pools = restorePool,
+                detected = { SUPER_RESTORE_4 = 2, SNAPDRAGON_UNF = 1 },
+            })
+
+            expectEqual(#plan.steps, 2)
+            expectEqual(plan.steps[1].decant, nil)
+            expectEqual(plan.steps[2].decant, true)
+        end)
 
         describe("stops with an error for Dose pools that are not correct", function()
             local function errorFor(pools)
