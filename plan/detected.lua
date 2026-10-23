@@ -15,11 +15,14 @@ local function addSlots(stock, slots)
 end
 
 -- backpack and bank are lists of slots. Each slot has a configName and a count.
+-- bank is nil when the player did not open the bank yet. Then only the backpack counts.
 -- Gives the total count of each item. A Noted item counts as the item.
 function Detected.count(backpack, bank)
     local stock = {}
     addSlots(stock, backpack)
-    addSlots(stock, bank)
+    if bank ~= nil then
+        addSlots(stock, bank)
+    end
     return stock
 end
 

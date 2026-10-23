@@ -29,6 +29,12 @@ describe("Detected.count", function()
         expectEqual(Detected.count(backpack, {}), { RUNE_CERT_BAR = 1 })
     end)
 
+    it("counts only the backpack when there is no Bank snapshot", function()
+        local backpack = { { configName = "COAL", count = 5 } }
+
+        expectEqual(Detected.count(backpack, nil), { COAL = 5 })
+    end)
+
     it("gives an empty table when the backpack and the bank are empty", function()
         expectEqual(Detected.count({}, {}), {})
     end)
