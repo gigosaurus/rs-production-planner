@@ -267,9 +267,9 @@ describe("Saved data", function()
 
     describe("Assumed stock", function()
         local function assumedState()
-            local state = Assumed.new()
-            Assumed.add(state, "COINS", 20000001, { COINS = 16777217 })
-            return state
+            local states = {}
+            Assumed.add(states, "Alice", "COINS", 20000001, { COINS = 16777217 })
+            return states.Alice
         end
 
         it("loads the Assumed stock that it wrote", function()
