@@ -149,21 +149,47 @@ local function observeOffer(state, offer, items)
     saveSlot(state, offer)
 end
 
+local function checkOffers(offers)
+    for _, offer in ipairs(offers) do
+        checkOffer(offer)
+    end
+end
+
 -- Call this when the plugin loads the state of a character while a Make Target exists.
 -- A rise between sessions is not made, so the next observation is the starting point.
--- offers are all the GE offers of the character now.
+-- offers are all the GE offers of the character now. A bad offer changes no state.
 -- The GE amount stays, because the player can collect the items after the load (issue 53).
--- Items that the offers got between sessions add to it. With no saved state, the offers are the starting point.
+-- Items that the offers got between sessions add to it. With no saved slots, the offers are the starting point.
 function Made.load(states, name, offers)
-    if not states[name] then
-        readOffers(character(states, name), offers)
-        return
-    end
-    local state = states[name]
+    checkOffers(offers)
+    local state = character(states, name)
     state.last = {}
-    local items = targetItems(states)
+    local live, offered = {}, {}
     for _, offer in ipairs(offers) do
-        observeOffer(state, offer, items)
+        live[offer.slot] = true
+        if offer.stage ~= Made.EMPTY then
+            offered[offer.item] = true
+        end
+    end
+    if next(state.slots) == nil then
+        readOffers(state, offers)
+    else
+        -- A saved slot with no offer is empty now.
+        for slot in pairs(state.slots) do
+            if not live[slot] then
+                state.slots[slot] = nil
+            end
+        end
+        local items = targetItems(states)
+        for _, offer in ipairs(offers) do
+            observeOffer(state, offer, items)
+        end
+    end
+    -- Unverified (ADR 0009): with no offer for the item, the player collected the items while the plugin was off.
+    for item in pairs(state.ge) do
+        if not offered[item] then
+            state.ge[item] = nil
+        end
     end
 end
 
