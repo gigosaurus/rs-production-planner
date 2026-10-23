@@ -327,8 +327,14 @@ local function planningLevels(basis, order)
     -- An item that uses an other Output also links to the item whose Step makes it.
     -- These links make sure that the Plan knows the supply of an item before it calculates the need for the item.
     -- They also put the Step that makes an other Output before the Steps that use it.
+    -- The links of an item do not change, so the function makes them one time for each item.
+    local linksOf = {}
     local function links(item)
+        if linksOf[item] then
+            return linksOf[item]
+        end
         local recipe, linked = recipeFor(basis, item), {}
+        linksOf[item] = linked
         if not recipe then
             return linked
         end
@@ -346,7 +352,8 @@ local function planningLevels(basis, order)
         return linked
     end
 
-    -- Puts the items into groups: each item in a group links to each other item of the group, through other items of the group.
+    -- Puts the items into groups. Each item in a group links to each other item of the group.
+    -- A link can go through other items of the group.
     -- This is the method of Tarjan for strongly connected components.
     local groupOf, index, lowest, stack, onStack = {}, {}, {}, {}, {}
     local nextIndex = 0
@@ -524,7 +531,7 @@ local function loopOrder(basis, items, totals, order, loop)
                 candidates[#candidates + 1] = item
             end
         end
-        -- Each remaining Step must come after a different one. The rule contradicts itself.
+        -- Each remaining Step must come after a different one. The rule gives no first Step.
         if #candidates == 0 then
             candidates = remaining
         end
@@ -666,7 +673,8 @@ local function stepsFor(basis, levels, loopOf, order, totals)
     end
 
     -- Calculates all items of a Loop in passes, until no amount changes (ADR 0010).
-    -- Each item uses the newest Steps: the Steps of the items before it in this pass, and of the other items in the pass before.
+    -- Each item uses the newest Steps. For the items before it, these are the Steps of this pass.
+    -- For the other items, these are the Steps of the pass before.
     -- It gives false when the Loop reaches the pass limit.
     local function planLoop(loop, level)
         local results = {}
