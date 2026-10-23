@@ -197,7 +197,7 @@ A thing that changes the yield of a Recipe: a chance to save an Input, or a chan
 _Avoid_: Boost, perk, modifier
 
 **Planning mode**:
-The setting that decides how the Plan counts Effects: at zero (conservative) or at their average (expected). It has a global value and a value for each item.
+The setting that decides how the Plan counts Effects: at zero (conservative) or at their average (expected). It has a global value. An item can have its own value, which applies where the item is an Input.
 _Avoid_: Risk level, safety mode
 
 **Planning assumption**:
