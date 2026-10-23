@@ -1747,5 +1747,18 @@ describe("Plan.calculate", function()
             expectEqual(plan.steps[2].waitsOn, 1)
             expectEqual(plan.next, nil)
         end)
+
+        -- A Decant step also raises the Made count of an item. Issue 58 decides how Make counts a pool.
+        it("stops with an error for a Make Target of an item in a Dose pool", function()
+            local ok, err = pcall(Plan.calculate, {
+                targets = { { id = 1, item = "SUPER_RESTORE_4", count = 3, mode = Plan.MAKE, made = 0 } },
+                recipes = {},
+                pools = restorePool,
+                detected = {},
+            })
+
+            expectEqual(ok, false)
+            expectEqual(err, "A Make Target of SUPER_RESTORE_4 is not possible, because the item is in a Dose pool.")
+        end)
     end)
 end)

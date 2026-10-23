@@ -114,6 +114,13 @@ local function checkBasis(basis)
             error("The Basis has no " .. field .. ".", 3)
         end
     end
+    -- A Decant step also raises the Made count of an item. Thus Make cannot count a Dose pool yet (issue 58).
+    local inPool = {}
+    for _, items in pairs(basis.pools or {}) do
+        for _, item in pairs(items) do
+            inPool[item] = true
+        end
+    end
     -- The diff matches the Target lines by id (issue 28).
     local ids = {}
     for _, target in ipairs(basis.targets) do
@@ -134,6 +141,9 @@ local function checkBasis(basis)
         if isMake(target) then
             if not Validate.isNonNegativeInteger(target.made) then
                 error("The Made count of " .. item .. " must be a whole number of 0 or more.", 3)
+            end
+            if inPool[target.item] then
+                error("A Make Target of " .. item .. " is not possible, because the item is in a Dose pool.", 3)
             end
         elseif target.made ~= nil then
             error("A Have Target of " .. item .. " has a Made count.", 3)
