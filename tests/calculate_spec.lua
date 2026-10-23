@@ -1721,5 +1721,31 @@ describe("Plan.calculate", function()
             })
             expectEqual(plan.leftovers, { { item = "SUPER_RESTORE_2", count = 1 } })
         end)
+
+        it("makes a Decant step Waiting when it uses an item that a Flagged step makes", function()
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "SUPER_RESTORE_4", count = 1, mode = Plan.HAVE } },
+                recipes = {
+                    SUPER_RESTORE_3 = {
+                        {
+                            verb = "Mix",
+                            output = 1,
+                            actionLimit = 14,
+                            inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
+                            skills = { { skill = "HERBLORE", level = 63 } },
+                        },
+                    },
+                },
+                pools = restorePool,
+                detected = { SNAPDRAGON_UNF = 2 },
+                levels = { HERBLORE = 61 },
+            })
+
+            expectEqual(plan.steps[1].item, "SUPER_RESTORE_3")
+            expectEqual(#plan.steps[1].flags, 1)
+            expectEqual(plan.steps[2].verb, "Decant")
+            expectEqual(plan.steps[2].waitsOn, 1)
+            expectEqual(plan.next, nil)
+        end)
     end)
 end)
