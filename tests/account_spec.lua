@@ -8,7 +8,7 @@ describe("Account.isIronman", function()
         { name = "hardcore ironman", value = 4099, ironman = true },
         { name = "group ironman", value = 528385, ironman = true },
         { name = "a value of 0", value = 0, ironman = false },
-        { name = "a negative value with bit 0", value = -2147483647, ironman = true },
+        { name = "a negative value with bit 0 set", value = -2147483647, ironman = true },
     }) do
         it("gives " .. tostring(case.ironman) .. " for " .. case.name, function()
             expectEqual(Account.isIronman(case.value), case.ironman)
