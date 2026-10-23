@@ -207,7 +207,7 @@ _Avoid_: Assumption (on its own, because it is easy to confuse with Assumed stoc
 ## Account
 
 **Account mode**:
-The setting that tells if the player is an ironman. It decides if Shortages have the label buy or gather.
+Tells if the character is an ironman. The plugin reads it from the game (ADR 0014). It decides if Shortages have the label buy or gather.
 _Avoid_: Game mode, account type
 
 ## Platform
