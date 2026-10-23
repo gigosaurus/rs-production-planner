@@ -40,13 +40,25 @@ function Assumed.remove(state, item)
     end
 end
 
--- detected is the Detected stock now: the Inventory and the bank together.
--- A rise since the last call uses up Assumed stock of that item.
-function Assumed.observe(state, detected)
+local function character(states, name)
+    local state = states[name]
+    if not state then
+        state = Assumed.new()
+        states[name] = state
+    end
+    return state
+end
+
+-- tick has the facts of one server tick for one character, as Made.observe takes them.
+-- tick.detected is the Detected stock now: the Inventory and the bank together.
+-- A rise since the last call uses up Assumed stock of that item. Pickups, shops and the GE count too.
+-- On the first Bank snapshot, Detected stock rises by all the contents of the bank. This rise is not an arrival.
+function Assumed.observe(states, name, tick)
+    local state = character(states, name)
     local arrived, fulfilled, kept = {}, {}, {}
     for _, entry in ipairs(state.entries) do
-        local now = detected[entry.item] or 0
-        local used = math.min(now - entry.baseline, entry.remaining)
+        local now = tick.detected[entry.item] or 0
+        local used = tick.firstBank and 0 or math.min(now - entry.baseline, entry.remaining)
         if used > 0 then
             entry.remaining = entry.remaining - used
             arrived[#arrived + 1] = { item = entry.item, count = used }
@@ -60,14 +72,6 @@ function Assumed.observe(state, detected)
     end
     state.entries = kept
     return { arrived = arrived, fulfilled = fulfilled }
-end
-
--- Call this when the plugin sees the bank for the first time.
--- Detected stock then rises by all the contents of the bank. This rise is not an arrival.
-function Assumed.rebase(state, detected)
-    for _, entry in ipairs(state.entries) do
-        entry.baseline = detected[entry.item] or 0
-    end
 end
 
 -- Gives the assumed field of the Basis of Plan.calculate.

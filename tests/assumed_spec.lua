@@ -2,6 +2,11 @@ local Assumed = require("plan/assumed")
 
 local AMOUNT_ERROR = "The Assumed amount of SNAPE_GRASS must be a whole number more than 0."
 
+local function alice()
+    local state = Assumed.new()
+    return { Alice = state }, state
+end
+
 describe("Assumed stock", function()
     it("adds a line with nothing arrived", function()
         local state = Assumed.new()
@@ -11,56 +16,56 @@ describe("Assumed stock", function()
     end)
 
     it("decreases what remains by a rise in Detected stock", function()
-        local state = Assumed.new()
+        local states, state = alice()
         Assumed.add(state, "SNAPE_GRASS", 50, { SNAPE_GRASS = 0 })
-        local changes = Assumed.observe(state, { SNAPE_GRASS = 36 })
+        local changes = Assumed.observe(states, "Alice", { detected = { SNAPE_GRASS = 36 } })
 
         expectEqual(changes.arrived, { { item = "SNAPE_GRASS", count = 36 } })
         expectEqual(Assumed.lines(state), { { item = "SNAPE_GRASS", remaining = 14, arrived = 36, entered = 50 } })
     end)
 
     it("never increases what remains after a fall", function()
-        local state = Assumed.new()
+        local states, state = alice()
         Assumed.add(state, "SNAPE_GRASS", 50, { SNAPE_GRASS = 0 })
-        Assumed.observe(state, { SNAPE_GRASS = 36 })
-        Assumed.observe(state, { SNAPE_GRASS = 30 })
+        Assumed.observe(states, "Alice", { detected = { SNAPE_GRASS = 36 } })
+        Assumed.observe(states, "Alice", { detected = { SNAPE_GRASS = 30 } })
 
         expectEqual(Assumed.lines(state)[1].remaining, 14)
     end)
 
     it("counts a rise from the amount after a fall", function()
-        local state = Assumed.new()
+        local states, state = alice()
         Assumed.add(state, "SNAPE_GRASS", 50, { SNAPE_GRASS = 0 })
-        Assumed.observe(state, { SNAPE_GRASS = 36 })
-        Assumed.observe(state, { SNAPE_GRASS = 30 })
-        Assumed.observe(state, { SNAPE_GRASS = 40 })
+        Assumed.observe(states, "Alice", { detected = { SNAPE_GRASS = 36 } })
+        Assumed.observe(states, "Alice", { detected = { SNAPE_GRASS = 30 } })
+        Assumed.observe(states, "Alice", { detected = { SNAPE_GRASS = 40 } })
 
         expectEqual(Assumed.lines(state)[1].remaining, 4)
     end)
 
     it("removes and reports Assumed stock that is Fulfilled", function()
-        local state = Assumed.new()
+        local states, state = alice()
         Assumed.add(state, "SNAPE_GRASS", 50, { SNAPE_GRASS = 0 })
-        local changes = Assumed.observe(state, { SNAPE_GRASS = 60 })
+        local changes = Assumed.observe(states, "Alice", { detected = { SNAPE_GRASS = 60 } })
 
         expectEqual(changes.fulfilled, { "SNAPE_GRASS" })
         expectEqual(Assumed.lines(state), {})
     end)
 
     it("adds to the line of an item that is already assumed", function()
-        local state = Assumed.new()
+        local states, state = alice()
         Assumed.add(state, "SNAPE_GRASS", 50, { SNAPE_GRASS = 0 })
-        Assumed.observe(state, { SNAPE_GRASS = 36 })
+        Assumed.observe(states, "Alice", { detected = { SNAPE_GRASS = 36 } })
         Assumed.add(state, "SNAPE_GRASS", 20, { SNAPE_GRASS = 36 })
 
         expectEqual(Assumed.lines(state), { { item = "SNAPE_GRASS", remaining = 34, arrived = 36, entered = 70 } })
     end)
 
     it("keeps the baseline of an item that is already assumed", function()
-        local state = Assumed.new()
+        local states, state = alice()
         Assumed.add(state, "SNAPE_GRASS", 50, { SNAPE_GRASS = 0 })
         Assumed.add(state, "SNAPE_GRASS", 20, { SNAPE_GRASS = 10 })
-        Assumed.observe(state, { SNAPE_GRASS = 10 })
+        Assumed.observe(states, "Alice", { detected = { SNAPE_GRASS = 10 } })
 
         expectEqual(Assumed.lines(state)[1].remaining, 60)
     end)
@@ -75,19 +80,53 @@ describe("Assumed stock", function()
     end)
 
     it("uses up nothing when the bank is seen for the first time", function()
-        local state = Assumed.new()
+        local states, state = alice()
         Assumed.add(state, "SNAPE_GRASS", 50, { SNAPE_GRASS = 0 })
-        Assumed.rebase(state, { SNAPE_GRASS = 200 })
-        Assumed.observe(state, { SNAPE_GRASS = 210 })
+        Assumed.observe(states, "Alice", { detected = { SNAPE_GRASS = 200 }, firstBank = true })
+        Assumed.observe(states, "Alice", { detected = { SNAPE_GRASS = 210 } })
 
         expectEqual(Assumed.lines(state)[1].remaining, 40)
     end)
 
+    for _, case in ipairs({
+        { name = "a shop is open", tick = { shopOpen = true } },
+        { name = "a ground stack decreases", tick = { groundDecrease = { SNAPE_GRASS = 36 } } },
+        { name = "a GE offer buys the item", tick = { ge = { { slot = 0, item = "SNAPE_GRASS", soldCount = 36 } } } },
+    }) do
+        it("uses up a rise when " .. case.name, function()
+            local states, state = alice()
+            Assumed.add(state, "SNAPE_GRASS", 50, { SNAPE_GRASS = 0 })
+            case.tick.detected = { SNAPE_GRASS = 36 }
+            Assumed.observe(states, "Alice", case.tick)
+
+            expectEqual(Assumed.lines(state)[1].remaining, 14)
+        end)
+    end
+
+    it("starts a character that it has not seen with no Assumed stock", function()
+        local states = {}
+        local changes = Assumed.observe(states, "Bob", { detected = { SNAPE_GRASS = 36 } })
+
+        expectEqual(changes, { arrived = {}, fulfilled = {} })
+        expectEqual(Assumed.lines(states.Bob), {})
+    end)
+
+    it("uses up only the Assumed stock of the named character", function()
+        local states, state = alice()
+        states.Bob = Assumed.new()
+        Assumed.add(state, "SNAPE_GRASS", 50, { SNAPE_GRASS = 0 })
+        Assumed.add(states.Bob, "SNAPE_GRASS", 50, { SNAPE_GRASS = 0 })
+        Assumed.observe(states, "Bob", { detected = { SNAPE_GRASS = 36 } })
+
+        expectEqual(Assumed.lines(state)[1].remaining, 50)
+        expectEqual(Assumed.lines(states.Bob)[1].remaining, 14)
+    end)
+
     it("gives what remains of each item for Plan.calculate", function()
-        local state = Assumed.new()
+        local states, state = alice()
         Assumed.add(state, "SNAPE_GRASS", 50, { SNAPE_GRASS = 0 })
         Assumed.add(state, "VIAL_OF_WATER", 20, { VIAL_OF_WATER = 0 })
-        Assumed.observe(state, { SNAPE_GRASS = 36 })
+        Assumed.observe(states, "Alice", { detected = { SNAPE_GRASS = 36 } })
 
         expectEqual(Assumed.remaining(state), { SNAPE_GRASS = 14, VIAL_OF_WATER = 20 })
     end)
