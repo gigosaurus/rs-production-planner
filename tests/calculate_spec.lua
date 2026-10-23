@@ -1553,4 +1553,38 @@ describe("Plan.calculate", function()
             expectEqual(plan.complete, true)
         end)
     end)
+
+    describe("Dose pools", function()
+        local restorePool = {
+            SUPER_RESTORE = {
+                [1] = "SUPER_RESTORE_1",
+                [2] = "SUPER_RESTORE_2",
+                [3] = "SUPER_RESTORE_3",
+                [4] = "SUPER_RESTORE_4",
+            },
+        }
+
+        it("decants other Dose sizes to the Dose size of a Target", function()
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "SUPER_RESTORE_4", count = 3, mode = Plan.HAVE } },
+                recipes = {},
+                pools = restorePool,
+                detected = { SUPER_RESTORE_3 = 4 },
+            })
+
+            expectEqual(plan.steps, {
+                {
+                    item = "SUPER_RESTORE_4",
+                    verb = "Decant",
+                    actions = 3,
+                    flags = {},
+                    inputs = { { item = "SUPER_RESTORE_3", count = 4, detected = 4 } },
+                },
+            })
+            expectEqual(plan.shortages, {})
+            expectEqual(plan.leftovers, {})
+            expectEqual(plan.assumptions, { "The Plan assumes that you have the empty vials to decant." })
+            expectEqual(plan.complete, false)
+        end)
+    end)
 end)

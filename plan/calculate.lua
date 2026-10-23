@@ -5,7 +5,7 @@ local Validate = require("plan/validate")
 local Plan = {}
 
 local REQUIRED_FIELDS = { "targets", "recipes", "detected" }
-local OPTIONAL_FIELDS = { "assumed", "reserves", "stackable", "levels", "unlocks" }
+local OPTIONAL_FIELDS = { "assumed", "reserves", "stackable", "levels", "unlocks", "pools" }
 local OPTIONAL_RECIPE_LISTS = { "otherOutputs", "skills", "unlocks" }
 
 local function copyOf(source)
@@ -25,6 +25,15 @@ local function withDefaults(basis)
         filled[field] = filled[field] or {}
     end
     filled.chosenRecipes = {}
+    -- poolOf gives the Dose pool and the Dose size of each item in a pool (ADR 0005).
+    filled.poolOf = {}
+    -- decants marks the Decant steps. The verb of a Recipe can also be "Decant".
+    filled.decants = {}
+    for pool, items in pairs(filled.pools) do
+        for size, item in pairs(items) do
+            filled.poolOf[item] = { pool = pool, size = size }
+        end
+    end
     return filled
 end
 
@@ -55,6 +64,28 @@ end
 -- It does not include Assumed stock, because the player does not have it yet.
 local function freeDetected(basis, item)
     return (basis.detected[item] or 0) - (basis.reserves[item] or 0)
+end
+
+local DECANT = "Decant"
+
+local function isDecant(basis, step)
+    return basis.decants[step] == true
+end
+
+-- Gives the Inputs of one action of a Step. A Decant step has no Recipe. Its Inputs are for all its actions.
+local function inputsOf(basis, step)
+    if isDecant(basis, step) then
+        return step.inputs
+    end
+    return recipeFor(basis, step.item).inputs
+end
+
+-- Gives the other Outputs of a Step. A Decant step has none.
+local function otherOutputsOf(basis, step)
+    if isDecant(basis, step) then
+        return {}
+    end
+    return recipeFor(basis, step.item).otherOutputs
 end
 
 -- The Target modes. Callers use these names, not the strings.
@@ -190,7 +221,7 @@ local function markWaiting(basis, steps)
         if step.item == item then
             return true
         end
-        for _, other in ipairs(recipeFor(basis, step.item).otherOutputs) do
+        for _, other in ipairs(otherOutputsOf(basis, step)) do
             if other.item == item then
                 return true
             end
@@ -228,7 +259,7 @@ local function markWaiting(basis, steps)
         for _, step in ipairs(steps) do
             local earliest, allFlaggedOrWaiting = nil, true
             for position, user in ipairs(steps) do
-                for _, input in ipairs(recipeFor(basis, user.item).inputs) do
+                for _, input in ipairs(inputsOf(basis, user)) do
                     if makes(step, input.item) then
                         local by = causeOf(position, user)
                         if by then
@@ -247,7 +278,7 @@ local function markWaiting(basis, steps)
         -- A Step is Waiting when it uses an item that a Flagged or Waiting step makes.
         for _, step in ipairs(steps) do
             if #step.flags == 0 then
-                for _, input in ipairs(recipeFor(basis, step.item).inputs) do
+                for _, input in ipairs(inputsOf(basis, step)) do
                     for position, maker in ipairs(steps) do
                         local by = makes(maker, input.item) and causeOf(position, maker)
                         if by then
@@ -266,8 +297,10 @@ local function findNext(basis, steps)
         -- One full Inventory is the Batch hint, or less when fewer actions remain. With no Batch hint, it is all remaining actions.
         local actions = math.min(step.batchHint or step.actions, step.actions)
         local ready = #step.flags == 0 and not step.waitsOn
-        for _, input in ipairs(recipeFor(basis, step.item).inputs) do
-            if freeDetected(basis, input.item) < input.count * actions then
+        for _, input in ipairs(inputsOf(basis, step)) do
+            -- The Inputs of a Decant step are for all its actions.
+            local needed = isDecant(basis, step) and input.count or input.count * actions
+            if freeDetected(basis, input.item) < needed then
                 ready = false
             end
         end
@@ -440,10 +473,56 @@ local function stepsFor(basis, levels, order)
         return math.max(makeNeed, haveNeed)
     end
 
+    -- Decants the spare containers of a Dose pool to the Dose sizes that are short.
+    -- It takes the smallest Dose size first.
+    local function decantSteps(pool)
+        local items, sizes, short, spare = basis.pools[pool], {}, {}, {}
+        for size in pairs(items) do
+            sizes[#sizes + 1] = size
+        end
+        table.sort(sizes)
+        for _, size in ipairs(sizes) do
+            local balance = countedStock(basis, items[size]) - (demand[items[size]] or 0)
+            short[size] = math.max(0, -balance)
+            spare[size] = math.max(0, balance)
+        end
+        local decants = {}
+        for _, size in ipairs(sizes) do
+            if short[size] > 0 then
+                local step = { item = items[size], verb = DECANT, actions = short[size], flags = {}, inputs = {} }
+                local doses = short[size] * size
+                for _, from in ipairs(sizes) do
+                    local taken = math.min(spare[from], math.ceil(doses / from))
+                    if taken > 0 then
+                        spare[from] = spare[from] - taken
+                        doses = doses - taken * from
+                        step.inputs[#step.inputs + 1] =
+                            { item = items[from], count = taken, detected = basis.detected[items[from]] or 0 }
+                    end
+                end
+                extraOf[step] = 0
+                basis.decants[step] = true
+                decants[#decants + 1] = step
+            end
+        end
+        return decants
+    end
+
     for level = 0, deepest do
         stepsByLevel[level] = {}
+        local poolsDone = {}
         for _, item in ipairs(order) do
-            if levels[item] == level then
+            local inPool = basis.poolOf[item]
+            if inPool and levels[item] == level then
+                -- The Plan calculates all Dose sizes of a pool together, as doses (ADR 0005).
+                if not poolsDone[inPool.pool] then
+                    poolsDone[inPool.pool] = true
+                    for _, step in ipairs(decantSteps(inPool.pool)) do
+                        local steps = stepsByLevel[level]
+                        steps[#steps + 1] = step
+                    end
+                end
+            elseif levels[item] == level then
                 local stillNeeded = stillNeededFor(item)
                 usedSupply[item] = math.max(0, math.min(stillNeeded, supply[item] or 0))
                 local need = stillNeeded - (supply[item] or 0)
@@ -484,7 +563,7 @@ local function leftoversFor(basis, steps, extraOf, usedSupply)
             leftovers[#leftovers + 1] = { item = step.item, count = extraOf[step] }
         end
         -- The used supply comes from the first Steps in production order.
-        for _, other in ipairs(recipeFor(basis, step.item).otherOutputs) do
+        for _, other in ipairs(otherOutputsOf(basis, step)) do
             local made = other.count * step.actions
             local used = math.min(made, notYetMade[other.item] or 0)
             notYetMade[other.item] = (notYetMade[other.item] or 0) - used
@@ -507,7 +586,7 @@ local function shortagesFor(basis, steps, order, shortBy)
         end
     end
     for _, step in ipairs(steps) do
-        for _, input in ipairs(recipeFor(basis, step.item).inputs) do
+        for _, input in ipairs(inputsOf(basis, step)) do
             listShortage(input.item)
         end
     end
@@ -534,6 +613,16 @@ local function targetLines(basis)
     return targets
 end
 
+local function assumptionsFor(basis, steps)
+    for _, step in ipairs(steps) do
+        if isDecant(basis, step) then
+            -- The plugin does not track empty vials (ADR 0005).
+            return { "The Plan assumes that you have the empty vials to decant." }
+        end
+    end
+    return {}
+end
+
 function Plan.calculate(basis)
     checkBasis(basis)
     basis = withDefaults(basis)
@@ -551,6 +640,7 @@ function Plan.calculate(basis)
         steps = steps,
         leftovers = leftoversFor(basis, steps, extraOf, usedSupply),
         shortages = shortagesFor(basis, steps, order, shortBy),
+        assumptions = assumptionsFor(basis, steps),
         next = findNext(basis, steps),
         complete = isComplete(basis),
     }
