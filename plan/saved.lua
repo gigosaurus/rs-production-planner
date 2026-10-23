@@ -72,38 +72,7 @@ function bank.start()
     return nil
 end
 
-local assumed = { version = 1, versionOf = tableVersionOf, start = Assumed.new }
-
-function assumed.encode(state)
-    local entries = {}
-    for index, entry in ipairs(state.entries) do
-        entries[index] = {
-            item = entry.item,
-            entered = countText(entry.entered),
-            remaining = countText(entry.remaining),
-            baseline = countText(entry.baseline),
-        }
-    end
-    return { v = assumed.version, entries = entries }
-end
-
-function assumed.decode(value)
-    if type(value.entries) ~= "table" then
-        return nil
-    end
-    local state = Assumed.new()
-    for index, entry in ipairs(value.entries) do
-        if type(entry) ~= "table" or type(entry.item) ~= "string" then
-            return nil
-        end
-        local entered, remaining, baseline = countOf(entry.entered), countOf(entry.remaining), countOf(entry.baseline)
-        if not entered or not remaining or not baseline then
-            return nil
-        end
-        state.entries[index] = { item = entry.item, entered = entered, remaining = remaining, baseline = baseline }
-    end
-    return state
-end
+local assumed = moduleCodec(Assumed)
 
 local function empty()
     return {}
