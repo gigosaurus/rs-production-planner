@@ -458,9 +458,10 @@ local PASS_LIMIT = 1000
 
 -- Puts the items of the Steps of one Loop in production order (ADR 0010).
 -- items is in the order of the search. That order decides a tie.
-local function loopOrder(basis, items, totals, order)
+-- loop is all items of the Loop, also the items with no Step.
+local function loopOrder(basis, items, totals, order, loop)
     local inLoop = {}
-    for _, item in ipairs(items) do
+    for _, item in ipairs(loop) do
         inLoop[item] = true
     end
 
@@ -662,46 +663,46 @@ local function stepsFor(basis, levels, loopOf, order, totals)
         return added
     end
 
-    -- Calculates all items of a Loop again and again, until no amount changes (ADR 0010).
-    -- Each pass uses the Steps of the pass before. It gives false when the Loop reaches the pass limit.
+    -- Calculates all items of a Loop in passes, until no amount changes (ADR 0010).
+    -- Each item uses the newest Steps: the Steps of the items before it in this pass, and of the other items in the pass before.
+    -- It gives false when the Loop reaches the pass limit.
     local function planLoop(loop, level)
         local results = {}
         for _ = 1, PASS_LIMIT do
-            local nextResults, changed = {}, false
+            local changed = false
             for _, item in ipairs(loop) do
-                nextResults[item] = planItem(item)
-                changed = changed or actionsOf(nextResults[item]) ~= actionsOf(results[item])
+                local old = results[item]
+                results[item] = planItem(item)
+                addStep(old and old.step, -1)
+                addStep(results[item].step, 1)
+                changed = changed or actionsOf(results[item]) ~= actionsOf(old)
             end
             local withSteps = {}
             for _, item in ipairs(loop) do
-                if nextResults[item].step then
+                if results[item].step then
                     withSteps[#withSteps + 1] = item
                 end
             end
-            local sorted = not changed and loopOrder(basis, withSteps, totals, order)
+            local sorted = not changed and loopOrder(basis, withSteps, totals, order, loop)
             local newSeed = sorted and addSeed(sorted, loop)
             if sorted and not newSeed then
                 for _, item in ipairs(loop) do
-                    if not nextResults[item].step then
-                        record(item, nextResults[item], level)
+                    if not results[item].step then
+                        record(item, results[item], level)
                     end
                 end
                 for _, item in ipairs(sorted) do
-                    record(item, nextResults[item], level)
+                    record(item, results[item], level)
                 end
                 return true
             end
-            for _, item in ipairs(loop) do
-                addStep(results[item] and results[item].step, -1)
-            end
-            results = {}
             -- A new Seed Shortage changes the stock. Then the Loop starts again with no Steps.
             -- From more actions, the passes can stop at more actions than the Loop needs.
-            if not newSeed then
+            if newSeed then
                 for _, item in ipairs(loop) do
-                    addStep(nextResults[item].step, 1)
+                    addStep(results[item].step, -1)
                 end
-                results = nextResults
+                results = {}
             end
         end
         return false

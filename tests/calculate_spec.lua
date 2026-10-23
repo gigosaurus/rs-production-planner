@@ -1480,6 +1480,40 @@ describe("Plan.calculate", function()
             expectEqual(stepFor(with, "B").actions, 3)
         end)
 
+        -- MA is Z -> A + B. MB is Z -> B + A. Each Step makes the other item of the Loop.
+        -- When each Step uses only the amounts of the pass before, the actions change between 10 and 0 in each pass.
+        it("calculates each item of a Loop from the newest amounts of the pass", function()
+            local plan = Plan.calculate({
+                targets = { { item = "A", count = 10 }, { item = "B", count = 10 } },
+                recipes = {
+                    A = {
+                        {
+                            verb = "MA",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "Z", count = 1 } },
+                            otherOutputs = { { item = "B", count = 1 } },
+                        },
+                    },
+                    B = {
+                        {
+                            verb = "MB",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "Z", count = 1 } },
+                            otherOutputs = { { item = "A", count = 1 } },
+                        },
+                    },
+                },
+                targetMode = Plan.HAVE,
+                detected = { Z = 50 },
+            })
+
+            expectEqual(stepFor(plan, "A").actions, 10)
+            expectEqual(stepFor(plan, "B"), nil)
+            expectEqual(plan.shortages, {})
+        end)
+
         -- S is ORE -> B. B is not in the Loop, and S makes it before the Loop starts.
         it("gives no Seed Shortage of an Input that a Step outside the Loop makes", function()
             local plan = Plan.calculate({
@@ -1576,6 +1610,47 @@ describe("Plan.calculate", function()
             })
 
             expectEqual(itemsOf(plan), { "A", "B" })
+        end)
+
+        -- R is B -> Z. P is C -> 2 B + E. Y is B + D -> C + Z. The order rule gives no order to P and Y.
+        -- The player owns the Z, so R has no actions. R is in the Loop, so its Input B does not go toward the Target.
+        it("puts first the Step whose Output goes toward the Target when a Step of the Loop has no actions", function()
+            local plan = Plan.calculate({
+                targets = { { item = "T", count = 5 } },
+                recipes = {
+                    T = {
+                        {
+                            verb = "Use",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "Z", count = 1 }, { item = "C", count = 1 } },
+                        },
+                    },
+                    Z = { { verb = "R", output = 1, actionLimit = 60, inputs = { { item = "B", count = 1 } } } },
+                    B = {
+                        {
+                            verb = "P",
+                            output = 2,
+                            actionLimit = 60,
+                            inputs = { { item = "C", count = 1 } },
+                            otherOutputs = { { item = "E", count = 1 } },
+                        },
+                    },
+                    C = {
+                        {
+                            verb = "Y",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "B", count = 1 }, { item = "D", count = 1 } },
+                            otherOutputs = { { item = "Z", count = 1 } },
+                        },
+                    },
+                },
+                targetMode = Plan.HAVE,
+                detected = { Z = 5, B = 1, D = 20 },
+            })
+
+            expectEqual(itemsOf(plan), { "C", "B", "T" })
         end)
     end)
 end)
