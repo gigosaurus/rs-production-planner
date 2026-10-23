@@ -37,7 +37,7 @@ An item in a Plan that no available Recipe makes. The player must buy or gather 
 _Avoid_: Base item, leaf
 
 **Step**:
-One entry in the production order. It is one Recipe, done a whole number of times.
+One entry in the production order. It is one Recipe, done a whole number of times, or it is a Decant step.
 _Avoid_: Task, job, action (an action is one performance of a Recipe, not a Step)
 
 **Next step**:
@@ -49,7 +49,7 @@ A Step that was in the previous calculation of the Plan and is not in the new on
 _Avoid_: Finished step, completed step, removed step
 
 **Planning level**:
-The deepest point at which an item appears in the Plan. Inputs, other Outputs and the Steps that use other Outputs all count. It decides when the Plan totals the demand and the supply of the item. All items in one Loop have the same Planning level.
+The deepest point at which an item appears in the Plan. Inputs, other Outputs and the Steps that use other Outputs all count. It decides when the Plan totals the demand and the supply of the item. All items in one Loop have the same Planning level. All Dose sizes of one Dose pool also have the same Planning level.
 _Avoid_: Depth (on its own, because an item can appear at more than one depth)
 
 **Loop**:
@@ -65,7 +65,7 @@ The amount of a Raw material, or of a Seed, that the Plan still needs after it s
 _Avoid_: Missing, deficit, to-buy
 
 **Leftover**:
-Output that the Plan does not need. It occurs when Steps are rounded up to whole actions. It also occurs when a Recipe makes an Output that the Plan does not use.
+Output that the Plan does not need. It occurs when Steps are rounded up to whole actions. It also occurs when a Recipe makes an Output that the Plan does not use, and when a Decant step puts the doses that remain into one container.
 _Avoid_: Surplus, excess, waste
 
 **Batch hint**:
@@ -161,7 +161,7 @@ The number of doses in one potion container, for example (3) or (4).
 _Avoid_: Potion size, variant
 
 **Decant step**:
-A Step that moves doses between containers to get the Dose size that a Recipe needs.
+A Step that moves doses between containers to get the Dose size that a Recipe or a Target needs. It has no Recipe.
 _Avoid_: Combine, merge
 
 ## Recipe choice and requirements
@@ -223,7 +223,7 @@ _Avoid_: Assumption (on its own, because it is easy to confuse with Assumed stoc
 ## Account
 
 **Account mode**:
-The setting that tells if the player is an ironman. It decides if Shortages have the label buy or gather.
+The mode that tells if the character is an ironman. The plugin reads it from the game (ADR 0014). It decides if Shortages have the label buy or gather.
 _Avoid_: Game mode, account type
 
 ## Platform

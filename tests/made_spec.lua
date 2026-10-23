@@ -1,6 +1,6 @@
 local Made = require("plan/made")
 
--- The Make Targets of the tests. Made gets only the Make Targets from its caller.
+-- The Make Targets of the tests. Made gets the Detected stock of all items from its caller.
 local SHARK = { id = 1, item = "SHARK", count = 100 }
 local ROCKTAIL = { id = 2, item = "ROCKTAIL", count = 100 }
 
@@ -49,6 +49,25 @@ describe("Made count", function()
         Made.observe(states, "Alice", { detected = { SHARK = 10, ROCKTAIL = 46 } })
 
         expectEqual(Made.counts(states, "Alice", Made.CHARACTER, { SHARK, ROCKTAIL }), { [1] = 0, [2] = 6 })
+    end)
+
+    it("counts only the items of the Make Targets", function()
+        local states = {}
+        start(states, "Alice", { SHARK = 10 }, {})
+        Made.observe(states, "Alice", { detected = { SHARK = 10, VIAL_OF_WATER = 5 } })
+        Made.observe(states, "Alice", { detected = { SHARK = 13, VIAL_OF_WATER = 9 } })
+
+        expectEqual(states.Alice.counts, { SHARK = 3 })
+        expectEqual(states.Alice.last, { SHARK = 13 })
+    end)
+
+    it("counts an item that is not in Detected stock as 0", function()
+        local states = {}
+        start(states, "Alice", { SHARK = 10 }, {})
+        Made.observe(states, "Alice", { detected = {} })
+        Made.observe(states, "Alice", { detected = { SHARK = 8 } })
+
+        expectEqual(sharkCount(states, "Alice", Made.CHARACTER), 8)
     end)
 
     it("starts again from a first Bank snapshot", function()
@@ -323,6 +342,17 @@ describe("Made count GE amount", function()
         Made.observe(states, "Alice", { detected = { SHARK = 10, ROCKTAIL = 7 } })
 
         expectEqual(Made.counts(states, "Alice", Made.CHARACTER, { ROCKTAIL }), { [2] = 7 })
+    end)
+
+    it("adds no GE amount for an item that is in Detected stock but is not a Make Target", function()
+        local states = {}
+        start(states, "Alice", { SHARK = 10 }, {})
+        Made.observe(states, "Alice", {
+            detected = { SHARK = 10, ROCKTAIL = 0 },
+            ge = { offer(1, Made.BUY, Made.ADDED, "ROCKTAIL", 100, 30) },
+        })
+
+        expectEqual(states.Alice.ge.ROCKTAIL, nil)
     end)
 
     it("rejects an unknown offer type", function()

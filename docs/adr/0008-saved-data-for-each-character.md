@@ -3,6 +3,7 @@
 Supersedes ADR 0006.
 Amended by ADR 0011.
 Amended by ADR 0012 (Target mode for each Target).
+Amended by ADR 0014 (Account mode comes from the game).
 
 The plugin keys saved data by `displayName`. Data that is a fact about one character, or that the plugin measures on one character, is saved for each character:
 

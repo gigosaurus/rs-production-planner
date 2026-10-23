@@ -1,6 +1,6 @@
 # Effects are a table keyed by Effect source, and expected mode rounds to whole actions
 
-Amends ADR 0011.
+Amends ADR 0011 and ADR 0014.
 
 An Effect changes the yield of a Recipe (#31). Many Effects change a large group of Recipes. For example, one worn item can change all Herblore Recipes. If each Recipe listed its Effects, the recipe data would repeat each Effect many times.
 
@@ -42,7 +42,7 @@ An Effect source can be in a Rank group. For example, each rank of the Fortune p
 
 The Basis lists the active Effect sources and the true Effect conditions. The Plan counts only the Effects of these Effect sources. `Plan.calculate` does not find them. Another part of the plugin fills the lists. It detects them where it can, and the player sets the others.
 
-An Effect source or an Effect condition is a fact about one character. ADR 0008 saves such facts for each character. The plugin saves the ones that the player sets in `char:<displayName>:settings`. It does not save the ones that it detects, because it detects them again.
+An Effect source or an Effect condition is a fact about one character. ADR 0008 saves such facts for each character. The plugin saves the ones that the player sets in `char:<displayName>:settings`. It does not save the ones that it detects, because it detects them again. ADR 0014 removed this key, because it held no other setting. This ADR adds it again.
 
 ## Planning mode
 
