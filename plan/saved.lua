@@ -162,7 +162,8 @@ function unlocks.decode(value)
     return set
 end
 
--- Made.load clears the GE amounts and the last Detected counts, so the plugin does not save them.
+-- Made.load clears the last Detected counts, so the plugin does not save them.
+-- The GE amounts stay between sessions (issue 53). Data with no GE amounts gives GE amounts of 0.
 local made = { version = 1, versionOf = tableVersionOf, start = Made.new }
 
 function made.encode(state)
@@ -170,13 +171,14 @@ function made.encode(state)
     for slot, data in pairs(state.slots) do
         slots[slot] = { item = data.item, type = data.type, stage = data.stage, soldCount = countText(data.soldCount) }
     end
-    return { v = made.version, counts = countTexts(state.counts), slots = slots }
+    return { v = made.version, counts = countTexts(state.counts), slots = slots, ge = countTexts(state.ge) }
 end
 
 function made.decode(value)
     local state = Made.new()
     state.counts = countsOf(value.counts)
-    if not state.counts or type(value.slots) ~= "table" then
+    state.ge = countsOf(value.ge or {})
+    if not state.counts or not state.ge or type(value.slots) ~= "table" then
         return nil
     end
     for slot, data in pairs(value.slots) do

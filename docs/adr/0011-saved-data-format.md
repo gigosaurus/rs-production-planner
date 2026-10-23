@@ -16,7 +16,7 @@ Each part has its own key. Each key holds one table, except the bank key. The ba
 | `char:<displayName>:reserves` | Reserves |
 | `char:<displayName>:unlocks` | Unlocks |
 | `char:<displayName>:settings` | Account mode, Recipe overrides |
-| `char:<displayName>:made` | Made counts, and the data of each GE slot (ADR 0009). Not the GE amounts or the last Detected counts: `Made.load` clears them. |
+| `char:<displayName>:made` | Made counts, the data of each GE slot and the GE amounts (ADR 0009). Not the last Detected counts: `Made.load` clears them. Data with no GE amounts gives GE amounts of 0. |
 | `global:characters` | The display names of all characters that have saved data |
 | `global:plan` | The Plan and its Targets |
 | `global:settings` | Target mode, Made count scope, Planning mode, order of Shortages and order of Leftovers |
