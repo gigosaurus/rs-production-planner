@@ -616,28 +616,45 @@ local function stepsFor(basis, levels, loopOf, order, totals)
         return result and result.step and result.step.actions or 0
     end
 
-    local function canDoOneAction(item)
+    -- A Recipe of the Loop makes the item, as its Output or as an other Output.
+    local function loopMakes(loop, item)
+        for _, member in ipairs(loop) do
+            if member == item then
+                return true
+            end
+            for _, other in ipairs(recipeFor(basis, member).otherOutputs) do
+                if other.item == item then
+                    return true
+                end
+            end
+        end
+        return false
+    end
+
+    -- Only the Inputs that the Loop makes count.
+    -- A Step outside the Loop makes each other Input before the Loop starts, or it is a Shortage.
+    local function canDoOneAction(item, loop)
         for _, input in ipairs(recipeFor(basis, item).inputs) do
-            if ownedFor(input.item) < input.count then
+            if loopMakes(loop, input.item) and ownedFor(input.item) < input.count then
                 return false
             end
         end
         return true
     end
 
-    -- A Loop needs stock to start: the Seed. It is the Inputs of one action of the first Step.
+    -- A Loop needs stock to start: the Seed. It is the Loop Inputs of one action of the first Step.
     -- The Loop needs no Seed when the player can do one action of any Step of the Loop.
     -- Gives true when it adds a Seed Shortage.
-    local function addSeed(sorted)
+    local function addSeed(sorted, loop)
         for _, item in ipairs(sorted) do
-            if canDoOneAction(item) then
+            if canDoOneAction(item, loop) then
                 return false
             end
         end
         local added = false
         for _, input in ipairs(sorted[1] and recipeFor(basis, sorted[1]).inputs or {}) do
             local short = input.count - ownedFor(input.item)
-            if short > 0 then
+            if loopMakes(loop, input.item) and short > 0 then
                 seeded[input.item] = (seeded[input.item] or 0) + short
                 added = true
             end
@@ -662,8 +679,8 @@ local function stepsFor(basis, levels, loopOf, order, totals)
                 end
             end
             local sorted = not changed and loopOrder(basis, withSteps, totals, order)
-            -- A new Seed Shortage changes the stock. Then the Loop needs more passes.
-            if sorted and not addSeed(sorted) then
+            local newSeed = sorted and addSeed(sorted, loop)
+            if sorted and not newSeed then
                 for _, item in ipairs(loop) do
                     if not nextResults[item].step then
                         record(item, nextResults[item], level)
@@ -676,9 +693,16 @@ local function stepsFor(basis, levels, loopOf, order, totals)
             end
             for _, item in ipairs(loop) do
                 addStep(results[item] and results[item].step, -1)
-                addStep(nextResults[item].step, 1)
             end
-            results = nextResults
+            results = {}
+            -- A new Seed Shortage changes the stock. Then the Loop starts again with no Steps.
+            -- From more actions, the passes can stop at more actions than the Loop needs.
+            if not newSeed then
+                for _, item in ipairs(loop) do
+                    addStep(nextResults[item].step, 1)
+                end
+                results = nextResults
+            end
         end
         return false
     end

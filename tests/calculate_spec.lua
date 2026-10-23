@@ -1457,6 +1457,54 @@ describe("Plan.calculate", function()
             expectEqual(plan.shortages, {})
         end)
 
+        -- P is A -> B. Q is B -> 2 A. The Seed is 1x B.
+        it("gives the same Steps when the player gets the Seed", function()
+            local function plan(detected)
+                return Plan.calculate({
+                    targets = { { item = "A", count = 5 } },
+                    recipes = {
+                        A = { { verb = "Q", output = 2, actionLimit = 60, inputs = { { item = "B", count = 1 } } } },
+                        B = { { verb = "P", output = 1, actionLimit = 60, inputs = { { item = "A", count = 1 } } } },
+                    },
+                    targetMode = Plan.HAVE,
+                    detected = detected,
+                })
+            end
+            local without, with = plan({}), plan({ B = 1 })
+
+            expectEqual(without.shortages, { { item = "B", count = 1 } })
+            expectEqual(stepFor(without, "A").actions, 4)
+            expectEqual(stepFor(without, "B").actions, 3)
+            expectEqual(without.leftovers, {})
+            expectEqual(stepFor(with, "A").actions, 4)
+            expectEqual(stepFor(with, "B").actions, 3)
+        end)
+
+        -- S is ORE -> B. B is not in the Loop, and S makes it before the Loop starts.
+        it("gives no Seed Shortage of an Input that a Step outside the Loop makes", function()
+            local plan = Plan.calculate({
+                targets = { { item = "D", count = 10 } },
+                recipes = {
+                    D = {
+                        {
+                            verb = "X",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "A", count = 1 }, { item = "B", count = 1 } },
+                            otherOutputs = { { item = "C", count = 1 } },
+                        },
+                    },
+                    A = { { verb = "R", output = 1, actionLimit = 60, inputs = { { item = "C", count = 1 } } } },
+                    B = { { verb = "S", output = 1, actionLimit = 60, inputs = { { item = "ORE", count = 1 } } } },
+                },
+                targetMode = Plan.HAVE,
+                detected = { A = 1, ORE = 10 },
+            })
+
+            expectEqual(plan.shortages, {})
+            expectEqual(stepFor(plan, "B").actions, 10)
+        end)
+
         -- One full Inventory is 14 X or 28 R. The player has less, but a Step in a Loop is ready with one action.
         it("makes a Step in a Loop the Next step when the player has the Inputs for one action", function()
             local first = loopPlan({ A = 1, B = 10 })
