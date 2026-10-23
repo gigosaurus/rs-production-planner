@@ -149,13 +149,32 @@ describe("Saved data", function()
             { "Reserves with no reserves", "char:Alice:reserves", { v = 1 } },
             { "a Reserve count that is not a number", "char:Alice:reserves", { v = 1, reserves = { COINS = "abc" } } },
             { "Unlocks with no unlocks", "char:Alice:unlocks", { v = 1 } },
-            { "Made counts with no slots", "char:Alice:made", { v = 1, counts = {} } },
-            { "a GE slot with no soldCount", "char:Alice:made", { v = 1, counts = {}, slots = slot(nil) } },
-            { "a Made count that is a number", "char:Alice:made", { v = 1, counts = { COINS = 5 }, slots = {} } },
+            { "Made counts with no slots", "char:Alice:made", { v = 1, counts = {}, starts = {} } },
+            { "Made counts with no start values", "char:Alice:made", { v = 1, counts = {}, slots = {} } },
+            {
+                "a start value that is a number",
+                "char:Alice:made",
+                { v = 1, counts = {}, starts = { [7] = 5 }, slots = {} },
+            },
+            {
+                "a start value with an id that is not a number",
+                "char:Alice:made",
+                { v = 1, counts = {}, starts = { SHARK = "5" }, slots = {} },
+            },
+            {
+                "a GE slot with no soldCount",
+                "char:Alice:made",
+                { v = 1, counts = {}, starts = {}, slots = slot(nil) },
+            },
+            {
+                "a Made count that is a number",
+                "char:Alice:made",
+                { v = 1, counts = { COINS = 5 }, starts = {}, slots = {} },
+            },
             {
                 "a GE amount that is a number",
                 "char:Alice:made",
-                { v = 1, counts = {}, slots = {}, ge = { COINS = 5 } },
+                { v = 1, counts = {}, starts = {}, slots = {}, ge = { COINS = 5 } },
             },
             { "a Plan with no Targets", "global:plan", { v = 1 } },
             {
@@ -386,6 +405,7 @@ describe("Saved data", function()
         local function madeState()
             local state = Made.new()
             state.counts = { COINS = 20000001 }
+            state.starts = { [7] = 16777217, [8] = -3 }
             state.slots = { [0] = { item = "COINS", type = Made.BUY, stage = Made.ADDED, soldCount = 16777217 } }
             state.ge = { COINS = 16777219 }
             return state
@@ -413,14 +433,33 @@ describe("Saved data", function()
             expectEqual(store.values["char:Alice:made"], {
                 v = 1,
                 counts = { COINS = "20000001" },
+                starts = { [7] = "16777217", [8] = "-3" },
                 slots = { [0] = { item = "COINS", type = Made.BUY, stage = Made.ADDED, soldCount = "16777217" } },
                 ge = { COINS = "16777219" },
             })
         end)
 
+        it("gives the same Made count to each Make Target after a load, also for two Targets of one item", function()
+            local first = { id = 7, item = "SHARK", count = 100, mode = Plan.MAKE }
+            local second = { id = 8, item = "SHARK", count = 100, mode = Plan.MAKE }
+            local states = {}
+            Made.startTarget(states, "Alice", first, { SHARK = 5 }, {})
+            Made.observe(states, "Alice", { detected = { SHARK = 25 } })
+            Made.startTarget(states, "Alice", second, { SHARK = 25 }, {})
+            local store = fakeStore()
+            local saved = newSaved(store)
+            Saved.change(saved, "Alice", "made", states.Alice)
+            Saved.write(saved)
+
+            local parts = Saved.loadCharacter(Saved.new(store), "Alice")
+
+            local counts = Made.counts({ Alice = parts.made }, "Alice", Made.CHARACTER, { first, second })
+            expectEqual(counts, { [7] = 20, [8] = 0 })
+        end)
+
         it("gives GE amounts of 0 when the saved data has no GE amounts", function()
             local store = fakeStore()
-            store.values["char:Alice:made"] = { v = 1, counts = { COINS = "20" }, slots = {} }
+            store.values["char:Alice:made"] = { v = 1, counts = { COINS = "20" }, starts = {}, slots = {} }
 
             local parts = Saved.loadCharacter(Saved.new(store), "Alice")
 
