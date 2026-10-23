@@ -1586,5 +1586,40 @@ describe("Plan.calculate", function()
             expectEqual(plan.assumptions, { "The Plan assumes that you have the empty vials to decant." })
             expectEqual(plan.complete, false)
         end)
+
+        it("makes doses with the Recipe of one Dose size, then decants them to the Dose size of a Target", function()
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "SUPER_RESTORE_4", count = 3, mode = Plan.HAVE } },
+                recipes = {
+                    SUPER_RESTORE_3 = {
+                        {
+                            verb = "Mix",
+                            output = 1,
+                            actionLimit = 14,
+                            inputs = {
+                                { item = "SNAPDRAGON_UNF", count = 1 },
+                                { item = "RED_SPIDERS_EGGS", count = 1 },
+                            },
+                        },
+                    },
+                },
+                pools = restorePool,
+                detected = { SNAPDRAGON_UNF = 4, RED_SPIDERS_EGGS = 4 },
+            })
+
+            expectEqual(#plan.steps, 2)
+            expectEqual(plan.steps[1].item, "SUPER_RESTORE_3")
+            expectEqual(plan.steps[1].verb, "Mix")
+            expectEqual(plan.steps[1].actions, 4)
+            expectEqual(plan.steps[2], {
+                item = "SUPER_RESTORE_4",
+                verb = "Decant",
+                actions = 3,
+                flags = {},
+                inputs = { { item = "SUPER_RESTORE_3", count = 4, detected = 0 } },
+            })
+            expectEqual(plan.shortages, {})
+            expectEqual(plan.leftovers, {})
+        end)
     end)
 end)

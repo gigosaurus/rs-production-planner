@@ -29,10 +29,16 @@ local function withDefaults(basis)
     filled.poolOf = {}
     -- decants marks the Decant steps. The verb of a Recipe can also be "Decant".
     filled.decants = {}
+    -- poolSizes gives the Dose sizes of each pool, smallest first.
+    filled.poolSizes = {}
     for pool, items in pairs(filled.pools) do
+        local sizes = {}
         for size, item in pairs(items) do
             filled.poolOf[item] = { pool = pool, size = size }
+            sizes[#sizes + 1] = size
         end
+        table.sort(sizes)
+        filled.poolSizes[pool] = sizes
     end
     return filled
 end
@@ -320,6 +326,13 @@ local function itemsInPlan(basis)
         end
         inPlan[item] = true
         order[#order + 1] = item
+        -- The Plan can use each Dose size of a pool, and the Recipe of each Dose size.
+        local inPool = basis.poolOf[item]
+        if inPool then
+            for _, size in ipairs(basis.poolSizes[inPool.pool]) do
+                find(basis.pools[inPool.pool][size])
+            end
+        end
         local recipe = recipeFor(basis, item)
         if recipe then
             for _, input in ipairs(recipe.inputs) do
@@ -382,23 +395,50 @@ local function planningLevels(basis, order)
         return linked
     end
 
+    -- All items of a Dose pool have the same Planning level, because the Plan calculates them together.
+    -- The search uses one node for each pool. Config names have no spaces, so a node name cannot be an item.
+    local function nodeOf(item)
+        local inPool = basis.poolOf[item]
+        return inPool and "Dose pool " .. inPool.pool or item
+    end
+    local function itemsOf(node)
+        local items = {}
+        for _, item in ipairs(order) do
+            if nodeOf(item) == node then
+                items[#items + 1] = item
+            end
+        end
+        return items
+    end
+    local function linkedNodes(node)
+        local linked = {}
+        for _, item in ipairs(itemsOf(node)) do
+            for _, other in ipairs(links(item)) do
+                if nodeOf(other) ~= node then
+                    linked[#linked + 1] = nodeOf(other)
+                end
+            end
+        end
+        return linked
+    end
+
     -- The Planning level is the length of the longest path from a Target.
-    -- An item that is already on the path of the search is in a Loop (issue 7).
-    local levels, path = {}, {}
-    local function visit(item, depth)
+    -- A node that is already on the path of the search is in a Loop (issue 7).
+    local nodeLevels, path = {}, {}
+    local function visit(node, depth)
         for index, onPath in ipairs(path) do
-            if onPath == item then
+            if onPath == node then
                 local loop = { table.unpack(path, index) }
-                loop[#loop + 1] = item
+                loop[#loop + 1] = node
                 return loop
             end
         end
-        if levels[item] and levels[item] >= depth then
+        if nodeLevels[node] and nodeLevels[node] >= depth then
             return
         end
-        levels[item] = depth
-        path[#path + 1] = item
-        for _, linked in ipairs(links(item)) do
+        nodeLevels[node] = depth
+        path[#path + 1] = node
+        for _, linked in ipairs(linkedNodes(node)) do
             local loop = visit(linked, depth + 1)
             if loop then
                 return loop
@@ -407,10 +447,14 @@ local function planningLevels(basis, order)
         path[#path] = nil
     end
     for _, target in ipairs(basis.targets) do
-        local loop = visit(target.item, 0)
+        local loop = visit(nodeOf(target.item), 0)
         if loop then
             return nil, loop
         end
+    end
+    local levels = {}
+    for _, item in ipairs(order) do
+        levels[item] = nodeLevels[nodeOf(item)]
     end
     return levels
 end
@@ -473,39 +517,63 @@ local function stepsFor(basis, levels, order)
         return math.max(makeNeed, haveNeed)
     end
 
-    -- Decants the spare containers of a Dose pool to the Dose sizes that are short.
-    -- It takes the smallest Dose size first.
-    local function decantSteps(pool)
-        local items, sizes, short, spare = basis.pools[pool], {}, {}, {}
-        for size in pairs(items) do
-            sizes[#sizes + 1] = size
+    -- Adds a Step that uses recipe to make the amount need of item. It adds the demand of its Inputs and the supply of its other Outputs.
+    local function addStep(level, item, recipe, need)
+        local step, extra = newStep(basis, item, recipe, need)
+        extraOf[step] = extra
+        local steps = stepsByLevel[level]
+        steps[#steps + 1] = step
+        for _, input in ipairs(recipe.inputs) do
+            demand[input.item] = (demand[input.item] or 0) + input.count * step.actions
         end
-        table.sort(sizes)
+        for _, other in ipairs(recipe.otherOutputs) do
+            supply[other.item] = (supply[other.item] or 0) + other.count * step.actions
+        end
+        return step
+    end
+
+    -- Adds the Steps of a Dose pool. The Plan counts the pool as doses (ADR 0005).
+    -- A Recipe makes the doses that the stock does not have. Then Decant steps give each Dose size that is short.
+    -- A Decant step takes the smallest Dose size first.
+    local function addPoolSteps(level, pool)
+        local items, sizes, short, spare = basis.pools[pool], basis.poolSizes[pool], {}, {}
+        local balance, doses = {}, 0
         for _, size in ipairs(sizes) do
-            local balance = countedStock(basis, items[size]) - (demand[items[size]] or 0)
-            short[size] = math.max(0, -balance)
-            spare[size] = math.max(0, balance)
+            balance[size] = countedStock(basis, items[size]) - (demand[items[size]] or 0)
+            doses = doses + balance[size] * size
         end
-        local decants = {}
+        for _, size in ipairs(sizes) do
+            local recipe = recipeFor(basis, items[size])
+            if doses < 0 and recipe then
+                local step = addStep(level, items[size], recipe, math.ceil(-doses / size))
+                extraOf[step] = 0
+                balance[size] = balance[size] + step.actions * recipe.output
+                break
+            end
+        end
+        for _, size in ipairs(sizes) do
+            short[size] = math.max(0, -balance[size])
+            spare[size] = math.max(0, balance[size])
+        end
         for _, size in ipairs(sizes) do
             if short[size] > 0 then
                 local step = { item = items[size], verb = DECANT, actions = short[size], flags = {}, inputs = {} }
-                local doses = short[size] * size
+                local missing = short[size] * size
                 for _, from in ipairs(sizes) do
-                    local taken = math.min(spare[from], math.ceil(doses / from))
+                    local taken = math.min(spare[from], math.ceil(missing / from))
                     if taken > 0 then
                         spare[from] = spare[from] - taken
-                        doses = doses - taken * from
+                        missing = missing - taken * from
                         step.inputs[#step.inputs + 1] =
                             { item = items[from], count = taken, detected = basis.detected[items[from]] or 0 }
                     end
                 end
                 extraOf[step] = 0
                 basis.decants[step] = true
-                decants[#decants + 1] = step
+                local steps = stepsByLevel[level]
+                steps[#steps + 1] = step
             end
         end
-        return decants
     end
 
     for level = 0, deepest do
@@ -514,13 +582,9 @@ local function stepsFor(basis, levels, order)
         for _, item in ipairs(order) do
             local inPool = basis.poolOf[item]
             if inPool and levels[item] == level then
-                -- The Plan calculates all Dose sizes of a pool together, as doses (ADR 0005).
                 if not poolsDone[inPool.pool] then
                     poolsDone[inPool.pool] = true
-                    for _, step in ipairs(decantSteps(inPool.pool)) do
-                        local steps = stepsByLevel[level]
-                        steps[#steps + 1] = step
-                    end
+                    addPoolSteps(level, inPool.pool)
                 end
             elseif levels[item] == level then
                 local stillNeeded = stillNeededFor(item)
@@ -528,16 +592,7 @@ local function stepsFor(basis, levels, order)
                 local need = stillNeeded - (supply[item] or 0)
                 local recipe = recipeFor(basis, item)
                 if need > 0 and recipe then
-                    local step, extra = newStep(basis, item, recipe, need)
-                    extraOf[step] = extra
-                    local steps = stepsByLevel[level]
-                    steps[#steps + 1] = step
-                    for _, input in ipairs(recipe.inputs) do
-                        demand[input.item] = (demand[input.item] or 0) + input.count * step.actions
-                    end
-                    for _, other in ipairs(recipe.otherOutputs) do
-                        supply[other.item] = (supply[other.item] or 0) + other.count * step.actions
-                    end
+                    addStep(level, item, recipe, need)
                 elseif need > 0 then
                     shortBy[item] = need
                 end
