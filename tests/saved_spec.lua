@@ -152,7 +152,6 @@ describe("Saved data", function()
             { "Made counts with no slots", "char:Alice:made", { v = 1, counts = {} } },
             { "a GE slot with no soldCount", "char:Alice:made", { v = 1, counts = {}, slots = slot(nil) } },
             { "a Made count that is a number", "char:Alice:made", { v = 1, counts = { COINS = 5 }, slots = {} } },
-            { "a character setting of the wrong type", "char:Alice:settings", { v = 1, ironman = "yes" } },
             { "a Plan with no Targets", "global:plan", { v = 1 } },
             {
                 "a Target count that is not an integer",
@@ -420,31 +419,21 @@ describe("Saved data", function()
         end)
     end)
 
-    describe("character settings", function()
-        it("gives Account mode not ironman to a character that the plugin has not seen", function()
+    describe("Account mode", function()
+        it("gives no settings to a character, because the game gives Account mode (ADR 0014)", function()
             local parts = Saved.loadCharacter(Saved.new(fakeStore()), "Alice")
 
-            expectEqual(parts.settings, { ironman = false })
+            expectEqual(parts.settings, nil)
         end)
 
-        it("loads the settings that it wrote", function()
+        it("does not read Account mode from old saved data", function()
             local store = fakeStore()
-            local saved = newSaved(store)
-            Saved.change(saved, "Alice", "settings", { ironman = true })
-            Saved.write(saved)
+            store:Set("char:Alice:settings", { v = 1, ironman = true })
 
-            local parts = Saved.loadCharacter(Saved.new(store), "Alice")
+            local parts, problems = Saved.loadCharacter(Saved.new(store), "Alice")
 
-            expectEqual(parts.settings, { ironman = true })
-        end)
-
-        it("writes the settings with a version", function()
-            local store = fakeStore()
-            local saved = newSaved(store)
-            Saved.change(saved, "Alice", "settings", { ironman = true })
-            Saved.write(saved)
-
-            expectEqual(store.values["char:Alice:settings"], { v = 1, ironman = true })
+            expectEqual(parts.settings, nil)
+            expectEqual(problems, {})
         end)
     end)
 

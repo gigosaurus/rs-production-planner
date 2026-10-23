@@ -256,7 +256,6 @@ local CODECS = {
     reserves = reserves,
     unlocks = unlocks,
     made = made,
-    settings = settingsCodec({ ironman = false }),
 }
 
 local GLOBAL_CODECS = {
