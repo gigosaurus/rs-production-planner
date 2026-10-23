@@ -57,6 +57,7 @@ Read `pages/submission/guidelines.md`, `pages/submission/adequacy.md` and `pages
 - Do not load `llms-full.md` (approximately 200k tokens). Read individual pages instead.
 - Do not load all of `constraints-and-warnings.md`. To find the restrictions of a feature across pages, search the file (grep) for the feature name.
 - Do not edit files in `runescape-docs/`. The tools in `runescape-docs/tools/` make these files.
+- Never edit the RuneScape Wiki. Never write code that edits it, logs in to it or posts to it. Only a human edits the wiki, by hand (ADR 0015).
 
 ## Policy
 - Write short answers. Each token is important. Use Simplified Technical English (ASD-STE100): short sentences, active voice, one idea in each sentence, approved words. Remove words that add no information. This applies to all text: answers, comments, test names, documents and UI text in the game.
