@@ -1673,5 +1673,32 @@ describe("Plan.calculate", function()
             expectEqual(#plan.steps, 1)
             expectEqual(plan.leftovers, { { item = "SUPER_RESTORE_3", count = 1 } })
         end)
+
+        it("decants for a Recipe Input that names a Dose size, before the Step that uses it", function()
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "MIXED_DRINK", count = 3, mode = Plan.HAVE } },
+                recipes = {
+                    MIXED_DRINK = {
+                        {
+                            verb = "Mix",
+                            output = 1,
+                            actionLimit = 14,
+                            inputs = { { item = "SUPER_RESTORE_4", count = 1 } },
+                        },
+                    },
+                },
+                pools = restorePool,
+                detected = { SUPER_RESTORE_3 = 4 },
+            })
+
+            expectEqual(#plan.steps, 2)
+            expectEqual(plan.steps[1].verb, "Decant")
+            expectEqual(plan.steps[1].item, "SUPER_RESTORE_4")
+            expectEqual(plan.steps[1].actions, 3)
+            expectEqual(plan.steps[2].item, "MIXED_DRINK")
+            expectEqual(plan.steps[2].actions, 3)
+            expectEqual(plan.next, 1)
+            expectEqual(plan.shortages, {})
+        end)
     end)
 end)
