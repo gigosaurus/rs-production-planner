@@ -2041,6 +2041,60 @@ describe("Plan.calculate", function()
             expectEqual(plan.shortages, {})
         end)
 
+        describe("stops with an error for Dose pools that are not correct", function()
+            local function errorFor(pools)
+                local ok, err = pcall(Plan.calculate, {
+                    targets = { { id = 1, item = "BREAD", count = 1, mode = Plan.HAVE } },
+                    recipes = {},
+                    pools = pools,
+                    detected = {},
+                })
+                expectEqual(ok, false)
+                return err
+            end
+
+            it("when the Dose pools are not a table", function()
+                expectEqual(errorFor("SUPER_RESTORE"), "The Dose pools must be a table.")
+            end)
+
+            it("when a Dose pool is not a table", function()
+                expectEqual(
+                    errorFor({ SUPER_RESTORE = "SUPER_RESTORE_4" }),
+                    "The Dose pool SUPER_RESTORE must be a table."
+                )
+            end)
+
+            it("when a Dose size is not a whole number more than 0", function()
+                local message = "The Dose pool SUPER_RESTORE has a Dose size that is not a whole number more than 0."
+                expectEqual(errorFor({ SUPER_RESTORE = { [0] = "SUPER_RESTORE_0", [1] = "SUPER_RESTORE_1" } }), message)
+                expectEqual(errorFor({ SUPER_RESTORE = { [1.5] = "SUPER_RESTORE_1" } }), message)
+                expectEqual(errorFor({ SUPER_RESTORE = { one = "SUPER_RESTORE_1" } }), message)
+            end)
+
+            it("when the Dose sizes do not start at 1 or have a gap", function()
+                local message = "The Dose sizes of the Dose pool SUPER_RESTORE must start at 1 and have no gap."
+                expectEqual(errorFor({ SUPER_RESTORE = { [1] = "SUPER_RESTORE_1", [3] = "SUPER_RESTORE_3" } }), message)
+                expectEqual(errorFor({ SUPER_RESTORE = { [2] = "SUPER_RESTORE_2" } }), message)
+                expectEqual(errorFor({ SUPER_RESTORE = {} }), message)
+            end)
+
+            it("when an item is not a string", function()
+                expectEqual(
+                    errorFor({ SUPER_RESTORE = { [1] = 3024 } }),
+                    "The item of Dose size 1 in the Dose pool SUPER_RESTORE must be a string."
+                )
+            end)
+
+            it("when an item is in the Dose pools two times", function()
+                local message = "The item SUPER_RESTORE_1 is in the Dose pools two times."
+                expectEqual(
+                    errorFor({ SUPER_RESTORE = { [1] = "SUPER_RESTORE_1" }, PRAYER = { [1] = "SUPER_RESTORE_1" } }),
+                    message
+                )
+                expectEqual(errorFor({ SUPER_RESTORE = { [1] = "SUPER_RESTORE_1", [2] = "SUPER_RESTORE_1" } }), message)
+            end)
+        end)
+
         -- The Plan cannot calculate a Dose pool in a Loop yet (issue 61).
         it("stops with an error when the Recipe of a Dose size uses a Dose size of the same pool", function()
             local ok, err = pcall(Plan.calculate, {

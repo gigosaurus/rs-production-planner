@@ -19,27 +19,17 @@ end
 -- Gives a copy of the Basis with an empty table for each optional field that is missing.
 -- The tables of the caller do not change.
 -- recipeFor fills the Recipes, because the Plan uses only some of them.
-local function withDefaults(basis)
+-- poolOf gives the Dose pool and the Dose size of each item in a pool (ADR 0005).
+-- poolSizes gives the Dose sizes of each pool, smallest first. They come from readPools.
+local function withDefaults(basis, poolOf, poolSizes)
     local filled = copyOf(basis)
     for _, field in ipairs(OPTIONAL_FIELDS) do
         filled[field] = filled[field] or {}
     end
     filled.chosenRecipes = {}
-    -- poolOf gives the Dose pool and the Dose size of each item in a pool (ADR 0005).
-    filled.poolOf = {}
+    filled.poolOf, filled.poolSizes = poolOf, poolSizes
     -- decants marks the Decant steps. The verb of a Recipe can also be "Decant".
     filled.decants = {}
-    -- poolSizes gives the Dose sizes of each pool, smallest first.
-    filled.poolSizes = {}
-    for pool, items in pairs(filled.pools) do
-        local sizes = {}
-        for size, item in pairs(items) do
-            filled.poolOf[item] = { pool = pool, size = size }
-            sizes[#sizes + 1] = size
-        end
-        table.sort(sizes)
-        filled.poolSizes[pool] = sizes
-    end
     return filled
 end
 
@@ -121,20 +111,51 @@ local function isMake(target)
     return target.mode == MAKE
 end
 
+-- Checks the Dose pools. It gives the Dose pool and the Dose size of each item, and the Dose sizes of each pool.
+-- The Dose sizes of a pool are 1 to N with no gap, so the doses that remain after a Decant step always fit one Dose size.
+-- Stops with an error at the line of the caller of Plan.calculate.
+local function readPools(pools)
+    if type(pools) ~= "table" then
+        error("The Dose pools must be a table.", 4)
+    end
+    local poolOf, poolSizes = {}, {}
+    for pool, items in pairs(pools) do
+        local name = tostring(pool)
+        if type(items) ~= "table" then
+            error("The Dose pool " .. name .. " must be a table.", 4)
+        end
+        local sizes = {}
+        for size, item in pairs(items) do
+            if not Validate.isPositiveInteger(size) then
+                error("The Dose pool " .. name .. " has a Dose size that is not a whole number more than 0.", 4)
+            end
+            if type(item) ~= "string" then
+                error("The item of Dose size " .. size .. " in the Dose pool " .. name .. " must be a string.", 4)
+            end
+            if poolOf[item] then
+                error("The item " .. item .. " is in the Dose pools two times.", 4)
+            end
+            poolOf[item] = { pool = pool, size = size }
+            sizes[#sizes + 1] = size
+        end
+        table.sort(sizes)
+        if #sizes == 0 or sizes[#sizes] ~= #sizes then
+            error("The Dose sizes of the Dose pool " .. name .. " must start at 1 and have no gap.", 4)
+        end
+        poolSizes[pool] = sizes
+    end
+    return poolOf, poolSizes
+end
+
 -- Stops with an error at the line of the caller of Plan.calculate when the Basis is not complete.
+-- It gives the Dose pool maps of readPools.
 local function checkBasis(basis)
     for _, field in ipairs(REQUIRED_FIELDS) do
         if basis[field] == nil then
             error("The Basis has no " .. field .. ".", 3)
         end
     end
-    -- A Decant step also raises the Made count of an item. Thus Make cannot count a Dose pool yet (issue 58).
-    local inPool = {}
-    for _, items in pairs(basis.pools or {}) do
-        for _, item in pairs(items) do
-            inPool[item] = true
-        end
-    end
+    local poolOf, poolSizes = readPools(basis.pools or {})
     -- The diff matches the Target lines by id (issue 28).
     local ids = {}
     for _, target in ipairs(basis.targets) do
@@ -156,13 +177,15 @@ local function checkBasis(basis)
             if not Validate.isNonNegativeInteger(target.made) then
                 error("The Made count of " .. item .. " must be a whole number of 0 or more.", 3)
             end
-            if inPool[target.item] then
+            -- A Decant step also raises the Made count of an item. Thus Make cannot count a Dose pool yet (issue 58).
+            if poolOf[target.item] then
                 error("A Make Target of " .. item .. " is not possible, because the item is in a Dose pool.", 3)
             end
         elseif target.made ~= nil then
             error("A Have Target of " .. item .. " has a Made count.", 3)
         end
     end
+    return poolOf, poolSizes
 end
 
 -- Gives the need of the Targets of each item. Two Targets can be for the same item.
@@ -1043,8 +1066,7 @@ local function assumptionsFor(basis, steps)
 end
 
 function Plan.calculate(basis)
-    checkBasis(basis)
-    basis = withDefaults(basis)
+    basis = withDefaults(basis, checkBasis(basis))
     local order = itemsInPlan(basis)
     checkActionLimits(basis, order)
     local levels, loopOf = planningLevels(basis, order)
