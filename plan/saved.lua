@@ -4,7 +4,6 @@
 local Assumed = require("plan/assumed")
 local CountText = require("plan/counttext")
 local Made = require("plan/made")
-local Plan = require("plan/calculate")
 local Targets = require("plan/targets")
 
 local Saved = {}
@@ -12,8 +11,6 @@ local Saved = {}
 -- Problem kinds
 Saved.UNKNOWN_VERSION = "UNKNOWN_VERSION"
 Saved.NOT_SAVED = "NOT_SAVED"
-
-local countText, countOf, countTexts, countsOf = CountText.text, CountText.count, CountText.texts, CountText.counts
 
 local function tableVersionOf(value)
     return type(value) == "table" and math.tointeger(value.v) or nil
@@ -45,7 +42,7 @@ function bank.encode(snapshot)
     table.sort(names)
     local lines = { "v=1\n" }
     for _, name in ipairs(names) do
-        lines[#lines + 1] = name .. "=" .. countText(snapshot[name]) .. "\n"
+        lines[#lines + 1] = name .. "=" .. CountText.text(snapshot[name]) .. "\n"
     end
     return table.concat(lines)
 end
@@ -58,7 +55,7 @@ function bank.decode(text)
     local snapshot = {}
     for line in lines:gmatch("([^\n]*)\n") do
         local name, digits = line:match("^(.*)=([^=]*)$")
-        local count = countOf(digits)
+        local count = CountText.count(digits)
         if not count then
             return nil
         end
@@ -81,11 +78,11 @@ end
 local reserves = { version = 1, versionOf = tableVersionOf, start = empty }
 
 function reserves.encode(counts)
-    return { v = reserves.version, reserves = countTexts(counts) }
+    return { v = reserves.version, reserves = CountText.texts(counts) }
 end
 
 function reserves.decode(value)
-    return countsOf(value.reserves)
+    return CountText.counts(value.reserves)
 end
 
 local unlocks = { version = 1, versionOf = tableVersionOf, start = empty }
@@ -156,7 +153,7 @@ local CODECS = {
 
 local GLOBAL_CODECS = {
     plan = plan,
-    settings = settingsCodec({ targetMode = Plan.HAVE, madeCountScope = Made.CHARACTER }),
+    settings = settingsCodec({ madeCountScope = Made.CHARACTER }),
 }
 
 local function globalKey(part)

@@ -208,7 +208,7 @@ describe("Saved data", function()
                 "global:plan",
                 { v = 1, targets = { { id = 1, item = "COINS", count = "1", mode = "SELL" } } },
             },
-            { "a global setting of the wrong type", "global:settings", { v = 1, targetMode = 5 } },
+            { "a global setting of the wrong type", "global:settings", { v = 1, madeCountScope = 5 } },
             { "characters with no list", "global:characters", { v = 1 } },
             { "a character name that is not a string", "global:characters", { v = 1, characters = { 5 } } },
         }
@@ -593,39 +593,49 @@ describe("Saved data", function()
     end)
 
     describe("global settings", function()
-        it("starts in Have, with the Made counts of this character", function()
+        it("starts with the Made counts of this character", function()
             local globals = Saved.loadGlobal(Saved.new(fakeStore()))
 
-            expectEqual(globals.settings, { targetMode = Plan.HAVE, madeCountScope = Made.CHARACTER })
+            expectEqual(globals.settings, { madeCountScope = Made.CHARACTER })
         end)
 
         it("loads the settings that it wrote", function()
             local store = fakeStore()
             local saved = newSaved(store)
-            Saved.changeGlobal(saved, "settings", { targetMode = Plan.MAKE, madeCountScope = Made.ALL })
+            Saved.changeGlobal(saved, "settings", { madeCountScope = Made.ALL })
             Saved.write(saved)
 
             local globals = Saved.loadGlobal(Saved.new(store))
 
-            expectEqual(globals.settings, { targetMode = Plan.MAKE, madeCountScope = Made.ALL })
+            expectEqual(globals.settings, { madeCountScope = Made.ALL })
         end)
 
         it("writes the settings with a version", function()
             local store = fakeStore()
             local saved = newSaved(store)
-            Saved.changeGlobal(saved, "settings", { targetMode = Plan.MAKE, madeCountScope = Made.ALL })
+            Saved.changeGlobal(saved, "settings", { madeCountScope = Made.ALL })
             Saved.write(saved)
 
-            expectEqual(store.values["global:settings"], { v = 1, targetMode = Plan.MAKE, madeCountScope = Made.ALL })
+            expectEqual(store.values["global:settings"], { v = 1, madeCountScope = Made.ALL })
         end)
 
         it("gives the start value of a setting that the saved data does not have", function()
             local store = fakeStore()
-            store:Set("global:settings", { v = 1, targetMode = Plan.MAKE })
+            store:Set("global:settings", { v = 1 })
 
             local globals = Saved.loadGlobal(Saved.new(store))
 
-            expectEqual(globals.settings, { targetMode = Plan.MAKE, madeCountScope = Made.CHARACTER })
+            expectEqual(globals.settings, { madeCountScope = Made.CHARACTER })
+        end)
+
+        it("does not read the old Target mode setting, because each Target has its mode (ADR 0012)", function()
+            local store = fakeStore()
+            store:Set("global:settings", { v = 1, targetMode = Plan.MAKE, madeCountScope = Made.ALL })
+
+            local globals, problems = Saved.loadGlobal(Saved.new(store))
+
+            expectEqual(globals.settings, { madeCountScope = Made.ALL })
+            expectEqual(problems, {})
         end)
     end)
 
