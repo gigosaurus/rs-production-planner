@@ -459,7 +459,7 @@ local function planningLevels(basis, order)
         table.insert(itemsOfNode[node], item)
     end
     -- A node links to each node that one of its items links to.
-    -- The links between the items of one pool are not links of the node.
+    -- A link between two items of one pool is a link from the node to itself.
     local linkedNodesOf = {}
     local function linkedNodes(node)
         if linkedNodesOf[node] then
@@ -469,9 +469,7 @@ local function planningLevels(basis, order)
         linkedNodesOf[node] = linked
         for _, item in ipairs(itemsOfNode[node]) do
             for _, other in ipairs(links(item)) do
-                if not (basis.poolOf[item] and nodeOf(other) == node) then
-                    linked[#linked + 1] = nodeOf(other)
-                end
+                linked[#linked + 1] = nodeOf(other)
             end
         end
         return linked
@@ -528,6 +526,12 @@ local function planningLevels(basis, order)
             loopOfGroup[group] = loopOfGroup[group] or {}
             table.insert(loopOfGroup[group], item)
             loopOf[item] = loopOfGroup[group]
+        end
+    end
+    -- The Plan cannot calculate a Dose pool in a Loop yet (issue 61).
+    for _, item in ipairs(order) do
+        if loopOf[item] and basis.poolOf[item] then
+            error("The Plan cannot calculate a Loop with a Dose pool: " .. table.concat(loopOf[item], ", ") .. ".", 3)
         end
     end
 

@@ -2040,5 +2040,51 @@ describe("Plan.calculate", function()
             expectEqual(plan.steps[1].item, "SUPER_RESTORE_3")
             expectEqual(plan.shortages, {})
         end)
+
+        -- The Plan cannot calculate a Dose pool in a Loop yet (issue 61).
+        it("stops with an error when the Recipe of a Dose size uses a Dose size of the same pool", function()
+            local ok, err = pcall(Plan.calculate, {
+                targets = { { id = 1, item = "SUPER_RESTORE_4", count = 1, mode = Plan.HAVE } },
+                recipes = {
+                    SUPER_RESTORE_3 = {
+                        {
+                            verb = "Mix",
+                            output = 1,
+                            actionLimit = 14,
+                            inputs = { { item = "SUPER_RESTORE_1", count = 1 } },
+                        },
+                    },
+                },
+                pools = restorePool,
+                detected = { SUPER_RESTORE_1 = 3 },
+            })
+
+            expectEqual(ok, false)
+            expectEqual(err:find("The Plan cannot calculate a Loop with a Dose pool: ", 1, true) ~= nil, true)
+        end)
+
+        it("stops with an error when a Dose pool is in a Loop with other items", function()
+            local ok, err = pcall(Plan.calculate, {
+                targets = { { id = 1, item = "SUPER_RESTORE_3", count = 1, mode = Plan.HAVE } },
+                recipes = {
+                    SUPER_RESTORE_3 = {
+                        { verb = "Mix", output = 1, actionLimit = 14, inputs = { { item = "CATALYST", count = 1 } } },
+                    },
+                    CATALYST = {
+                        {
+                            verb = "Mix",
+                            output = 2,
+                            actionLimit = 14,
+                            inputs = { { item = "SUPER_RESTORE_2", count = 1 } },
+                        },
+                    },
+                },
+                pools = restorePool,
+                detected = {},
+            })
+
+            expectEqual(ok, false)
+            expectEqual(err:find("The Plan cannot calculate a Loop with a Dose pool: ", 1, true) ~= nil, true)
+        end)
     end)
 end)
