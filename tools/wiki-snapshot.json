@@ -1,0 +1,552 @@
+{
+ "date": "2026-10-23",
+ "infobox_item": [
+  {
+   "item_id": [
+    257
+   ],
+   "item_name": "Clean ranarr",
+   "page_name": "Clean ranarr",
+   "version_anchor": "DEFAULT"
+  },
+  {
+   "item_id": [
+    3000
+   ],
+   "item_name": "Clean snapdragon",
+   "page_name": "Clean snapdragon",
+   "version_anchor": "DEFAULT"
+  },
+  {
+   "item_id": [
+    24860
+   ],
+   "item_name": "Coins",
+   "page_name": "Coins (My Arm's Big Adventure)",
+   "version_anchor": "DEFAULT"
+  },
+  {
+   "item_id": [
+    54830
+   ],
+   "item_name": "Coins",
+   "page_name": "Coins",
+   "version_anchor": "1B coin"
+  },
+  {
+   "item_id": [
+    617
+   ],
+   "item_name": "Coins",
+   "page_name": "Coins (Shilo Village)",
+   "version_anchor": "DEFAULT"
+  },
+  {
+   "item_id": [
+    8890
+   ],
+   "item_name": "Coins",
+   "page_name": "Coins (Mage Training Arena)",
+   "version_anchor": "DEFAULT"
+  },
+  {
+   "item_id": [
+    995
+   ],
+   "item_name": "Coins",
+   "page_name": "Coins",
+   "version_anchor": "Base"
+  },
+  {
+   "item_id": [
+    207
+   ],
+   "item_name": "Grimy ranarr",
+   "page_name": "Grimy ranarr",
+   "version_anchor": "DEFAULT"
+  },
+  {
+   "item_id": [
+    3051
+   ],
+   "item_name": "Grimy snapdragon",
+   "page_name": "Grimy snapdragon",
+   "version_anchor": "DEFAULT"
+  },
+  {
+   "item_id": [
+    99
+   ],
+   "item_name": "Ranarr potion (unfinished)",
+   "page_name": "Ranarr potion (unfinished)",
+   "version_anchor": "DEFAULT"
+  },
+  {
+   "item_id": [
+    223
+   ],
+   "item_name": "Red spiders' eggs",
+   "page_name": "Red spiders' eggs",
+   "version_anchor": "DEFAULT"
+  },
+  {
+   "item_id": [
+    34395
+   ],
+   "item_name": "Red spiders' eggs",
+   "page_name": "Red spiders' eggs (New Varrock)",
+   "version_anchor": "DEFAULT"
+  },
+  {
+   "item_id": [
+    3004
+   ],
+   "item_name": "Snapdragon potion (unfinished)",
+   "page_name": "Snapdragon potion (unfinished)",
+   "version_anchor": "DEFAULT"
+  },
+  {
+   "item_id": [
+    3030
+   ],
+   "item_name": "Super restore (1)",
+   "page_name": "Super restore",
+   "version_anchor": "(1)"
+  },
+  {
+   "item_id": [
+    3028
+   ],
+   "item_name": "Super restore (2)",
+   "page_name": "Super restore",
+   "version_anchor": "(2)"
+  },
+  {
+   "item_id": [
+    3026
+   ],
+   "item_name": "Super restore (3)",
+   "page_name": "Super restore",
+   "version_anchor": "(3)"
+  },
+  {
+   "item_id": [
+    3024
+   ],
+   "item_name": "Super restore (4)",
+   "page_name": "Super restore",
+   "version_anchor": "(4)"
+  },
+  {
+   "item_id": [
+    17492
+   ],
+   "item_name": "Vial of water",
+   "page_name": "Vial of water (Dungeoneering)",
+   "version_anchor": "DEFAULT"
+  },
+  {
+   "item_id": [
+    227
+   ],
+   "item_name": "Vial of water",
+   "page_name": "Vial of water",
+   "version_anchor": "DEFAULT"
+  },
+  {
+   "item_id": [
+    9086
+   ],
+   "item_name": "Vial of water",
+   "page_name": "Vial of water (Lunar Diplomacy)",
+   "version_anchor": "DEFAULT"
+  }
+ ],
+ "licence": "CC BY-NC-SA 3.0",
+ "recipe": [
+  {
+   "page_name": "Clean ranarr",
+   "production_json": {
+    "discovery": [],
+    "facility": "Zahur",
+    "materials": [
+     {
+      "cost_expr": "Grimy ranarr",
+      "cost_method": "gemw",
+      "image": "Grimy ranarr.png",
+      "name": "Grimy ranarr",
+      "page": "Grimy ranarr",
+      "quantity": "1"
+     },
+     {
+      "cost_expr": 1,
+      "cost_method": "currency",
+      "image": "Coins.png",
+      "name": "Coins",
+      "page": "Coins",
+      "quantity": "200"
+     }
+    ],
+    "members": "Yes",
+    "method": "",
+    "outputs": [
+     {
+      "cost_expr": "Clean ranarr",
+      "cost_method": "gemw",
+      "image": "Clean ranarr.png",
+      "name": "Clean ranarr",
+      "page": "Clean ranarr",
+      "quantity": "1"
+     }
+    ],
+    "quest": "",
+    "skill": false,
+    "skills": [],
+    "ticks": "0"
+   }
+  },
+  {
+   "page_name": "Clean ranarr",
+   "production_json": {
+    "discovery": [],
+    "materials": [
+     {
+      "cost_expr": "Grimy ranarr",
+      "cost_method": "gemw",
+      "image": "Grimy ranarr.png",
+      "name": "Grimy ranarr",
+      "page": "Grimy ranarr",
+      "quantity": "1"
+     }
+    ],
+    "members": "No",
+    "method": "",
+    "outputs": [
+     {
+      "cost_expr": "Clean ranarr",
+      "cost_method": "gemw",
+      "image": "Clean ranarr.png",
+      "name": "Clean ranarr",
+      "page": "Clean ranarr",
+      "quantity": "1"
+     }
+    ],
+    "quest": "",
+    "skill": true,
+    "skills": [
+     {
+      "experience": "7.5",
+      "level": "25",
+      "name": "Herblore"
+     }
+    ],
+    "ticks": "1"
+   }
+  },
+  {
+   "page_name": "Clean snapdragon",
+   "production_json": {
+    "discovery": [],
+    "facility": "Zahur",
+    "materials": [
+     {
+      "cost_expr": "Grimy snapdragon",
+      "cost_method": "gemw",
+      "image": "Grimy snapdragon.png",
+      "name": "Grimy snapdragon",
+      "page": "Grimy snapdragon",
+      "quantity": "1"
+     },
+     {
+      "cost_expr": 1,
+      "cost_method": "currency",
+      "image": "Coins.png",
+      "name": "Coins",
+      "page": "Coins",
+      "quantity": "200"
+     }
+    ],
+    "members": "Yes",
+    "method": "",
+    "outputs": [
+     {
+      "cost_expr": "Clean snapdragon",
+      "cost_method": "gemw",
+      "image": "Clean snapdragon.png",
+      "name": "Clean snapdragon",
+      "page": "Clean snapdragon",
+      "quantity": "1"
+     }
+    ],
+    "quest": "",
+    "skill": false,
+    "skills": [],
+    "ticks": "0"
+   }
+  },
+  {
+   "page_name": "Clean snapdragon",
+   "production_json": {
+    "discovery": [],
+    "materials": [
+     {
+      "cost_expr": "Grimy snapdragon",
+      "cost_method": "gemw",
+      "image": "Grimy snapdragon.png",
+      "name": "Grimy snapdragon",
+      "page": "Grimy snapdragon",
+      "quantity": "1"
+     }
+    ],
+    "members": "No",
+    "method": "",
+    "outputs": [
+     {
+      "cost_expr": "Clean snapdragon",
+      "cost_method": "gemw",
+      "image": "Clean snapdragon.png",
+      "name": "Clean snapdragon",
+      "page": "Clean snapdragon",
+      "quantity": "1"
+     }
+    ],
+    "quest": "",
+    "skill": true,
+    "skills": [
+     {
+      "experience": "11.8",
+      "level": "59",
+      "name": "Herblore"
+     }
+    ],
+    "ticks": "1"
+   }
+  },
+  {
+   "page_name": "Ranarr potion (unfinished)",
+   "production_json": {
+    "discovery": [],
+    "facility": "Rewards (Livid Farm)",
+    "materials": [
+     {
+      "cost_expr": "Clean ranarr",
+      "cost_method": "gemw",
+      "image": "Clean ranarr.png",
+      "name": "Clean ranarr",
+      "page": "Clean ranarr",
+      "quantity": "50"
+     },
+     {
+      "cost_method": "no",
+      "image": "Produce points.png",
+      "name": "Produce points",
+      "page": "Produce points",
+      "quantity": "5500"
+     }
+    ],
+    "members": "Yes",
+    "method": "",
+    "outputs": [
+     {
+      "cost_expr": "Ranarr potion (unfinished)",
+      "cost_method": "gemw",
+      "image": "Ranarr potion (unfinished).png",
+      "name": "Ranarr potion (unfinished)",
+      "page": "Ranarr potion (unfinished)",
+      "quantity": "50"
+     }
+    ],
+    "process": "Vial My Herbs!",
+    "quest": "",
+    "skill": false,
+    "skills": [],
+    "ticks": "0"
+   }
+  },
+  {
+   "page_name": "Ranarr potion (unfinished)",
+   "production_json": {
+    "discovery": [],
+    "materials": [
+     {
+      "cost_expr": "Vial of water",
+      "cost_method": "gemw",
+      "image": "Vial of water.png",
+      "name": "Vial of water",
+      "page": "Vial of water",
+      "quantity": "1"
+     },
+     {
+      "cost_expr": "Clean ranarr",
+      "cost_method": "gemw",
+      "image": "Clean ranarr.png",
+      "name": "Clean ranarr",
+      "page": "Clean ranarr",
+      "quantity": "1"
+     }
+    ],
+    "members": "No",
+    "method": "",
+    "outputs": [
+     {
+      "cost_expr": "Ranarr potion (unfinished)",
+      "cost_method": "gemw",
+      "image": "Ranarr potion (unfinished).png",
+      "name": "Ranarr potion (unfinished)",
+      "page": "Ranarr potion (unfinished)",
+      "quantity": "1"
+     }
+    ],
+    "quest": "",
+    "skill": true,
+    "skills": [
+     {
+      "boostable": true,
+      "experience": "1",
+      "level": "25",
+      "name": "Herblore"
+     }
+    ],
+    "ticks": "2"
+   }
+  },
+  {
+   "page_name": "Snapdragon potion (unfinished)",
+   "production_json": {
+    "discovery": [],
+    "facility": "Rewards (Livid Farm)",
+    "materials": [
+     {
+      "cost_expr": "Clean snapdragon",
+      "cost_method": "gemw",
+      "image": "Clean snapdragon.png",
+      "name": "Clean snapdragon",
+      "page": "Clean snapdragon",
+      "quantity": "50"
+     },
+     {
+      "cost_method": "no",
+      "image": "Produce points.png",
+      "name": "Produce points",
+      "page": "Produce points",
+      "quantity": "5500"
+     }
+    ],
+    "members": "Yes",
+    "method": "",
+    "outputs": [
+     {
+      "cost_expr": "Snapdragon potion (unfinished)",
+      "cost_method": "gemw",
+      "image": "Snapdragon potion (unfinished).png",
+      "name": "Snapdragon potion (unfinished)",
+      "page": "Snapdragon potion (unfinished)",
+      "quantity": "50"
+     }
+    ],
+    "process": "Vial My Herbs!",
+    "quest": "",
+    "skill": false,
+    "skills": [],
+    "ticks": "0"
+   }
+  },
+  {
+   "page_name": "Snapdragon potion (unfinished)",
+   "production_json": {
+    "discovery": [],
+    "materials": [
+     {
+      "cost_expr": "Vial of water",
+      "cost_method": "gemw",
+      "image": "Vial of water.png",
+      "name": "Vial of water",
+      "page": "Vial of water",
+      "quantity": "1"
+     },
+     {
+      "cost_expr": "Clean snapdragon",
+      "cost_method": "gemw",
+      "image": "Clean snapdragon.png",
+      "name": "Clean snapdragon",
+      "page": "Clean snapdragon",
+      "quantity": "1"
+     }
+    ],
+    "members": "No",
+    "method": "",
+    "outputs": [
+     {
+      "cost_expr": "Snapdragon potion (unfinished)",
+      "cost_method": "gemw",
+      "image": "Snapdragon potion (unfinished).png",
+      "name": "Snapdragon potion (unfinished)",
+      "page": "Snapdragon potion (unfinished)",
+      "quantity": "1"
+     }
+    ],
+    "quest": "",
+    "skill": true,
+    "skills": [
+     {
+      "boostable": true,
+      "experience": "1",
+      "level": "59",
+      "name": "Herblore"
+     }
+    ],
+    "ticks": "2"
+   }
+  },
+  {
+   "page_name": "Super restore",
+   "production_json": {
+    "discovery": [],
+    "materials": [
+     {
+      "cost_expr": "Snapdragon potion (unfinished)",
+      "cost_method": "gemw",
+      "image": "Snapdragon potion (unfinished).png",
+      "name": "Snapdragon potion (unfinished)",
+      "page": "Snapdragon potion (unfinished)",
+      "quantity": "1"
+     },
+     {
+      "cost_expr": "Red spiders' eggs",
+      "cost_method": "gemw",
+      "image": "Red spiders' eggs.png",
+      "name": "Red spiders' eggs",
+      "page": "Red spiders' eggs",
+      "quantity": "1"
+     }
+    ],
+    "members": "Yes",
+    "method": "",
+    "outputs": [
+     {
+      "cost_expr": "Super restore (3)",
+      "cost_method": "gemw",
+      "image": "Super restore (3).png",
+      "name": "Super restore (3)",
+      "page": "Super restore",
+      "portion": 3,
+      "quantity": "1",
+      "variant": "(3)"
+     }
+    ],
+    "quest": "",
+    "skill": true,
+    "skills": [
+     {
+      "boostable": true,
+      "experience": "142.5",
+      "level": "63",
+      "name": "Herblore"
+     }
+    ],
+    "ticks": "2"
+   }
+  }
+ ],
+ "source": "https://runescape.wiki/api.php?action=bucket"
+}
