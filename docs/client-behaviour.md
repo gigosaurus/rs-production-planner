@@ -28,6 +28,12 @@ The API reference has no function for the account type. The var `VarPlayer.IRONM
 - Bit 12 was always set. We do not know what it means.
 - `!sethardcore 0` also clears bit 0. The value becomes 4096, not 4097.
 - A `VarTransmit` event comes after each cheat that changes the value. A new login is not necessary.
+- The value is correct when the plugin starts. After `prl` in the game, `var.VarPlayer.IRONMAN.value` was 4096. We did not test a start before login.
+- `VarPlayer.GROUP_IRONMAN` (id 11925) also exists. Its value was 0 on a character that was not an ironman. We do not know what it holds.
+
+## Vars
+
+- `pairs(var.VarPlayer)` and `pairs(id.VarPlayer)` give 62,360 entries. `pairs(var.VarClient)` and `pairs(id.VarClient)` give 7,802. The keys are not config names: no key contained `IRON`, but `var.VarPlayer.IRONMAN` exists. To find a var, get it by name. (`probes/account-mode-probe`)
 
 ## PersistentDB
 
