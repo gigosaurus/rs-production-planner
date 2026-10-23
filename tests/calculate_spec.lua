@@ -1548,6 +1548,14 @@ describe("Plan.calculate", function()
             expectEqual(after.steps[after.next].item, "A")
         end)
 
+        -- The player owns all the A, so R has no actions and X has no mark. X needs 10x B for its remaining actions.
+        it("uses the Batch hint rule for the only Step of a Loop", function()
+            local plan = loopPlan({ A = 10, B = 1 })
+
+            expectEqual(stepFor(plan, "D").loopWith, nil)
+            expectEqual(plan.next, nil)
+        end)
+
         -- The view shows the mark as "Loop: repeat with <Steps>" (issue 26).
         it("marks each Step in a Loop with the positions of the other Steps of the Loop", function()
             local plan = loopPlan({ A = 1, B = 10 })
