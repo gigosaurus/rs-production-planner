@@ -13,11 +13,11 @@ An item, a quantity and a Target mode. When two Targets are for the same item, t
 _Avoid_: Goal, request, order
 
 **Basis**:
-All the data that the plugin calculates a Plan from: the Targets, the Recipes, the stock counts, the Made counts, the skill levels and the Unlocks.
+All the data that the plugin calculates a Plan from: the Targets, the Recipes, the stock counts, the Made counts, the skill levels, the Unlocks, the active Effect sources and the true Effect conditions.
 _Avoid_: Request, input (an Input is a Recipe term)
 
 **Recipe**:
-One way to make items. It has Inputs, Outputs, requirements, an Action limit and an Action time.
+One way to make items. It has Inputs, Outputs, requirements, an Action limit and an Action time. It can have Recipe tags.
 _Avoid_: Formula, craft
 
 **Output**:
@@ -193,11 +193,27 @@ _Avoid_: Held step, blocked step
 ## Effects and assumptions
 
 **Effect**:
-A thing that changes the yield of a Recipe: a chance to save an Input, or a chance of extra Output.
+A thing that changes the yield of a Recipe: a chance to save an Input, a chance of extra Output, or a chance to multiply the Outputs.
 _Avoid_: Boost, perk, modifier
 
+**Effect source**:
+A thing that gives Effects, for example a worn item, a portable or one rank of a perk. The Plan counts only the Effects of active Effect sources.
+_Avoid_: Source (on its own, because the Made count uses other sources), bonus
+
+**Effect condition**:
+A fact that must be true before an Effect counts, for example "in the desert" or "Portable well is active".
+_Avoid_: Requirement (that is a Recipe term), prerequisite
+
+**Rank group**:
+A set of Effect sources in order from weakest to strongest. When more than one of them is active, the Plan counts only the strongest one.
+_Avoid_: Tier, level (that is a skill term)
+
+**Recipe tag**:
+A name that a Recipe can have. An Effect can name a Recipe tag to change all Recipes that have it.
+_Avoid_: Category, label
+
 **Planning mode**:
-The setting that decides how the Plan counts Effects: at zero (conservative) or at their average (expected). It has a global value. An item can have its own value, which applies where the item is an Input.
+The setting that decides how the Plan counts Effects: at zero (conservative) or at their average (expected). It has a global value. A Recipe can have its own value, which applies to all Inputs and Outputs of its Step.
 _Avoid_: Risk level, safety mode
 
 **Planning assumption**:
