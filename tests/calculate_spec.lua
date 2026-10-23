@@ -1621,5 +1621,21 @@ describe("Plan.calculate", function()
             expectEqual(plan.shortages, {})
             expectEqual(plan.leftovers, {})
         end)
+
+        it("uses the Recipe of the smallest Dose size when more than one Dose size has a Recipe", function()
+            local function mix(item)
+                return { { verb = "Mix", output = 1, actionLimit = 14, inputs = { { item = item, count = 1 } } } }
+            end
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "SUPER_RESTORE_3", count = 2, mode = Plan.HAVE } },
+                recipes = { SUPER_RESTORE_4 = mix("FOUR_DOSE_INPUT"), SUPER_RESTORE_3 = mix("THREE_DOSE_INPUT") },
+                pools = restorePool,
+                detected = { FOUR_DOSE_INPUT = 2, THREE_DOSE_INPUT = 2 },
+            })
+
+            expectEqual(#plan.steps, 1)
+            expectEqual(plan.steps[1].item, "SUPER_RESTORE_3")
+            expectEqual(plan.steps[1].actions, 2)
+        end)
     end)
 end)
