@@ -331,6 +331,22 @@ describe("Made count GE amount", function()
         expectEqual(sharkCount(states, "Alice", Made.CHARACTER), 5)
     end)
 
+    it("gives the same count with an observation before the first Make Target", function()
+        local bought = offer(0, Made.BUY, Made.FINISHED, "SHARK", 10, 10)
+        local function collect(observeFirst)
+            local states = {}
+            if observeFirst then
+                Made.observe(states, "Alice", { detected = {} })
+            end
+            start(states, "Alice", {}, { bought })
+            Made.observe(states, "Alice", { detected = {}, ge = { bought } })
+            Made.observe(states, "Alice", { detected = { SHARK = 10 } })
+            return sharkCount(states, "Alice", Made.CHARACTER)
+        end
+
+        expectEqual(collect(true), collect(false))
+    end)
+
     it("adds nothing for an item that is not a Make Target", function()
         local states = {}
         start(states, "Alice", { SHARK = 10 }, {})
