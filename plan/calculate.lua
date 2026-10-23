@@ -46,10 +46,24 @@ end
 -- Chooses the Recipe that the Plan uses for an item. It is nil for a Raw material.
 -- Each part of the Plan must use this function, so that all parts use the same Recipe.
 -- It gives a copy with an empty list for each optional list that is missing. It makes one copy for each item.
+-- In a Dose pool, only the smallest Dose size with a Recipe has a Recipe (issue 29). Recipe choice is issue 30.
+local function poolRecipeItem(basis, pool)
+    for _, size in ipairs(basis.poolSizes[pool]) do
+        local item = basis.pools[pool][size]
+        if (basis.recipes[item] or {})[1] then
+            return item
+        end
+    end
+end
+
 local function recipeFor(basis, item)
     local chosen = basis.chosenRecipes
     if chosen[item] == nil then
         local recipe = (basis.recipes[item] or {})[1]
+        local inPool = basis.poolOf[item]
+        if inPool and poolRecipeItem(basis, inPool.pool) ~= item then
+            recipe = nil
+        end
         -- false marks a Raw material, so that the next call does not look again.
         chosen[item] = false
         if recipe then
@@ -356,7 +370,7 @@ local function itemsInPlan(basis)
         end
         inPlan[item] = true
         order[#order + 1] = item
-        -- The Plan can use each Dose size of a pool, and the Recipe of each Dose size.
+        -- The Plan can use each Dose size of a pool.
         local inPool = basis.poolOf[item]
         if inPool then
             for _, size in ipairs(basis.poolSizes[inPool.pool]) do

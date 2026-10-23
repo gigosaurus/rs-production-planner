@@ -2014,5 +2014,31 @@ describe("Plan.calculate", function()
             expectEqual(ok, false)
             expectEqual(err, "A Make Target of SUPER_RESTORE_4 is not possible, because the item is in a Dose pool.")
         end)
+
+        -- The Plan uses only the Recipe of one Dose size. The Recipes of the other Dose sizes are not in the Plan.
+        it("does not check the Recipe of a Dose size that the Plan does not use", function()
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "SUPER_RESTORE_3", count = 1, mode = Plan.HAVE } },
+                recipes = {
+                    SUPER_RESTORE_3 = {
+                        {
+                            verb = "Mix",
+                            output = 1,
+                            actionLimit = 14,
+                            inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
+                        },
+                    },
+                    SUPER_RESTORE_4 = {
+                        { verb = "Mix", output = 1, inputs = { { item = "UNUSED_INPUT", count = 1 } } },
+                    },
+                },
+                pools = restorePool,
+                detected = { SNAPDRAGON_UNF = 1 },
+            })
+
+            expectEqual(#plan.steps, 1)
+            expectEqual(plan.steps[1].item, "SUPER_RESTORE_3")
+            expectEqual(plan.shortages, {})
+        end)
     end)
 end)
