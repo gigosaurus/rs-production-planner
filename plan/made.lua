@@ -115,18 +115,9 @@ function Made.startTarget(states, name, target, detected, offers)
     end
 end
 
--- Call this when the plugin loads the state of a character while a Make Target exists.
--- A rise between sessions is not made, so the next observation is the starting point.
--- offers are all the GE offers of the character now.
-function Made.load(states, name, offers)
-    local state = character(states, name)
-    state.last = {}
-    state.ge = {}
-    readOffers(state, offers)
-end
-
 -- Items that the GE gives to the player add to the GE amount of the character.
-local function observeOffer(state, offer, detected)
+-- items has a key for the item of each Make Target.
+local function observeOffer(state, offer, items)
     checkOffer(offer)
     local slot = state.slots[offer.slot]
     -- A slot has a new offer when it has no saved data, a different item or type, or a lower soldCount.
@@ -141,17 +132,38 @@ local function observeOffer(state, offer, detected)
         -- Unverified (ADR 0009): the items that the offer did not sell come back.
         amount = offer.itemCount - offer.soldCount
     end
-    -- The keys of detected are the items of the Make Targets.
-    if detected[offer.item] then
+    if items[offer.item] then
         state.ge[offer.item] = (state.ge[offer.item] or 0) + amount
     end
     saveSlot(state, offer)
+end
+
+-- Call this when the plugin loads the state of a character while a Make Target exists.
+-- A rise between sessions is not made, so the next observation is the starting point.
+-- offers are all the GE offers of the character now. targets are the Make Targets.
+-- The GE amount stays, because the player can collect the items after the load (issue 53).
+-- Items that the offers got between sessions add to it. With no saved state, the offers are the starting point.
+function Made.load(states, name, offers, targets)
+    if not states[name] then
+        readOffers(character(states, name), offers)
+        return
+    end
+    local state = states[name]
+    state.last = {}
+    local items = {}
+    for _, target in ipairs(targets) do
+        items[target.item] = true
+    end
+    for _, offer in ipairs(offers) do
+        observeOffer(state, offer, items)
+    end
 end
 
 -- tick has the facts of one server tick for one character.
 function Made.observe(states, name, tick)
     local state = character(states, name)
     for _, offer in ipairs(tick.ge or {}) do
+        -- The keys of detected are the items of the Make Targets.
         observeOffer(state, offer, tick.detected)
     end
     for item, now in pairs(tick.detected) do

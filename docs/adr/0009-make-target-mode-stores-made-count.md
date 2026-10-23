@@ -15,7 +15,7 @@ Made count = rises in Detected stock of the Target item (backpack and bank toget
 
 - **It is a pickup.** The rise occurs in the same server tick as a decrease of a ground stack of the same item (`ObjStackEntityRemoved`, or `ObjStackEntityChanged` with a lower count). The plugin excludes up to the size of that decrease. This applies to all ground stacks, so loot does not count. Verified by probe (`probes/drop-shop-probe/`).
 - **A shop is open.** An inventory whose `configName` contains "SHOP" is open (`InventoryAdded` / `InventoryRemoved`). Verified in many shops.
-- **It comes from the GE.** For each character, the plugin saves the last `soldCount` of each GE slot. An increase on a BUY offer for a Target item adds to a GE amount. So do the items that come back from an aborted SELL offer. Rises use up the GE amount first, so the timing of collection does not matter. **Unverified.** We cannot test the GE. If the guess is wrong, bought items count as made.
+- **It comes from the GE.** For each character, the plugin saves the last `soldCount` of each GE slot. An increase on a BUY offer for a Target item adds to a GE amount. So do the items that come back from an aborted SELL offer. Rises use up the GE amount first, so the timing of collection does not matter. The GE amount and the slot data stay between sessions. At a load, the plugin compares each offer with its saved slot, so items that an offer got between sessions also add to the GE amount (issue 53). A character with no saved data has no saved slots, so its offers at the first load are a starting point. **Unverified.** We cannot test the GE. If the guess is wrong, bought items count as made.
 
 Also:
 
