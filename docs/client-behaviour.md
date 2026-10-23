@@ -29,6 +29,7 @@ ADR 0007 gives the Inventory API facts: `isValid` and not `valid`, empty slots w
 - Bit 0 is set for each ironman type.
 - Bit 12 was always set. We do not know what it means.
 - A `VarTransmit` event comes after each cheat (`!setironman`, `!sethardcore`, `!setgroupironman`). A new login is not necessary.
+- After `prl` while the player was logged in, the start read gave 4096. This was the value after the last cheat. The probe did not start before login.
 
 ## PersistentDB
 

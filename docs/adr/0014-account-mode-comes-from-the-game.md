@@ -8,7 +8,7 @@ In ADR 0008, the plugin saves Account mode for each character. A new character s
 
 The var `VarPlayer.IRONMAN` holds bit flags. Bit 0 is set for ironman, hardcore ironman and group ironman. The character is an ironman when bit 0 is set. `docs/client-behaviour.md` gives the tested values.
 
-A `VarTransmit` event gives each change.
+When the plugin starts while the player is logged in, the value is correct. A start before login is not tested. A `VarTransmit` event gives each change.
 
 ## Saved data
 
