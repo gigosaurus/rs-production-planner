@@ -180,7 +180,33 @@ describe("Saved data", function()
             {
                 "a Target count that is not an integer",
                 "global:plan",
-                { v = 1, targets = { { item = "COINS", count = "1.5" } } },
+                { v = 1, targets = { { id = 1, item = "COINS", count = "1.5", mode = "HAVE" } } },
+            },
+            {
+                "a Target with no id",
+                "global:plan",
+                { v = 1, targets = { { item = "COINS", count = "1", mode = "HAVE" } } },
+            },
+            {
+                "a Target id that is not a whole number",
+                "global:plan",
+                { v = 1, targets = { { id = 1.5, item = "COINS", count = "1", mode = "HAVE" } } },
+            },
+            {
+                "two Targets with one id",
+                "global:plan",
+                {
+                    v = 1,
+                    targets = {
+                        { id = 1, item = "COINS", count = "1", mode = "HAVE" },
+                        { id = 1, item = "BREAD", count = "1", mode = "HAVE" },
+                    },
+                },
+            },
+            {
+                "a Target with an unknown mode",
+                "global:plan",
+                { v = 1, targets = { { id = 1, item = "COINS", count = "1", mode = "SELL" } } },
             },
             { "a global setting of the wrong type", "global:settings", { v = 1, targetMode = 5 } },
             { "characters with no list", "global:characters", { v = 1 } },
@@ -494,7 +520,12 @@ describe("Saved data", function()
 
     describe("Plan", function()
         local function plan()
-            return { targets = { { item = "BREAD", count = 20000001 }, { item = "CAKE", count = 3 } } }
+            return {
+                targets = {
+                    { id = 7, item = "BREAD", count = 20000001, mode = Plan.MAKE },
+                    { id = 16777216, item = "CAKE", count = 3, mode = Plan.HAVE },
+                },
+            }
         end
 
         it("loads the Plan that it wrote", function()
@@ -508,6 +539,17 @@ describe("Saved data", function()
             expectEqual(globals.plan, plan())
         end)
 
+        it("gives each Target id as an integer, because the store gives back floats", function()
+            local store = fakeStore()
+            local saved = newSaved(store)
+            Saved.changeGlobal(saved, "plan", plan())
+            Saved.write(saved)
+
+            local globals = Saved.loadGlobal(Saved.new(store))
+
+            expectEqual(math.type(globals.plan.targets[1].id), "integer")
+        end)
+
         it("writes each Target count as a decimal string", function()
             local store = fakeStore()
             local saved = newSaved(store)
@@ -516,7 +558,10 @@ describe("Saved data", function()
 
             expectEqual(store.values["global:plan"], {
                 v = 1,
-                targets = { { item = "BREAD", count = "20000001" }, { item = "CAKE", count = "3" } },
+                targets = {
+                    { id = 7, item = "BREAD", count = "20000001", mode = Plan.MAKE },
+                    { id = 16777216, item = "CAKE", count = "3", mode = Plan.HAVE },
+                },
             })
         end)
 

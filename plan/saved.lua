@@ -5,6 +5,7 @@ local Assumed = require("plan/assumed")
 local CountText = require("plan/counttext")
 local Made = require("plan/made")
 local Plan = require("plan/calculate")
+local Targets = require("plan/targets")
 
 local Saved = {}
 
@@ -141,33 +142,7 @@ end
 
 local made = moduleCodec(Made)
 
-local plan = { version = 1, versionOf = tableVersionOf }
-
-function plan.start()
-    return { targets = {} }
-end
-
-function plan.encode(value)
-    local targets = {}
-    for index, target in ipairs(value.targets) do
-        targets[index] = { item = target.item, count = countText(target.count) }
-    end
-    return { v = plan.version, targets = targets }
-end
-
-function plan.decode(value)
-    if type(value.targets) ~= "table" then
-        return nil
-    end
-    local targets = {}
-    for index, target in ipairs(value.targets) do
-        if type(target) ~= "table" or type(target.item) ~= "string" or not countOf(target.count) then
-            return nil
-        end
-        targets[index] = { item = target.item, count = countOf(target.count) }
-    end
-    return { targets = targets }
-end
+local plan = moduleCodec(Targets)
 
 -- Gives a codec for a table of settings. Each setting that the saved data does not have gets its start value.
 -- Then a new setting needs no new version.
