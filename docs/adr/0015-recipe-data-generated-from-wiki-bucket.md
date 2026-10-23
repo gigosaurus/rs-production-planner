@@ -12,6 +12,7 @@ A development-time script now generates `data/recipes.lua`. The plugin still use
 - `tools/overrides.lua`: hand-written. It holds values that the wiki does not have or has wrong. Each entry gives a reason. A tested value also gives the date, the method (probe or manual) and the wiki edit, if there is one.
 - `tools/config-names.lua`: the config name and the display name of each wiki item ID. A probe in the game client prints it. We copy the console output into the file.
 - `data/recipes.lua`: generated from these three files. Nobody edits it by hand.
+- `data/effects.lua`: hand-written, not generated (ADR 0014). The wiki does not give Effects as data.
 
 ## Source
 
@@ -21,7 +22,7 @@ The wiki does not give these values as structured data. They come from `tools/ov
 
 - The Action limit.
 - Unlocks. The wiki gives them as free text.
-- Effects.
+- Recipe tags. An Effect names a Recipe tag to change a group of Recipes (ADR 0014).
 
 ## Wiki API guidelines
 
@@ -38,6 +39,7 @@ Only a human edits the RuneScape Wiki, by hand, with their own account. An AI ag
 ## Checks
 
 - A CI test runs the generator again from the checked-in files. It fails when the output is different from `data/recipes.lua`.
+- A CI test fails when `data/effects.lua` names a Recipe or a Recipe tag that is not in `data/recipes.lua`.
 - CI tests check the format of the data. The game checks the config names when the plugin loads (ADR 0013).
 - Each Recipe has a `wiki` field with the page name. Each item has a `name` field from the wiki. A probe compares `name` with `ObjType.name` in the game. The UI does not use `name`. It reads `ObjType.name`.
 - When the wiki does not give a value, we test it in the developer environment with a recorder probe. Cheats (`give`, `skillsetlevel`) prepare the character. When a cheat cannot prepare a test, we test by hand.
@@ -54,6 +56,7 @@ Wiki content is CC BY-NC-SA 3.0. The plugin description says that the recipe dat
 ## Considered Options
 
 - **Write all data by hand:** rejected. It is too slow, and it finds no updates.
-- **Generate the final file with no hand-written values:** rejected. The wiki does not have the Action limit, Unlocks or Effects.
+- **Generate the final file with no hand-written values:** rejected. The wiki does not have the Action limit, Unlocks or Recipe tags.
+- **Effects in `tools/overrides.lua`, with `data/effects.lua` generated from them:** rejected. The wiki gives no Effects, so the generator only copies them. A hand-written `data/effects.lua` is shorter to review.
 - **Read wiki pages, not the Bucket:** rejected. It needs thousands of requests.
 - **Write the scripts in Lua:** rejected. Lua needs a library for HTTP. Python makes it clear that the scripts are not part of the plugin.
