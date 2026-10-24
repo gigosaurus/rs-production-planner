@@ -162,7 +162,7 @@ local function populate(n,depth,limit)
                 local okMethod,fn=get(v,method)
                 if okMethod and fn~=nil then
                     local ok,result=pcall(function() return fn(v,c) end)
-                    column[key]=ok and result or ("error: "..str(result))
+                    if ok then column[key]=result else column[key]="error: "..str(result) end
                 end
             end
             add(cg,node(c,column,cg))
@@ -773,7 +773,7 @@ local function exportOneConfig(kind, idNumber)
     local cfg = lookupConfig(kind, idNumber)
 
     if cfg == nil then
-        return nil, "missing"
+        return nil, "FromID gave nil"
     end
 
     local validityRead, valid = get(cfg, "isValid")
@@ -788,7 +788,7 @@ local function exportOneConfig(kind, idNumber)
             return nil, "invalid"
         end
     elseif validityRead and valid == false then
-        return nil, "invalid"
+        return nil, "isValid is false"
     end
 
     local identityRead, returnedID = get(cfg, "id")
@@ -798,16 +798,20 @@ local function exportOneConfig(kind, idNumber)
             error("Lookup returned an unexpected object ID")
         end
 
-        return nil, "missing"
+        return nil, "id is " .. str(returnedID)
     end
 
     -- The docs do not say what FromID gives for an unused ID.
-    -- Treat a config without a name as missing.
+    -- Treat a config without a name as missing, except a DBRow with columns:
+    -- a DBRow can perhaps have no name.
     local nameRead, configName = get(cfg, "configName")
+    local countRead, columnCount = get(cfg, "columnCount")
+    local hasColumns = countRead and type(columnCount) == "number" and columnCount > 0
 
     if kind.name ~= "Obj"
+        and not (kind.name == "DBRow" and hasColumns)
         and (not nameRead or configName == nil or configName == "") then
-        return nil, "missing"
+        return nil, "configName is " .. str(configName)
     end
 
     local exportRoot = node(
@@ -1106,7 +1110,7 @@ local function startNetworkExport(kinds)
                     job.scanned = job.scanned + 1
                     lookupsThisTick = lookupsThisTick + 1
 
-                    local exported, encoded = pcall(
+                    local exported, encoded, reason = pcall(
                         exportOneConfig,
                         kind,
                         configID
@@ -1128,6 +1132,11 @@ local function startNetworkExport(kinds)
                     elseif encoded == nil then
                         job.skipped = job.skipped + 1
                         job.misses = job.misses + 1
+
+                        -- Show why the first IDs of each kind are skipped.
+                        if configID < 5 or (kind.name == "DBRow" and configID == 487) then
+                            log("[Config HTTP export] " .. label .. " skipped: " .. str(reason))
+                        end
                     else
                         job.misses = 0
                         exportsThisTick = exportsThisTick + 1
@@ -1222,7 +1231,7 @@ local function mount(parent)
         window:AddSimpleButton(
             "Export " .. kind.name,
             function() startNetworkExport({ kind }) end,
-            {inline = i > 1}
+            {inline = (i % 4) > 1}
         )
     end
 

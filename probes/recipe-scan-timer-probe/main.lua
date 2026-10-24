@@ -56,8 +56,9 @@ end
 local function readFull(obj)
     local params = obj.params
     local values = {}
-    for name, p in pairs(params or {}) do
-        values[name] = obj:GetParamValue(p)
+    -- The keys of params are not the param names, so use configName.
+    for _, p in pairs(params or {}) do
+        values[p.configName] = obj:GetParamValue(p)
     end
     if values.RECIPE_REQUIREMENT_TYPE_1 == nil
         and values.RECIPE_INGREDIENT_TYPE_1 == nil

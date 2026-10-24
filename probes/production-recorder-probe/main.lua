@@ -40,6 +40,15 @@ local function skillName(skill)
     return ok and name or tostring(skill)
 end
 
+-- Inventory.Find gives one Inv in practice (drop-shop-probe), although the docs say a list.
+local function findInv(invType)
+    local found = Inventory.Find(invType)
+    if type(found) == "table" then
+        return found[1]
+    end
+    return found
+end
+
 -- Item totals by item ID for one inventory
 local function totalsOf(inv)
     local totals = {}
@@ -159,7 +168,7 @@ Event.SkillTransmit.Subscribe("productionRecorderProbe", function(e)
 end)
 
 Event.InventoryAdded.Subscribe("productionRecorderProbe", function(e)
-    local inv = Inventory.Find(e.inv)[1]
+    local inv = findInv(e.inv)
     local slots = inv and inv.isValid and inv.slotCount or "?"
     say("INV ADDED", "id=" .. e.inv.id, invName(e.inv.id), "slots=" .. tostring(slots))
     lastTotals[e.inv.id] = totalsOf(inv)
@@ -171,11 +180,11 @@ Event.InventoryRemoved.Subscribe("productionRecorderProbe", function(e)
 end)
 
 Event.InventoryUpdated.Subscribe("productionRecorderProbe", function(e)
-    logChanges(e.inv.id, totalsOf(Inventory.Find(e.inv)[1]))
+    logChanges(e.inv.id, totalsOf(findInv(e.inv)))
 end)
 
 -- Read the backpack now, so the first update logs only the change.
-lastTotals[config.Inv.INV.id] = totalsOf(Inventory.Find(config.Inv.INV)[1])
+lastTotals[config.Inv.INV.id] = totalsOf(findInv(config.Inv.INV))
 
 function PluginShutdown()
     Event.ServerLogic.Unsubscribe("productionRecorderProbe")
