@@ -24,6 +24,7 @@ The params do not give every way to get an item. See "What the params do not giv
 2. Scripts counted each `RECIPE_*` key and its values.
 3. A script got all 15,954 rows of the wiki `recipe` bucket. It matched the rows to game recipes by output name and skill level, and compared the XP.
 4. An earlier pass on a partial export compared 207 items in detail: levels, XP, ingredients and output counts.
+5. A second export (PR #88) got other config kinds into the `configs` table: 6,041 Params, 35,926 Structs, 536 Quests, 8,791 Enums and 10,894 VarPlayers. VarPlayer rows leave out `value`. Quest rows include the progress of the account that ran the export (`hasFinishedQuest` and similar), so this document does not use those fields.
 
 The wiki can be wrong. A difference is not proof that the game data is correct. The matching uses item names, and some names are shared by more than one item.
 
@@ -81,6 +82,42 @@ For the rows with the same method, the XP agrees in 5,638 cases and differs in 5
 | `RECIPE_INGREDIENT_EXTRA_AMOUNT_CHECK_N` | 110 | 5 |
 | Others | fewer than 60 each | - |
 
+## Param definitions
+
+**Confirmed.** Each Param config gives `valueType` and `defaultValue`. The docs say that `GetParamValue` gives `defaultValue` when an item does not have the param. So a missing recipe param means its default.
+
+| Param | Type | Default |
+|---|---|---|
+| `RECIPE_REQUIREMENT_TYPE_N`, `_VALUE_N` (N = 1 to 5) | INTEGER | 0 |
+| `RECIPE_INGREDIENT_TYPE_N` (N = 1 to 18) | OBJ | -1 (none) |
+| `RECIPE_INGREDIENT_NUMBER_N` (N = 1 to 18) | INTEGER | 0 |
+| `RECIPE_INGREDIENT_N_MULTIPLE` (N = 1 to 10) | STRUCT | -1 (none) |
+| `RECIPE_INGREDIENT_N_SCALE_STACK` (N = 1 to 18) | BOOLEAN | `true` |
+| `RECIPE_INGREDIENT_EXTRA_INFO_N` (N = 1 to 18) | INTEGER | 0 |
+| `RECIPE_TOOL_TYPE_N` (N = 1 to 3) | OBJ | -1 (none) |
+| `RECIPE_TOOL_N_MULTIPLE` (N = 1 to 3) | STRUCT | -1 (none) |
+| `RECIPE_XP_TYPE_N`, `_VALUE_N` (N = 1, 2) | INTEGER | 0 |
+| `RECIPE_XP_SCALE_STACK_N` (N = 1, 2) | BOOLEAN | `true` |
+| `RECIPE_MAKE_STACK_SIZE` | INTEGER | 1 |
+| `RECIPE_CYCLES` | INTEGER | 0 |
+| `RECIPE_BATCH_SIZE` | INTEGER | 1 |
+| `RECIPE_CAN_BE_BOOSTED` | BOOLEAN | `true` |
+| `RECIPE_IS_MEMBERS_ONLY` | BOOLEAN | `false` |
+| `RECIPE_SLOTS_NEEDED` | INTEGER | 1 |
+| `RECIPE_ADD_TO_INV` | BOOLEAN | `true` |
+| `RECIPE_IMPROVEMENT_LEVEL` | INTEGER | -1 |
+| `RECIPE_SHOW_CONDITION_TYPE_N`, `_VALUE_N` (N = 1 to 3) | INTEGER | 0 |
+| `RECIPE_NON_DUMMY_OBJ`, `RECIPE_MULTI_OBJECT_OVERRIDE` | OBJ | -1 (none) |
+| `RECIPE_NAME_OVERRIDE`, `RECIPE_MULTI_NAME_OVERRIDE`, `RECIPE_MESSAGE` | STRING | empty |
+| `RECIPE_GRAPHIC` | SPRITE | -1 |
+| `INVENT_CLIENT_RECIPE` | DBROW | -1 |
+
+Notes:
+
+- Recipes can have up to 18 ingredients and 3 tools. The export showed only up to 10 ingredients and 2 tools.
+- `RECIPE_REQUIREMENT_VALUE_N` is a plain INTEGER. The type does not tell us what a type 62 or 64 value refers to.
+- `INVENT_CLIENT_RECIPE` points to a DBRow. The probe does not export DBRows.
+
 ## Skill codes
 
 **Confirmed.** `RECIPE_REQUIREMENT_TYPE_N` and `RECIPE_XP_TYPE_N` use the same codes for skills. The codes are not the `SkillType` enum. They follow the order of the RS3 stats interface, starting at 1. The full export has examples of every code except 1, 2, 3 and 5.
@@ -112,18 +149,47 @@ Codes 1, 2, 3 and 5 follow from the order. **Likely.**
 | Type | Count | Meaning | Confidence |
 |---|---|---|---|
 | 1 to 29 | - | Skill level. The value is the level. | Confirmed |
-| 61 | 155 | Quest complete. The value is a quest ID. | Likely |
-| 62 | 2,646 | An unlock. The value is an ID. | Unknown |
+| 61 | 155 | Quest complete. The value is the `QUEST_ID` param of the quest, not its config ID. | Confirmed |
+| 62 | 2,646 | An unlock. The value is an ID, perhaps of a varbit or a DBRow. | Unknown |
 | 63 | 316 | Invention discovery. The value is a discovery index. | Likely |
 | 64 | 297 | A facility or station, perhaps. | Unknown |
 | 67 | 123 | No value. Only on house furniture. | Unknown |
 
 ### Type 61
 
-Evidence that the value is a quest ID:
+**Confirmed.** The value is the `QUEST_ID` param of a Quest config. It is not the Quest config ID: 364 of 365 quests with a `QUEST_ID` have a different config ID. Only Dwarf Cannon has the same value (34) for both.
 
-- 34 Cannonball: Dwarf Cannon. 8 Blurite: The Knight's Sword. 20 Cooked chompy: Big Chompy Bird Hunting. 108 Dart tips: The Tourist Trap. 198 Bacon: Bringing Home the Bacon. 143 Spirit shields: Summer's End. 103 Spears: Tai Bwo Wannai Trio.
-- Some items also have `USE_REQUIRES_QUEST1` or `WEAR_REQUIRES_QUEST1`. On 21 of 50 such items, the value is the same as the type 61 value. For example, Cannonball has `USE_REQUIRES_QUEST1 = 34`. On the other 29 items the values are different. To wear an item can need a different quest.
+To find the quest, search the Quest configs for `QUEST_ID = value`. All 25 values give the quest that the wiki gives:
+
+| Value | Quest | Example item |
+|---|---|---|
+| 8 | The Knight's Sword | Blurite sword |
+| 10 | Fate of the Gods | Divine simulacrum I |
+| 20 | Big Chompy Bird Hunting | Cooked chompy |
+| 30 | Desert Treasure | Paddewwa teleport |
+| 34 | Dwarf Cannon | Cannonball |
+| 41 | The Eyes of Glouphrie | Crystal staff |
+| 43 | A Fairy Tale II - Cure a Queen | Portable fairy ring |
+| 67 | Legends' Quest | Holy water |
+| 70 | Lunar Diplomacy | Moonclan teleport |
+| 81 | Observatory Quest | Unstrung emblem |
+| 102 | Swan Song | Raw monkfish |
+| 103 | Tai Bwo Wannai Trio | Bronze spear |
+| 108 | The Tourist Trap | Bronze dart tip |
+| 127 | The Path of Glouphrie | Crystal chime |
+| 132 | As a First Resort | Potion flask |
+| 143 | Summer's End | Arcane spirit shield |
+| 146 | In Pyre Need | Phoenix pouch |
+| 176 | Ritual of the Mahjarrat | Armadyl battlestaff |
+| 196 | The Brink of Extinction | Obsidian bar |
+| 198 | Bringing Home the Bacon | Bacon |
+| 310 | Azzanadra's Quest | Pontifex observation ring |
+| 313 | City of Senntisten | Pontifex shadow ring |
+| 339 | Kili Row | Lesser unensouled bar |
+| 365 | Hearts of Sanguine | Antisanguine (3) |
+| 371 | Heralds of Crimson | Extreme antisanguine (3) |
+
+The same numbering appears elsewhere. Cannonball has `USE_REQUIRES_QUEST1 = 34`, and an achievement Struct uses `TASK_REQUIREMENT_1_TYPE = 61` with value 70 (Lunar Diplomacy). So the requirement codes are perhaps a shared system, not only for recipes.
 
 ### Type 62
 
@@ -148,7 +214,13 @@ Evidence that the value is a quest ID:
 | 36 | Bane arrows | Partial completion of Ritual of the Mahjarrat |
 | 209, 210, 120 | Elder, batch and supreme overloads | - |
 
-Our guess: the value refers to a separate unlock condition, perhaps a var, a varbit or a Struct row. The value alone does not tell us the condition.
+Our guess: the value refers to a separate unlock condition. We compared the values with the IDs of every exported kind. None gives sensible names:
+
+- As a `QUEST_ID`, 187 (arrowheads) would be One Piercing Note, and 5 (Daemonheim) would be Ernest the Chicken.
+- As a VarPlayer ID, 187 is `SS_INVITED` and 35 is `MUSICLENGTH`.
+- As a Struct or Enum ID, the names are unrelated, for example cosmetic packs and bookcase entries.
+
+So the value is probably a varbit or a DBRow. The probe exports neither. The API documents a lookup only for `var.VarPlayer` and `var.VarClient`.
 
 ### Type 64
 
@@ -172,7 +244,7 @@ Only on 123 house furniture items, with Construction. It has no value. Perhaps "
 ## XP
 
 - `RECIPE_XP_VALUE_N` is XP × 10. Clean lantadyme is 131, which is 13.1 XP. **Confirmed.**
-- If `RECIPE_XP_SCALE_STACK_N` is `false`, the value is for one output item. If it is `true` or not there, the value is for one action. **Likely.** Evidence: on the 346 compared recipes with the flag `false` (mostly ammunition), the XP agrees with the wiki per item, not per action. Bolts: 1.5 XP each, 10 bolts for each action, and the wiki gives 15 XP for 10 bolts.
+- If `RECIPE_XP_SCALE_STACK_N` is `false`, the value is for one output item. If it is `true`, the value is for one action. The Param default is `true`, so a recipe without the param gives XP for one action. **Confirmed.** Evidence: on the 346 compared recipes with the flag `false` (mostly ammunition), the XP agrees with the wiki per item, not per action. Bolts: 1.5 XP each, 10 bolts for each action, and the wiki gives 15 XP for 10 bolts.
 - The wiki often gives XP for a batch, for example darts ×10 or Mechanised chinchompa ×50. Per output item, the XP agrees in 5,568 cases. **Confirmed.**
 - A recipe has up to 2 XP entries. The two entries can name the same skill. Then the total is the sum. For example, Asgarnian ale is 9 + 248 = 25.7 XP, and the wiki gives 25.7. **Likely**: perhaps one entry is a step.
 - The second entry can be a different skill. For example, Mining accumulator gives 660 Invention XP and 150 Crafting XP. **Confirmed.**
@@ -183,13 +255,26 @@ Only on 123 house furniture items, with Construction. It has no value. Perhaps "
 ## Ingredients and tools
 
 - `RECIPE_INGREDIENT_TYPE_N` is an Obj. `RECIPE_INGREDIENT_NUMBER_N` is the count for one action. A recipe has up to 10 ingredients. **Confirmed.**
-- `RECIPE_INGREDIENT_n_MULTIPLE` replaces `TYPE_n` with a Struct. The export has 433 different Structs. Examples: `SMITHING_MULTI_INGREDIENT_BRONZE_BAR`, `_BRONZE_BAR2`, `_BRONZE_BAR4`, `SMITHING_MULTI_INGREDIENT_COPPER`, `ARROWS_FEATHER_INGREDIENT_MULTI`, `VIAL_WATER_INGREDIENT_MULTI`. The wiki shows the plain item, for example Bronze bar. **Unknown**: what the Struct holds. Perhaps the alternatives and the count. The export does not expand Structs.
+- `RECIPE_INGREDIENT_n_MULTIPLE` replaces `TYPE_n` with a Struct. **Confirmed**: the Struct lists alternatives. Each alternative has its own `RECIPE_INGREDIENT_TYPE_N` and `RECIPE_INGREDIENT_NUMBER_N`, and any one of them satisfies the ingredient. Recipes refer to 433 of these Structs, with 2 to 8 alternatives each. Examples:
+
+| Struct | Alternatives |
+|---|---|
+| `SMITHING_MULTI_INGREDIENT_STEEL_BAR` | 1 × `SMITHING_HOPPER_DUMMY` (`EXTRA_INFO` 20), or 1 × Steel bar |
+| `SMITHING_MULTI_INGREDIENT_ELDER_RUNE_BAR16` | 16 from the hopper (`EXTRA_INFO` 29), or 16 × Elder rune bar |
+| `SMITHING_MULTI_INGREDIENT_PHASMATITE` | Hopper, Phasmatite, or `SMITHING_OREBOX_DUMMY` (all `EXTRA_INFO` 14) |
+| `NAILS_INGREDIENT_MULTI_4` | 4 of any of 7 nail types |
+| `DIV_BOON_INGREDIENT_MULTI1` | 100 × Pale energy, or 100 × Flickering energy |
+| `POF_ANIMAL_TROUGH_RAW_GREAT_WHITE_SHARK_MULTIPLE` | The item, or its noted form |
+
+  - The number in the Struct name (`BAR2`, `BAR16`) is the count in each alternative.
+  - `RECIPE_MULTI_NAME_OVERRIDE` and `RECIPE_MULTI_OBJECT_OVERRIDE` give the name and item to show, for example "Steel bar". This is what the wiki shows.
+  - `SMITHING_HOPPER_DUMMY` and `SMITHING_OREBOX_DUMMY` mean bars in the forge storage and ores in an ore box. **Likely.** For them, `EXTRA_INFO` seems to be the metal: 14 Phasmatite, 20 Steel, 27 Necronium, 29 Elder rune, 44 Primal.
 - `RECIPE_TOOL_TYPE_N` is an Obj that the player must hold, and that the recipe does not use up. Hammer on 2,086 objects, Saw on 614. **Likely.**
 - `RECIPE_TOOL_XP_TYPE_N` is on 35 tools, for example Tinderbox (17, Firemaking) and Crystal pickaxe (13, Mining). **Unknown.**
 
 ### Invention materials
 
-**Likely.** Invention recipes use `INVENT_MATERIAL_DUMMY` (Obj 36365) as an ingredient. `RECIPE_INGREDIENT_EXTRA_INFO_N` gives the material for ingredient `N`. The IDs agree across all compared recipes:
+**Confirmed.** Invention recipes use `INVENT_MATERIAL_DUMMY` (Obj 36365) as an ingredient. `RECIPE_INGREDIENT_EXTRA_INFO_N` gives the material for ingredient `N`. The value is a key in the Enum `INVENT_MATERIAL_LIST_SORTED` (13170, 83 entries). The Enum gives a Struct for each material, for example 1 → `INVENT_MATERIAL_JUNK` (Struct 415) and 2 → `INVENT_MATERIAL_SIMPLE_PARTS` (416). The Enum agrees with all the IDs that we matched against the wiki:
 
 | ID | Material | ID | Material |
 |---|---|---|---|
@@ -201,7 +286,9 @@ Only on 123 house furniture items, with Construction. It has no value. Perhaps "
 | 15 | Crafted parts | | |
 | 18 | Deflecting parts | | |
 
-The full export has 77 different `EXTRA_INFO` values. The table gives only the ones that we matched.
+The Enum also gives 9 Tensile parts, 17 Flexible parts, 20 Spiked parts, 100 Precise components and 121 Subtle components.
+
+The meaning of `EXTRA_INFO` depends on the dummy ingredient. `EXTRA_INFO` values 24 to 47 are not in the material Enum. They occur with `SMITHING_HOPPER_DUMMY` and `SMITHING_OREBOX_DUMMY`. See `_MULTIPLE` above.
 
 ## Output and timing
 
@@ -239,6 +326,34 @@ The wiki has methods that the params do not have:
 - **Items with no game recipe.** 6,323 wiki rows are for items with no game recipe. 3,380 of these rows have no skill: shops, rewards, NPC services, cosmetic overrides. The rows with a skill are mostly Invention augmentations, furniture workbench items, Creation kiln potions, compost bins, the Soul forge and more altars.
 
 So the params cannot give every source of an item. If the plugin must know every source, it still needs the wiki or hand-written data for the rest.
+
+### Spells
+
+**Confirmed.** Each spell is a Struct, for example `MAGIC_SUPERGLASS` (14845), `MAGIC_PLANK_MAKE` (14859), `MAGIC_HUMIDIFY` (14830) and `MAGIC_STRING_JEWELLERY` (14851). The Struct gives:
+
+- The Magic level: `COMBATV2_ABILITY_LEVEL_REQ`, for example 77 for Superglass Make.
+- The rune costs: `COMBATV2_REQUIRES_<RUNE>_RUNES`, for example 10 air, 6 fire and 2 astral for Superglass Make.
+- The spellbook (`COMBATV2_WHICH_SPELLBOOK`), and members only (`COMBATV2_ABILITY_IS_MEMBERS`).
+- The unlock as text: `COMBATV2_ABILITY_UNLOCK_DESCRIPTION`, for example "Unlocked by completing the quest 'Dream Mentor'."
+
+The Struct does not give the items that the spell uses or makes. For example, nothing says that Superglass Make turns sand and soda ash into molten glass. Only `COMBATV2_REQUIRES_OTHER_ITEMS = 1` (Plank Make) says that the spell needs more items.
+
+### Machines
+
+**Confirmed.** Enums give the input and output of some machines:
+
+| Enum | Entries | Example |
+|---|---|---|
+| `INVENT_MACHINE_SAWMILL` (13179) | 11 | Oak logs → Oak plank |
+| `INVENT_MACHINE_TANNER` (13177) | 21 | Red dragonhide → Red dragon leather; noted hides also work |
+| `INVENT_MACHINE_UNF` (13178) | 24 | Unfinished potions |
+| `INVENT_MACHINE_SMELTER` (13180) | 6 | Bars, with overrides in 13181 and 13182 |
+| `CONSTRUCTION_HOUSING_SAWMILL_SIMPLE_LOGS_TO_PLANKS` (13148) | 11 | Planks |
+| `PLAYER_FORT_SAWMILL_LOGS_TO_PLANKS` (16796) | 22 | Planks |
+
+`INVENT_MACHINE_DBROWS` (13175) and `INVENT_MACHINE_HOTSPOT_DBROWS` (13176) point to DBRows with more machine data. The probe does not export DBRows.
+
+These Enums give the items, but not the speed, the cost or the XP. A plugin that uses them would need more data from somewhere.
 
 ### Other links between items
 
@@ -309,12 +424,13 @@ Ales: the wiki says one brewing vat makes 8 glasses and needs 8 beer glasses. Th
 
 Some names suggest a meaning. For example, `RECIPE_IGNORE_RUNEPOUCH` perhaps stops the recipe from using runes in a rune pouch. We did not test these guesses.
 
+The Param defaults explain some values. For example, `RECIPE_CAN_BE_BOOSTED` defaults to `true`, so the 197 objects with `false` are the exceptions. `RECIPE_INGREDIENT_n_SCALE_STACK` and `RECIPE_ADD_TO_INV` also default to `true`, and only `false` appears on items.
+
 ## Next steps
 
-1. Probe `params` and `GetParamValue` on an Obj. Record the result in `client-behaviour.md`.
-2. Probe a Struct from `RECIPE_INGREDIENT_n_MULTIPLE`, for example `SMITHING_MULTI_INGREDIENT_BRONZE_BAR2`. Find its params.
-3. Read quest configs for the type 61 values and check the quest names.
-4. Find what type 62, 64 and 67 values and show conditions refer to.
-5. Check the levels and XP in "Differences from the wiki to check in game".
-6. Decide which sources the plugin must know, and if the wiki must give the sources that the params do not have.
-7. Write the ADR that replaces ADR 0016.
+1. Record in `client-behaviour.md` what the probes showed: an Obj `params` table keyed by name, Struct `paramValues`, and that `FromID` is not always a plain Lua function.
+2. Find what type 62, 64 and 67 values and show conditions refer to. Type 62 is probably a varbit or a DBRow. Find whether the API can read either.
+3. Export DBRows if the API allows it: `INVENT_CLIENT_RECIPE` and `INVENT_MACHINE_DBROWS` point to them.
+4. Check the levels and XP in "Differences from the wiki to check in game".
+5. Decide which sources the plugin must know, and if the wiki must give the sources that the params do not have (spells, NPCs, altars).
+6. Write the ADR that replaces ADR 0016.
