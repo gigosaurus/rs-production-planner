@@ -151,7 +151,7 @@ Codes 1, 2, 3 and 5 follow from the order. **Likely.**
 | 1 to 29 | - | Skill level. The value is the level. | Confirmed |
 | 61 | 155 | Quest complete. The value is the `QUEST_ID` param of the quest, not its config ID. | Confirmed |
 | 62 | 2,646 | An unlock. The value is an ID, perhaps of a varbit or a DBRow. | Unknown |
-| 63 | 316 | Invention discovery. The value is a discovery index. | Likely |
+| 63 | 316 | Invention blueprint. The value is column 1 of a row of the DBTable `INVENT_BLUEPRINT_TABLE`. | Confirmed |
 | 64 | 297 | A facility or station, perhaps. | Unknown |
 | 67 | 123 | No value. Only on house furniture. | Unknown |
 
@@ -220,7 +220,27 @@ Our guess: the value refers to a separate unlock condition. We compared the valu
 - As a VarPlayer ID, 187 is `SS_INVITED` and 35 is `MUSICLENGTH`.
 - As a Struct or Enum ID, the names are unrelated, for example cosmetic packs and bookcase entries.
 
-So the value is probably a varbit or a DBRow. The probe exports neither. The API documents a lookup only for `var.VarPlayer` and `var.VarClient`.
+- As a DBRow ID, most values have no row (DBRow IDs start at 89). The 77 values that have a row give unrelated names, for example farm paddocks for ensouled bars.
+- As column 1 of a DBTable row (the way that type 63 works), the tables that cover all values are large lists, and the names are unrelated. For example, 187 (arrowheads) gives "20th Anniversary top".
+
+So the value is probably a varbit or some other data that the API does not give. The API documents a lookup only for `var.VarPlayer` and `var.VarClient`. The same is true for type 64: its values give unrelated names in every table.
+
+### Type 63
+
+**Confirmed.** The value is column 1 of a row of `INVENT_BLUEPRINT_TABLE` (159 rows). Column 2 is the blueprint name. All 76 values give the blueprint that makes the item:
+
+| Value | Blueprint | Example item |
+|---|---|---|
+| 1 | Augmentor | Augmented malevolent cuirass (also needs 70) |
+| 3 | Charge pack | Charge pack |
+| 4 | Mining accumulator | Mining accumulator |
+| 14 | Junk refiner | Junk refiner |
+| 70 | Augmented armour | Augmented malevolent cuirass |
+| 73 | Lab coat | Lab coat legs |
+| 113 | Spring cleaner and Tight springs | Spring cleaner |
+| 153 | Ancient gizmos | Ancient weapon gizmo shell |
+
+The plugin cannot use this table: ADR 0001 rejects DBRow data. The plugin can show the Unlock as "Invention blueprint 70" without a name, or a person can write the names by hand.
 
 ### Type 64
 
@@ -384,7 +404,7 @@ These could explain some of the "no game recipe" rows, for example Invention aug
 
 - It found 63,935 valid Objs, 7,422 Objs with a recipe, 279 dummy recipes and 7,212 items with a recipe.
 - It took 5.14 s. The probe set this time: 64,357 ÷ 250 ÷ 50 = 5.1 s. The real cost is lower.
-- The longest frame was 0.030 s, against 0.014 s with no scan. The longest frame while reading every param of 50 Objs each tick was 0.026 s.
+- The longest frame was 0.030 s, against 0.014 s with no scan. A second run gave 0.028 s against 0.017 s. Reading every param of 50 Objs each tick gave the same counts, and a longest frame of 0.027 s.
 - `os.clock` is not available, so the probe could not measure the CPU time of each part.
 
 So the plugin can build the item → recipes index at runtime in a few seconds, in parts, with little effect on the frame rate. A larger part each tick is probably possible.
@@ -393,14 +413,22 @@ So the plugin can build the item → recipes index at runtime in a few seconds, 
 
 ### Production recorder
 
-`probes/production-recorder-probe` recorded a session of baking cakes (Uncooked cake → Cake):
+`probes/production-recorder-probe` recorded two kinds of session.
 
-- 4 actions, 4 server ticks apart. The Action time of Cake is 4 ticks. Cake has no `RECIPE_CYCLES`, so the params do not give this.
-- The cake tin came back (the player saw it). The recipe params do not list it. This confirms that other Outputs must come from another source.
+Baking cakes (Uncooked cake → Cake), two sessions of 4 and 3 actions:
+
+- The actions were 4 server ticks apart. The Action time of Cake is 4 ticks. Cake has no `RECIPE_CYCLES`, so the params do not give this.
+- Each action used 1 Uncooked cake and gave 1 Cake and 1 Cake tin. The recipe params do not list the Cake tin. This confirms that other Outputs must come from another source.
 - Each action gave 189 XP in `SkillTransmit`. The recipe gives `RECIPE_XP_VALUE_1 = 1800`, which is 180 XP. So `SkillTransmit` gives whole XP, and a 5% bonus was active.
 - `SkillTransmit.skill` gave 7, the `SkillType` value of Cooking. The recipe params use 16 for Cooking. The two numbering systems are different.
 
-The first version of the probe did not log item changes, because of a bug in the probe (`Inventory.Find` gives one `Inv` in practice, not a list).
+Making 6 Weapon gizmo shells:
+
+- The actions were 5 server ticks apart. The recipe has `RECIPE_CYCLES = 5`. So `RECIPE_CYCLES` is the Action time in server ticks, where the recipe has it.
+- Each action gave 550 Invention XP and 50 Crafting XP. The recipe gives 5500 and 500. So the second XP entry is real XP in a second skill. No bonus was active.
+- The Invention materials did not appear as an inventory change. No inventory was added for them. So the plugin cannot see Invention materials as Detected stock through inventory events.
+
+The first versions of the probe had two bugs. They did not log item changes (`Inventory.Find` gives one `Inv` in practice, not a list), and the session totals missed the first action (the items change before `SkillTransmit` fires, in the same tick). Both are fixed.
 
 ### DBTables and DBRows
 
@@ -420,7 +448,19 @@ The probe exported 264 DBTables. A DBTable gives only the value types of its col
 
 Other tables include `ARCH_RESTORATION`, `CONSTRUCTION_HOUSE_FURNITURE` and `ITEM_TABLE`.
 
-The export got no DBRows. The probe treated each DBRow as missing. The cause is not known yet. A fixed probe logs the reason.
+A second export got 17,365 DBRows, IDs 89 to 20,372. Each has a `configName` and an `ownerDBTable`. What the recipe tables hold:
+
+| DBTable | Rows | Content |
+|---|---|---|
+| `INVENT_BLUEPRINT_TABLE` | 159 | Blueprint index (column 1), name, description. Type 63 uses the index. |
+| `HERBLORE_POTION` | 191 | Potion index, the `POTIONDOSES_*` Struct (Dose sizes) and a `POTION_INFO_*` Struct. |
+| `RUNECRAFTING_ALTARS` | 20 | Altar index and name only, for example "Air altar". No runes or levels. |
+| `INVENT_MACHINE_TABLE` | 13 | Machine name, description, level, the materials to build it, power. Not the items that the machine converts. |
+| `ARCH_RESTORATION` | 250 | Damaged artefact, restored artefact, level. The params already give this. |
+| `CONSTRUCTION_HOUSE_FURNITURE` | 654 | Furniture loc, Obj and build data. |
+| `MC_CORE_RECIPE` | 0 | No rows. |
+
+The DBRows do not explain type 62 or 64. They give the names for type 63. The plugin cannot use DBRow data (ADR 0001), so this is for discovery only.
 
 ## Differences from the wiki to check in game
 
@@ -475,8 +515,8 @@ The Param defaults explain some values. For example, `RECIPE_CAN_BE_BOOSTED` def
 ## Next steps
 
 1. Record in `client-behaviour.md` what the probes showed: an Obj `params` table keyed by name, Struct `paramValues`, and that `FromID` is not always a plain Lua function.
-2. Find what type 62, 64 and 67 values and show conditions refer to. Type 62 is probably a varbit or a DBRow. Find whether the API can read either.
-3. Export DBRows if the API allows it: `INVENT_CLIENT_RECIPE` and `INVENT_MACHINE_DBROWS` point to them.
+2. Decide how the plugin shows Unlocks of type 62, 64 and 67, whose meaning is unknown. For example "Unknown requirement 62:187", or hand-written names.
+3. Record more sessions with `probes/production-recorder-probe`: other Outputs (vials, buckets), failure chances (burnt food), the Action limit (a full Make-X), and forge storage.
 4. Check the levels and XP in "Differences from the wiki to check in game".
 5. Decide which sources the plugin must know, and if the wiki must give the sources that the params do not have (spells, NPCs, altars).
 6. Write the ADR that replaces ADR 0016.
