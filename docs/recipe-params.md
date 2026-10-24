@@ -376,6 +376,52 @@ Other params link one item to another, but have no recipe data (no skill, no ing
 
 These could explain some of the "no game recipe" rows, for example Invention augmentation and dyes. We did not test this.
 
+## Probe results in the game client
+
+### Runtime scan
+
+`probes/recipe-scan-timer-probe` scanned all Obj IDs 0 to 64,356. In each client Logic tick (50 each second), it read 250 Objs with `HasParam` and `GetParamValue` for 4 params.
+
+- It found 63,935 valid Objs, 7,422 Objs with a recipe, 279 dummy recipes and 7,212 items with a recipe.
+- It took 5.14 s. The probe set this time: 64,357 ÷ 250 ÷ 50 = 5.1 s. The real cost is lower.
+- The longest frame was 0.030 s, against 0.014 s with no scan. The longest frame while reading every param of 50 Objs each tick was 0.026 s.
+- `os.clock` is not available, so the probe could not measure the CPU time of each part.
+
+So the plugin can build the item → recipes index at runtime in a few seconds, in parts, with little effect on the frame rate. A larger part each tick is probably possible.
+
+`GetParamValue` on some params logs a client error and gives no value: `Failed to convert a config value to a plugin value, invalid ValueType (16)` (AREA) or `(4294967295)` (-1). `pcall` does not catch it. Read only the params that the plugin needs.
+
+### Production recorder
+
+`probes/production-recorder-probe` recorded a session of baking cakes (Uncooked cake → Cake):
+
+- 4 actions, 4 server ticks apart. The Action time of Cake is 4 ticks. Cake has no `RECIPE_CYCLES`, so the params do not give this.
+- The cake tin came back (the player saw it). The recipe params do not list it. This confirms that other Outputs must come from another source.
+- Each action gave 189 XP in `SkillTransmit`. The recipe gives `RECIPE_XP_VALUE_1 = 1800`, which is 180 XP. So `SkillTransmit` gives whole XP, and a 5% bonus was active.
+- `SkillTransmit.skill` gave 7, the `SkillType` value of Cooking. The recipe params use 16 for Cooking. The two numbering systems are different.
+
+The first version of the probe did not log item changes, because of a bug in the probe (`Inventory.Find` gives one `Inv` in practice, not a list).
+
+### DBTables and DBRows
+
+The probe exported 264 DBTables. A DBTable gives only the value types of its columns, not data. Tables that can be important for recipes:
+
+| ID | DBTable | Columns |
+|---|---|---|
+| 22 | `INVENT_MACHINE_TABLE` | 24 |
+| 23 | `INVENT_MACHINE_HOTSPOTS` | 6 |
+| 5 | `INVENT_BLUEPRINT_TABLE` | 17 |
+| 4 | `INVENT_MATERIAL_TABLE` | 13 |
+| 378 | `HERBLORE_POTION` | 3 |
+| 293 | `RUNECRAFTING_ALTARS` | 2 |
+| 235 | `NECRO_RITUAL_RECIPE` | 18 |
+| 78 | `MC_CORE_RECIPE` | 6 |
+| 180 | `SKILL_TRAINING_SITE` | 3 |
+
+Other tables include `ARCH_RESTORATION`, `CONSTRUCTION_HOUSE_FURNITURE` and `ITEM_TABLE`.
+
+The export got no DBRows. The probe treated each DBRow as missing. The cause is not known yet. A fixed probe logs the reason.
+
 ## Differences from the wiki to check in game
 
 From the detailed pass on 207 items:
