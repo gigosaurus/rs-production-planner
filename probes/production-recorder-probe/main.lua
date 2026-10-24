@@ -72,8 +72,16 @@ local lastTotals = {}
 -- The current session. It starts at the first XP gain and ends after IDLE_TICKS with no gain.
 local session = nil
 
+-- Item changes of the current server tick that came before the first XP gain.
+-- The first action changes the items before SkillTransmit fires, in the same tick.
+local pending = { tick = -1, changes = {} }
+
 local function addToSession(invID, itemID, name, change)
     if session == nil then
+        if pending.tick ~= serverTick then
+            pending = { tick = serverTick, changes = {} }
+        end
+        pending.changes[#pending.changes + 1] = { invID, itemID, name, change }
         return
     end
     local key = invID .. ":" .. itemID
@@ -158,6 +166,12 @@ Event.SkillTransmit.Subscribe("productionRecorderProbe", function(e)
     if session == nil then
         session = { actionTicks = { serverTick }, xp = {}, items = {} }
         say("SESSION START")
+        if pending.tick == serverTick then
+            for _, c in ipairs(pending.changes) do
+                addToSession(c[1], c[2], c[3], c[4])
+            end
+        end
+        pending = { tick = -1, changes = {} }
     elseif session.actionTicks[#session.actionTicks] ~= serverTick then
         local last = session.actionTicks[#session.actionTicks]
         session.actionTicks[#session.actionTicks + 1] = serverTick
