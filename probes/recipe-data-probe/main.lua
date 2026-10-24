@@ -232,11 +232,15 @@ local function lookupConfig(kind, idNumber)
     local okSource, source = pcall(kind.lookup)
     local okFind, fromID = get(source, "FromID")
 
-    if not okSource or not okFind or type(fromID) ~= "function" then
-        error(kind.name .. ".FromID is unavailable")
+    -- FromID is not always a plain Lua function, so only check that it exists.
+    if not okSource or source == nil or not okFind or fromID == nil then
+        error(
+            kind.name .. ".FromID is unavailable (source: "
+            .. type(source) .. ", FromID: " .. type(fromID) .. ")"
+        )
     end
 
-    local ok, cfg = pcall(fromID, idNumber)
+    local ok, cfg = pcall(function() return source.FromID(idNumber) end)
 
     if not ok then
         return nil
