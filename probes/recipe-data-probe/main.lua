@@ -9,6 +9,8 @@ local MAX_CHILDREN = 300
 local MAX_VISIBLE = 1200
 local MAX_DEPTH = 12
 local MAX_BULK_JSON_BYTES = 100000000
+-- Groups that hold game data. Other groups are inspector metadata.
+local DATA_GROUPS = { params = true, columns = true }
 local window, list, status, detail, idField
 local root, pending, search = nil, nil, ""
 local dirty, rendering, started = false, false, false
@@ -148,6 +150,25 @@ local function populate(n,depth,limit)
         paramValues=nil
     elseif type(paramCount)=="number" and paramCount>0 then warning(n,"No readable params member") end
     if paramValues then add(n,node("paramValues",paramValues,n)) end
+    -- DBRow and DBTable give their data only through column methods (1-indexed).
+    local okCount,columnCount=get(v,"columnCount")
+    if okCount and type(columnCount)=="number" and columnCount>0 then
+        local cg=group("columns",n)
+        cg.open = true
+        for c=1,math.min(columnCount,limit) do
+            local column={}
+            for key,method in pairs({types="GetColumnValueTypes",values="GetColumnValues",
+                hasDefaults="GetColumnHasDefaultValues",defaults="GetColumnDefaultValues"}) do
+                local okMethod,fn=get(v,method)
+                if okMethod and fn~=nil then
+                    local ok,result=pcall(function() return fn(v,c) end)
+                    column[key]=ok and result or ("error: "..str(result))
+                end
+            end
+            add(cg,node(c,column,cg))
+        end
+        add(n,cg)
+    end
     local mt=meta(v)
     if mt and rawget(mt,"__type")~=nil then add(advanced,node("__type",rawget(mt,"__type"),advanced)) end
     if #advanced.children>0 then add(n,advanced) end
@@ -216,6 +237,9 @@ local EXPORT_KINDS = {
     { name = "Enum", lookup = function() return config.Enum end },
     -- value is the character's live state, not config data.
     { name = "VarPlayer", lookup = function() return var.VarPlayer end, skip = { value = true } },
+    -- Discovery only. ADR 0001 rejects DBRow data in the plugin.
+    { name = "DBTable", lookup = function() return config.DBTable end },
+    { name = "DBRow", lookup = function() return config.DBRow end },
 }
 local MISS_LIMIT = 10000
 local MAX_SCAN_ID = 1000000
@@ -511,7 +535,7 @@ local function exportVisibleJSON(
             if child.warning then
                 -- Already recorded in export.warnings.
                 -- Do not pretend a diagnostic is a game property.
-            elseif child.group and child.name ~= "params" then
+            elseif child.group and not DATA_GROUPS[child.name] then
                 inspector[#inspector + 1] = encoded
             else
                 properties[#properties + 1] = encoded
@@ -731,7 +755,7 @@ end
 -- Referenced configs stay closed, so they export as a $ref only.
 local function openForExport(n, depth)
     for _, child in ipairs(n.children or {}) do
-        if child.group and child.name ~= "params" then
+        if child.group and not DATA_GROUPS[child.name] then
             child.open = false
         elseif child.branch
             and (child.group or type(child.value) == "table") then
@@ -833,10 +857,10 @@ end
 local RECEIVER_TOKEN = "PASTE_TOKEN_FROM_PYTHON_HERE"
 
 local HTTP_EXPORT_KEY = KEY .. "-http-export"
-local HTTP_BATCH_SIZE = 50
+local HTTP_BATCH_SIZE = 500
 -- Exported configs per tick, and lookups per tick (missing IDs are cheap).
-local HTTP_SCAN_PER_TICK = 5
-local HTTP_LOOKUPS_PER_TICK = 200
+local HTTP_SCAN_PER_TICK = 50
+local HTTP_LOOKUPS_PER_TICK = 2000
 
 -- Stay below the receiver's 4 MiB request limit.
 local HTTP_MAX_BODY_BYTES = 3 * 1024 * 1024
