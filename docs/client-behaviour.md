@@ -8,6 +8,7 @@ Game client version for these tests: 950-1.
 
 - The game client stops a Lua call after 1000 ms. The error is `Maximum function execution time of 1000 ms exceeded`. The limit is for the total time of one call. Do slow work in parts, for example one part in each `Logic` tick. (`probes/persistentdb-probe`)
 - `require` returns `nil` for a module that returns a function. Every module must return a table. (`probes/require-probe`)
+- `log` cuts text at `<`. The client possibly reads `<` as the start of a text tag. `log("count<1 5")` showed `count`. Do not put `<` in log text. (`probes/bank-placeholder-probe`)
 
 ## Vars
 
@@ -37,6 +38,15 @@ Tested on client 951-1 with the plugin at the repo root (`main.lua`, #24):
 ## Inventory API
 
 ADR 0007 gives the Inventory API facts: `isValid` and not `valid`, empty slots with id -1, Noted items as `CERT_<name>`, and the bank in one `InventoryAdded` event. (`probes/bank-probe`, `probes/stack-probe`)
+
+### Bank placeholders
+
+Tested on 2026-10-25 with `probes/bank-placeholder-probe` (#25):
+
+- A bank placeholder is not an empty slot. Its slot has the real id, `configName` and `name` of the item, and the count 0. Remove a slot with count 0, as you remove an empty slot (id -1).
+- `GetTotal` gives 0 for the item of a placeholder.
+- `usedSlotCount` includes the placeholders. `freeSlotCount` is the number of empty slots (id -1).
+- When "Withdraw All" leaves a placeholder, an `InventoryUpdated` event gives the slot. `GetSlot` on that index gives the item with count 0.
 
 ## Vars
 
