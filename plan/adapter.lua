@@ -20,7 +20,7 @@ function Adapter.new(store)
     for name, part in pairs(parts) do
         banks[name] = part.bank
     end
-    return { saved = saved, session = Session.new(globals, parts), banks = banks }
+    return { saved = saved, session = Session.new(globals, parts), banks = banks, bankChanged = {} }
 end
 
 -- Call this on the first ServerLogic tick in which the player is available.
@@ -86,6 +86,7 @@ function Adapter.bank(adapter, slots)
         adapter.firstBank = true
     end
     adapter.banks[adapter.name] = snapshotOf(slots)
+    adapter.bankChanged[adapter.name] = true
 end
 
 -- Gives true when the plugin has a Bank snapshot of the character.
@@ -161,6 +162,28 @@ function Adapter.tick(adapter, facts)
     local diff = adapter.plan and Diff.compare(adapter.plan, plan)
     adapter.basis, adapter.plan = basis, plan
     return { plan = plan, diff = diff }
+end
+
+-- Call this one time in each Logic tick. It gives each changed part to Saved, and gives the problems of Saved.write.
+function Adapter.save(adapter)
+    local saved = adapter.saved
+    local changes = Session.changes(adapter.session)
+    if changes.plan then
+        Saved.changeGlobal(saved, "plan", changes.plan)
+    end
+    if changes.settings then
+        Saved.changeGlobal(saved, "settings", changes.settings)
+    end
+    for _, part in ipairs({ "made", "assumed", "reserves", "unlocks" }) do
+        for name, value in pairs(changes[part]) do
+            Saved.change(saved, name, part, value)
+        end
+    end
+    for name in pairs(adapter.bankChanged) do
+        Saved.change(saved, name, "bank", adapter.banks[name])
+    end
+    adapter.bankChanged = {}
+    return Saved.write(saved)
 end
 
 return Adapter

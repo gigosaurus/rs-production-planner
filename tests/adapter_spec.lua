@@ -226,4 +226,46 @@ describe("Adapter", function()
             )
         end)
     end)
+
+    describe("save", function()
+        it("keeps the Bank snapshot for a new Adapter on the same store", function()
+            local store = storeWith({ BREAD })
+            local first = Adapter.new(store)
+            Adapter.login(first, "Alice")
+            Adapter.bank(first, { slot("DOUGH", 1) })
+
+            Adapter.save(first)
+            local second = Adapter.new(store)
+            Adapter.login(second, "Alice")
+
+            expectEqual(
+                { Adapter.bankSeen(second), Adapter.tick(second, facts({})).plan.shortages },
+                { true, { { item = "DOUGH", count = 2 } } }
+            )
+        end)
+
+        it("keeps the Assumed stock that is left for a new Adapter on the same store", function()
+            local store = storeWith({ BREAD }, { DOUGH = 2 })
+            local first = Adapter.new(store)
+            Adapter.login(first, "Alice")
+            Adapter.tick(first, facts({}))
+            Adapter.tick(first, facts({ slot("DOUGH", 1) }))
+
+            Adapter.save(first)
+            local second = Adapter.new(store)
+            Adapter.login(second, "Alice")
+
+            expectEqual(
+                Adapter.tick(second, facts({ slot("DOUGH", 1) })).plan.shortages,
+                { { item = "DOUGH", count = 1 } }
+            )
+        end)
+
+        it("gives no problems when the store saves each part", function()
+            local adapter = loggedIn()
+            Adapter.bank(adapter, { slot("DOUGH", 1) })
+
+            expectEqual(Adapter.save(adapter), {})
+        end)
+    end)
 end)
