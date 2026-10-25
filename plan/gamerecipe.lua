@@ -7,6 +7,7 @@ local GameRecipe = {}
 
 local MAX_INGREDIENTS = 18
 local MAX_REQUIREMENTS = 5
+local MAX_XP = 2
 
 -- Requirement types 1 to 29 follow the order of the stats interface, not SkillType.
 local SKILLS = {
@@ -116,6 +117,20 @@ local function requirementsOf(params)
     return skills, unlocks
 end
 
+-- Gives the XP of one action. The value is XP x 10, with the skill codes of the requirements.
+-- When XP_SCALE_STACK is false, the value is for each output item.
+local function xpOf(params, output)
+    local xp = {}
+    for n = 1, MAX_XP do
+        local skill = SKILLS[params["RECIPE_XP_TYPE_" .. n] or 0]
+        if skill then
+            local scale = params["RECIPE_XP_SCALE_STACK_" .. n] == false and output or 1
+            xp[#xp + 1] = { skill = skill, amount = (params["RECIPE_XP_VALUE_" .. n] or 0) * scale / 10 }
+        end
+    end
+    return xp
+end
+
 local function copyList(list)
     local copy = {}
     for i, entry in ipairs(list) do
@@ -134,6 +149,7 @@ function GameRecipe.fromParams(configName, params)
         return nil
     end
     local cycles = params.RECIPE_CYCLES or 0
+    local xp = xpOf(params, output)
     local recipes = {}
     for _, inputs in ipairs(combinationsOf(ingredients)) do
         recipes[#recipes + 1] = {
@@ -142,6 +158,7 @@ function GameRecipe.fromParams(configName, params)
             inputs = inputs,
             skills = copyList(skills),
             unlocks = copyList(unlocks),
+            xp = copyList(xp),
             actionTime = cycles > 0 and cycles or nil,
         }
     end
@@ -189,26 +206,32 @@ end
 local Scan = {}
 Scan.__index = Scan
 
--- Reads Obj ids 0 to lastID in parts. read(id) gives the config name and the params, or nil.
-function GameRecipe.newScan(read, lastID)
-    return setmetatable({ read = read, lastID = lastID, nextID = 0, index = GameRecipe.newIndex() }, Scan)
+-- Reads Obj ids from 0 in parts. read(id) gives the config name and the params, or nil when the id has no Obj.
+-- The API gives no count of Objs. So the scan stops after gap ids in a row with no Obj (issue 24, 2026-10-25).
+function GameRecipe.newScan(read, gap)
+    return setmetatable({ read = read, gap = gap, nextID = 0, missed = 0, index = GameRecipe.newIndex() }, Scan)
 end
 
--- Reads the next idCount Obj ids. Gives true when the scan is done.
+-- Reads up to idCount Obj ids. Gives true when the scan is done.
 function Scan:step(idCount)
-    local last = math.min(self.nextID + idCount - 1, self.lastID)
-    for id = self.nextID, last do
-        local configName, params = self.read(id)
-        if configName ~= nil then
-            self.index:add(configName, params)
+    for _ = 1, idCount do
+        if self:isDone() then
+            break
         end
+        local configName, params = self.read(self.nextID)
+        if configName ~= nil then
+            self.missed = 0
+            self.index:add(configName, params)
+        else
+            self.missed = self.missed + 1
+        end
+        self.nextID = self.nextID + 1
     end
-    self.nextID = math.max(self.nextID, last + 1)
     return self:isDone()
 end
 
 function Scan:isDone()
-    return self.nextID > self.lastID
+    return self.missed >= self.gap
 end
 
 -- Gives the Recipes, or nil before the scan is done.

@@ -27,8 +27,48 @@ describe("GameRecipe.fromParams", function()
                 inputs = { { item = "RANARR", count = 1 }, { item = "VIAL_WATER", count = 1 } },
                 skills = {},
                 unlocks = {},
+                xp = {},
             },
         })
+    end)
+
+    -- XP: decision on issue 24, 2026-10-25. The value is XP x 10. The skill codes are the requirement codes.
+    it("gives the XP of one action", function()
+        local _, recipes = GameRecipe.fromParams("LANTADYME", {
+            RECIPE_INGREDIENT_TYPE_1 = "GRIMY_LANTADYME",
+            RECIPE_INGREDIENT_NUMBER_1 = 1,
+            RECIPE_XP_TYPE_1 = 9,
+            RECIPE_XP_VALUE_1 = 131,
+        })
+
+        expectEqual(recipes[1].xp, { { skill = "HERBLORE", amount = 13.1 } })
+    end)
+
+    it("gives each XP entry in order, also two entries for the same skill", function()
+        local _, recipes = GameRecipe.fromParams("X", {
+            RECIPE_INGREDIENT_TYPE_1 = "Y",
+            RECIPE_INGREDIENT_NUMBER_1 = 1,
+            RECIPE_XP_TYPE_1 = 27,
+            RECIPE_XP_VALUE_1 = 6600,
+            RECIPE_XP_TYPE_2 = 27,
+            RECIPE_XP_VALUE_2 = 1500,
+        })
+
+        expectEqual(recipes[1].xp, { { skill = "INVENTION", amount = 660 }, { skill = "INVENTION", amount = 150 } })
+    end)
+
+    -- When XP_SCALE_STACK is false, the value is for each output item.
+    it("multiplies the XP by the stack size when the XP does not scale with the stack", function()
+        local _, recipes = GameRecipe.fromParams("BRONZE_BOLTS", {
+            RECIPE_INGREDIENT_TYPE_1 = "BRONZE_BOLTS_UNF",
+            RECIPE_INGREDIENT_NUMBER_1 = 10,
+            RECIPE_MAKE_STACK_SIZE = 10,
+            RECIPE_XP_TYPE_1 = 19,
+            RECIPE_XP_VALUE_1 = 15,
+            RECIPE_XP_SCALE_STACK_1 = false,
+        })
+
+        expectEqual(recipes[1].xp, { { skill = "FLETCHING", amount = 15 } })
     end)
 
     it("uses the stack size as the output", function()
@@ -353,33 +393,54 @@ describe("GameRecipe.newScan", function()
 
     it("reads the given number of Obj ids in each part, from id 0", function()
         local readIDs = {}
-        local scan = GameRecipe.newScan(recordingRead(readIDs), 3)
+        local scan = GameRecipe.newScan(recordingRead(readIDs), 2)
 
         scan:step(2)
 
         expectEqual(readIDs, { 0, 1 })
     end)
 
-    it("is not done until it has read the last Obj id", function()
-        local scan = GameRecipe.newScan(read, 3)
+    -- End of the scan: decision on issue 24, 2026-10-25. The API gives no count of Objs.
+    it("is done after the given number of ids in a row with no Obj", function()
+        local scan = GameRecipe.newScan(read, 2)
 
-        expectEqual(scan:step(3), false)
+        expectEqual(scan:step(5), false)
         expectEqual(scan:step(1), true)
     end)
 
+    it("starts the gap count again at each Obj", function()
+        local recipe = { RECIPE_INGREDIENT_TYPE_1 = "Y", RECIPE_INGREDIENT_NUMBER_1 = 1 }
+        local spaced = { [0] = "A", [2] = "B", [4] = "C" }
+        local scan = GameRecipe.newScan(function(id)
+            if spaced[id] then
+                return spaced[id], recipe
+            end
+        end, 2)
+        scan:step(100)
+
+        expectEqual(scan:recipes().C ~= nil, true)
+    end)
+
+    it("stops in the middle of a part", function()
+        local readIDs = {}
+        local scan = GameRecipe.newScan(recordingRead(readIDs), 2)
+
+        expectEqual(scan:step(100), true)
+        expectEqual(readIDs, { 0, 1, 2, 3, 4, 5 })
+    end)
+
     it("gives the Recipes when it is done", function()
-        local scan = GameRecipe.newScan(read, 3)
-        scan:step(10)
+        local scan = GameRecipe.newScan(read, 2)
+        scan:step(100)
 
         local recipes = scan:recipes()
 
         expectEqual(recipes.RANARR[1].inputs, { { item = "GRIMY_RANARR", count = 1 } })
-        expectEqual(recipes.VIAL_WATER[1].inputs, { { item = "VIAL", count = 1 } })
         expectEqual(recipes.GRIMY_RANARR, nil)
     end)
 
     it("gives no Recipes before it is done", function()
-        local scan = GameRecipe.newScan(read, 3)
+        local scan = GameRecipe.newScan(read, 2)
         scan:step(2)
 
         expectEqual(scan:recipes(), nil)
@@ -387,10 +448,10 @@ describe("GameRecipe.newScan", function()
 
     it("reads no more ids after it is done", function()
         local readIDs = {}
-        local scan = GameRecipe.newScan(recordingRead(readIDs), 1)
-        scan:step(5)
-        scan:step(5)
+        local scan = GameRecipe.newScan(recordingRead(readIDs), 2)
+        scan:step(100)
+        scan:step(100)
 
-        expectEqual(readIDs, { 0, 1 })
+        expectEqual(#readIDs, 6)
     end)
 end)

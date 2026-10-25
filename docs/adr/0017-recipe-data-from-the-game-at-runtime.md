@@ -5,7 +5,7 @@ Amends ADR 0013.
 
 ADR 0016 generates `data/recipes.lua` from the wiki Bucket at development time. The game client has better data. Each Obj config has `RECIPE_*` params that give its Recipe (`docs/recipe-params.md`). The game also gives each config name, so the ID probe of #64 is not necessary.
 
-The plugin now builds the Recipes at runtime from the `RECIPE_*` params of each Obj. It scans all Objs in parts, over many frames. `probes/recipe-scan-timer-probe` did a full scan in about 5 s, with little effect on the frame rate.
+The plugin now builds the Recipes at runtime from the `RECIPE_*` params of each Obj. It scans all Objs in parts, over many frames: 250 Obj ids in each Logic tick. `probes/recipe-scan-timer-probe` did a full scan in about 5 s, with little effect on the frame rate. The API gives no count of Objs, so the scan stops after 1,000 Obj ids in a row with no valid Obj.
 
 ## Mapping
 
@@ -16,7 +16,12 @@ The plugin now builds the Recipes at runtime from the `RECIPE_*` params of each 
 - `skills`: requirement types 1 to 29. They follow the order of the stats interface, not `SkillType`.
 - `unlocks`: type 61 is a quest (`QUEST_ID`). Type 63 is an Invention blueprint (`INVENT_BLUEPRINT_TABLE`). Types 62, 64 and 67 get names from the hand-written `data/unlocks.lua`.
 - `actionTime`: `RECIPE_CYCLES`, in server ticks.
-- More Recipes for an item: dummy Objs with `RECIPE_NON_DUMMY_OBJ`.
+- `xp`: `RECIPE_XP_TYPE_N` and `RECIPE_XP_VALUE_N` (N = 1, 2), for one action. The value is XP × 10. When `RECIPE_XP_SCALE_STACK_N` is false, the value is for each output item. `Plan.calculate` does not use `xp` yet.
+- `verb`: always "Make". The game gives no verb.
+- Alternatives: one Recipe for each combination of alternatives, in Struct order.
+- More Recipes for an item: dummy Objs with `RECIPE_NON_DUMMY_OBJ`. The Recipes of the item's own Obj come first, then the dummy Objs by Obj id. A dummy Obj without `RECIPE_NON_DUMMY_OBJ` gives a Recipe for itself.
+- Dummy ingredients, for example `SMITHING_HOPPER_DUMMY`, stay as normal Input items.
+- Tools: not in this ADR. See #91.
 - Dose pools: the `POTION_STRUCT` param of each potion.
 
 ## Values that the game does not give
