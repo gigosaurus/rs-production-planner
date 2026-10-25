@@ -47,6 +47,7 @@ Tested on 2026-10-25 with `probes/bank-placeholder-probe` (#25):
 - `GetTotal` gives 0 for the item of a placeholder.
 - `usedSlotCount` includes the placeholders. `freeSlotCount` is the number of empty slots (id -1).
 - When "Withdraw All" leaves a placeholder, an `InventoryUpdated` event gives the slot. `GetSlot` on that index gives the item with count 0.
+- `slotsUpdated` indexes start at 1, as `GetSlot` indexes do. Use them as they come.
 
 ## Vars
 
