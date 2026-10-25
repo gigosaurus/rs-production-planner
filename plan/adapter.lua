@@ -24,10 +24,22 @@ function Adapter.login(adapter, name)
     Session.loadCharacter(adapter.session, name, parts, {})
 end
 
+-- Gives the slots that hold an item. An empty slot has the id -1 (ADR 0007).
+-- A bank placeholder has the real item and the count 0 (docs/client-behaviour.md).
+local function itemSlots(slots)
+    local kept = {}
+    for _, slot in ipairs(slots) do
+        if slot.id ~= -1 and slot.count ~= 0 then
+            kept[#kept + 1] = slot
+        end
+    end
+    return kept
+end
+
 -- facts has the Inventory slots of this tick, and the recipes, levels and stackable of Plan.calculate.
 -- Gives the Plan.
 function Adapter.tick(adapter, facts)
-    local detected = Detected.count(facts.inventory)
+    local detected = Detected.count(itemSlots(facts.inventory))
     local basis = Session.basis(adapter.session, {
         recipes = facts.recipes,
         detected = detected,

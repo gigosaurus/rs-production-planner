@@ -66,5 +66,15 @@ describe("Adapter", function()
 
             expectEqual(result.plan.shortages, { { item = "DOUGH", count = 2 } })
         end)
+
+        it("does not count empty slots and placeholder slots", function()
+            local adapter = loggedIn()
+            local empty = { id = -1, configName = "", count = 0 }
+            local placeholder = slot("DOUGH", 0)
+
+            local result = Adapter.tick(adapter, facts({ empty, slot("DOUGH", 1), placeholder }))
+
+            expectEqual(result.plan.shortages, { { item = "DOUGH", count = 2 } })
+        end)
     end)
 end)
