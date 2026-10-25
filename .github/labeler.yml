@@ -1,5 +1,11 @@
 # Area labels for pull requests. See docs/agents/pr-labels.md.
 
+area:plugin:
+  - changed-files:
+      - any-glob-to-any-file:
+          - main.lua
+          - plugin.json
+
 area:plan:
   - changed-files:
       - any-glob-to-any-file: plan/**
