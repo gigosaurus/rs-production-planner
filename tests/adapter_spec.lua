@@ -185,4 +185,45 @@ describe("Adapter", function()
             expectEqual(result.plan.shortages, { { item = "DOUGH", count = 1 } })
         end)
     end)
+
+    describe("login and leave", function()
+        it("gives nothing after leave, until the next login", function()
+            local adapter = loggedIn()
+            Adapter.tick(adapter, facts({}))
+
+            Adapter.leave(adapter)
+            local away = Adapter.tick(adapter, facts({ slot("DOUGH", 1) }))
+            Adapter.login(adapter, "Alice")
+            local back = Adapter.tick(adapter, facts({ slot("DOUGH", 1) }))
+
+            expectEqual({ away, back.plan.shortages, back.diff }, { nil, { { item = "DOUGH", count = 2 } }, nil })
+        end)
+
+        it("gives a Plan on the first tick after a login, also when the Basis did not change", function()
+            local adapter = loggedIn()
+            Adapter.tick(adapter, facts({}))
+
+            Adapter.leave(adapter)
+            Adapter.login(adapter, "Alice")
+
+            expectEqual(Adapter.tick(adapter, facts({})) ~= nil, true)
+        end)
+
+        it("uses the Bank snapshot of the character that logged in", function()
+            local adapter = loggedIn()
+            Adapter.bank(adapter, { slot("DOUGH", 1) })
+
+            Adapter.leave(adapter)
+            Adapter.login(adapter, "Bob")
+            local bob = { Adapter.bankSeen(adapter), Adapter.tick(adapter, facts({})).plan.shortages }
+            Adapter.leave(adapter)
+            Adapter.login(adapter, "Alice")
+            local alice = { Adapter.bankSeen(adapter), Adapter.tick(adapter, facts({})).plan.shortages }
+
+            expectEqual(
+                { bob, alice },
+                { { false, { { item = "DOUGH", count = 3 } } }, { true, { { item = "DOUGH", count = 2 } } } }
+            )
+        end)
+    end)
 end)

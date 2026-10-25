@@ -31,6 +31,14 @@ function Adapter.login(adapter, name)
     if adapter.banks[name] == nil then
         adapter.banks[name] = parts.bank
     end
+    -- The first Plan after a login has no diff. A diff from the Plan of another character is not correct.
+    adapter.basis, adapter.plan = nil, nil
+end
+
+-- Call this when the game state is not GAME. The adapter keeps the state of the character.
+-- Until the next login, a tick gives nothing.
+function Adapter.leave(adapter)
+    adapter.name, adapter.firstBank = nil, nil
 end
 
 -- Gives the slots that hold an item. An empty slot has the id -1 (ADR 0007).
@@ -71,6 +79,9 @@ end
 -- The Bank snapshot never becomes stale (issue 1).
 -- The first Bank snapshot of a character makes the next tick record a first Bank tick (ADR 0004).
 function Adapter.bank(adapter, slots)
+    if adapter.name == nil then
+        return
+    end
     if adapter.banks[adapter.name] == nil then
         adapter.firstBank = true
     end
@@ -130,6 +141,9 @@ end
 -- Gives the Plan and the diff from the previous Plan, or nil when the Basis did not change (ADR 0003).
 -- The first Plan has no diff.
 function Adapter.tick(adapter, facts)
+    if adapter.name == nil then
+        return nil
+    end
     local detected = Detected.count(itemSlots(facts.inventory), bankSlots(adapter))
     -- tick.detected holds all items. Made.observe counts only the items of the Make Targets.
     Session.observe(adapter.session, { detected = detected, firstBank = adapter.firstBank })
