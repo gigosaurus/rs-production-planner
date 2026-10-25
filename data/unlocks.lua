@@ -387,7 +387,7 @@ return {
         [335] = { name = "Bog 'n' Hog stew", guess = true, example = "Bog 'n' Hog stew" },
     },
     -- Invention blueprint. Exact names from the DBTable INVENT_BLUEPRINT_TABLE (column 1 = value, column 2 = name),
-    -- copied by hand on 2026-10-25. The plugin does not read DBRows (ADR 0001).
+    -- copied by hand on 2026-10-25. The plugin can read them from the DBRows at runtime instead (ADR 0017).
     [63] = {
         [0] = { name = "Gizmo", guess = false },
         [1] = { name = "Augmentor", guess = false },
