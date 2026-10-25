@@ -77,4 +77,33 @@ describe("Adapter", function()
             expectEqual(result.plan.shortages, { { item = "DOUGH", count = 2 } })
         end)
     end)
+
+    describe("bank", function()
+        it("counts the Bank snapshot with the Inventory", function()
+            local adapter = loggedIn()
+
+            Adapter.bank(adapter, { slot("DOUGH", 1) })
+            local result = Adapter.tick(adapter, facts({ slot("DOUGH", 1) }))
+
+            expectEqual(result.plan.shortages, { { item = "DOUGH", count = 1 } })
+        end)
+
+        it("does not count empty slots and placeholder slots in the bank", function()
+            local adapter = loggedIn()
+
+            Adapter.bank(adapter, { { id = -1, configName = "", count = 0 }, slot("DOUGH", 1), slot("BREAD", 0) })
+            local result = Adapter.tick(adapter, facts({}))
+
+            expectEqual(result.plan.shortages, { { item = "DOUGH", count = 2 } })
+        end)
+
+        it("tells if the bank of the character was seen", function()
+            local adapter = loggedIn()
+            local before = Adapter.bankSeen(adapter)
+
+            Adapter.bank(adapter, {})
+
+            expectEqual({ before, Adapter.bankSeen(adapter) }, { false, true })
+        end)
+    end)
 end)
