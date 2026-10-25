@@ -62,4 +62,8 @@ describe("data/unlocks", function()
     it("does not include quest requirements, because the plugin finds quests by QUEST_ID", function()
         expectEqual(unlocks[61], nil)
     end)
+
+    it("does not include Invention blueprints, because the plugin reads their names from DBRows", function()
+        expectEqual(unlocks[63], nil)
+    end)
 end)
