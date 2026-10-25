@@ -196,7 +196,7 @@ Event.VarTransmit.Subscribe(EVENT_NAME, function(e)
 end)
 
 -- Outside GAME, the plugin pauses. At the next login, it reads the name again.
--- After a logout, the client gives no more events until prl (docs/client-behaviour.md). So the plugin saves now.
+-- A logout disables the plugin on the dev servers (docs/client-behaviour.md). So the plugin saves now.
 Event.GameStateChanged.Subscribe(EVENT_NAME, function(e)
     if e.newState ~= GameState.GAME and loggedIn then
         Adapter.leave(adapter)
