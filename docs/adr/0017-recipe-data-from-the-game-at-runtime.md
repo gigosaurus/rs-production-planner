@@ -34,7 +34,7 @@ Decided in #24 on 2026-10-25:
 
 ## Consequences
 
-- The plugin uses no wiki data. The wiki snapshot, the overrides file, the weekly wiki check and the CC BY-NC-SA terms of ADR 0016 do not apply.
+- The plugin uses no wiki data. The wiki snapshot, the overrides file, the weekly wiki check and the CC BY-NC-SA terms of ADR 0016 do not apply. The wiki generator in `tools/` and its CI job are removed.
 - A game update changes the Recipes with no change to the plugin.
 - The Recipes are not ready at once when the plugin loads. The UI must handle a scan that has not finished.
 - Some ways to get an item are not Recipes in the game, for example Superglass Make and Runecrafting at an altar (`docs/recipe-params.md`). The plan cannot use them.

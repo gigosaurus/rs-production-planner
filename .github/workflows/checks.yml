@@ -24,7 +24,7 @@ jobs:
       - run: |
           curl -fsSL -o luacheck https://github.com/lunarmodules/luacheck/releases/download/v1.2.0/luacheck
           chmod +x luacheck
-      - run: ./luacheck plan data tests
+      - run: ./luacheck main.lua plan data tests
 
   stylua:
     runs-on: ubuntu-latest
@@ -33,27 +33,10 @@ jobs:
       - run: |
           curl -fsSL -o stylua.zip https://github.com/JohnnyMorganz/StyLua/releases/download/v2.6.0/stylua-linux-x86_64.zip
           unzip -q stylua.zip
-      - run: ./stylua --check plan data tests
+      - run: ./stylua --check main.lua plan data tests
 
   manifests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - run: ./scripts/check-manifests.sh
-
-  # The recipe data tools (ADR 0016). ubuntu-latest has Python 3.12.
-  # The tests run lua5.4, stylua and luacheck on the generated Lua.
-  tools:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - run: sudo apt-get update && sudo apt-get install -y lua5.4
-      - run: |
-          mkdir -p "$HOME/bin"
-          curl -fsSL -o "$HOME/bin/luacheck" https://github.com/lunarmodules/luacheck/releases/download/v1.2.0/luacheck
-          chmod +x "$HOME/bin/luacheck"
-          curl -fsSL -o stylua.zip https://github.com/JohnnyMorganz/StyLua/releases/download/v2.6.0/stylua-linux-x86_64.zip
-          unzip -q stylua.zip -d "$HOME/bin"
-          echo "$HOME/bin" >> "$GITHUB_PATH"
-      - run: python3 --version
-      - run: python3 -m unittest discover -s tools/tests

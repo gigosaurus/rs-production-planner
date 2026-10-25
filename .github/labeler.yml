@@ -25,6 +25,5 @@ area:tooling:
       - any-glob-to-any-file:
           - .github/**
           - scripts/**
-          - tools/**
           - .luacheckrc
           - stylua.toml
