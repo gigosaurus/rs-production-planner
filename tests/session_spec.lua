@@ -400,6 +400,15 @@ describe("Session", function()
             expectEqual(Session.basis(session, FACTS).assumed, {})
         end)
 
+        it("gives an error at the caller for an observation before a character is loaded", function()
+            local session = Session.new(globals({ SHARK }), { Alice = madeParts(5, { [1] = 2 }) })
+
+            expectEqual(
+                errorOf(Session.observe, session, { detected = { SHARK = 6 } }),
+                "Load a character before this observation."
+            )
+        end)
+
         it("gives no Made state to save when its saved form does not change", function()
             local session = newSession()
             Session.addTarget(session, "SHARK", 10, Plan.MAKE, { detected = { SHARK = 10 }, offers = {} })
@@ -445,6 +454,43 @@ describe("Session", function()
 
             expectEqual(madeOf(session, 1), 9)
             expectEqual(Session.changes(session).made.Alice.starts, { [1] = -4 })
+        end)
+
+        it(
+            "gives the Made state to save only of the logged-in character in the Made count scope This character",
+            function()
+                local parts = { Alice = madeParts(5, { [1] = 2 }), Bob = madeParts(4, { [1] = 0 }) }
+                local session = loaded(globals({ SHARK }), parts)
+                Session.changes(session)
+
+                Session.setMade(session, 1, 1)
+
+                local made = Session.changes(session).made
+                expectEqual(made.Alice.starts, { [1] = 4 })
+                expectEqual(made.Bob, nil)
+            end
+        )
+
+        it("gives the Made state to save of each character in the Made count scope All characters", function()
+            local saved = globals({ SHARK })
+            saved.settings.madeCountScope = Made.ALL
+            local session = loaded(saved, { Alice = madeParts(5, { [1] = 2 }), Bob = madeParts(4, { [1] = 0 }) })
+            Session.changes(session)
+
+            Session.setMade(session, 1, 1)
+
+            local made = Session.changes(session).made
+            expectEqual(made.Alice.starts, { [1] = 4 })
+            expectEqual(made.Bob.starts, { [1] = 4 })
+        end)
+
+        it("gives an error at the caller for a Made count that is not a whole number of 0 or more", function()
+            local session = loaded(globals({ SHARK }), { Alice = madeParts(5, { [1] = 2 }) })
+
+            expectEqual(
+                errorOf(Session.setMade, session, 1, -1),
+                "The Made count of SHARK must be a whole number of 0 or more."
+            )
         end)
 
         it("gives an error for a Made count edit of a Have Target", function()
@@ -601,6 +647,13 @@ describe("Session", function()
             expectEqual(Session.changes(session).assumed.Alice.entries, {
                 { item = "SHARK", entered = 5, remaining = 5, baseline = 2 },
             })
+        end)
+
+        it("gives an error at the caller for an Assumed amount that is not a whole number more than 0", function()
+            expectEqual(
+                errorOf(Session.addAssumed, newSession(), "SHARK", 0, {}),
+                "The Assumed amount of SHARK must be a whole number more than 0."
+            )
         end)
 
         it("gives an error at the caller for each character edit before a character is loaded", function()

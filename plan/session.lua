@@ -122,9 +122,18 @@ function Session.loadCharacter(session, name, parts, offers)
     end
 end
 
+-- level is the error level that the calling function gives to error: the caller of the Session function.
+-- action is the name of the call in the error text: an edit or an observation.
+local function checkCharacter(session, level, action)
+    if not session.name then
+        error("Load a character before this " .. (action or "edit") .. ".", level + 1)
+    end
+end
+
 -- tick has the facts of one server tick of the logged-in character, as Made.observe takes them.
 -- Gives the result of Assumed.observe. A part is changed only when its saved form changes.
 function Session.observe(session, tick)
+    checkCharacter(session, 2, "observation")
     markIfChanged(session, "made", Made, session.name, function()
         Made.observe(session.made, session.name, tick)
     end)
@@ -172,13 +181,6 @@ end
 local function markMade(session)
     for name in pairs(session.made) do
         session.changed.made[name] = true
-    end
-end
-
--- level is the error level that the calling function gives to error: the caller of the Session function.
-local function checkCharacter(session, level)
-    if not session.name then
-        error("Load a character before this edit.", level + 1)
     end
 end
 
@@ -260,8 +262,17 @@ function Session.setMade(session, id, count)
     if not isMake(target) then
         error("The Target " .. tostring(id) .. " is not a Make Target.", 2)
     end
+    -- Session checks the count, so the error is at the caller. Made.set has the same rule.
+    if not Validate.isNonNegativeInteger(count) then
+        error("The Made count of " .. tostring(target.item) .. " must be a whole number of 0 or more.", 2)
+    end
     Made.set(session.made, session.name, session.scope, target, count)
-    markMade(session)
+    -- In This character, Made.set changes only the state of the logged-in character.
+    if session.scope == Made.ALL then
+        markMade(session)
+    else
+        session.changed.made[session.name] = true
+    end
 end
 
 function Session.setScope(session, scope)
@@ -295,6 +306,10 @@ end
 -- detected is the Detected stock now. Assumed.add describes the rules.
 function Session.addAssumed(session, item, amount, detected)
     checkCharacter(session, 2)
+    -- Session checks the amount, so the error is at the caller. Assumed.add has the same rule.
+    if not Validate.isPositiveInteger(amount) then
+        error("The Assumed amount of " .. tostring(item) .. " must be a whole number more than 0.", 2)
+    end
     Assumed.add(session.assumed, session.name, item, amount, detected)
     session.changed.assumed[session.name] = true
 end
