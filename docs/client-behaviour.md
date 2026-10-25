@@ -25,6 +25,14 @@ Game client version for these tests: 950-1.
 - Bit 12 was set in each test. We do not know what it means.
 - A `VarTransmit` event comes after each change. A new login is not necessary.
 
+## Game state
+
+Tested on 2026-10-25 with `probes/game-state-probe` (#25):
+
+- `GameStateChanged` gives `oldState` and `newState` as plain numbers. `GameState.GAME` is 30 and `GameState.LOBBY` is 20.
+- A logout gave one event: 30 (GAME) to 40 (LOADING). A teleport gave no event.
+- After a logout and a new login, the plugin logged nothing more: no event, no `Logic` or `ServerLogic` log line, and no load line. `plist` still showed the plugin as on.
+
 ## Configs
 
 Tested on client 951-1 with the plugin at the repo root (`main.lua`, #24):
