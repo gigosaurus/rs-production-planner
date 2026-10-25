@@ -31,7 +31,8 @@ Tested on 2026-10-25 with `probes/game-state-probe` (#25):
 
 - `GameStateChanged` gives `oldState` and `newState` as plain numbers. `GameState.GAME` is 30 and `GameState.LOBBY` is 20.
 - A logout gave one event: 30 (GAME) to 40 (LOADING). A teleport gave no event.
-- After a logout and a new login, the plugin logged nothing more: no event, no `Logic` or `ServerLogic` log line, and no load line. `plist` still showed the plugin as on.
+- After a logout, the plugin gets no more events. Also after a new login, no `Logic`, `ServerLogic` or `GameStateChanged` event comes. `plist` still shows the plugin as on. A `prl` starts it again. The probe saved its tick on each `ServerLogic`: the last saved tick was the tick of the logout event.
+- So the logout event (GAME to LOADING) is the last event that a plugin gets. Save the data in that event.
 
 ## Configs
 
