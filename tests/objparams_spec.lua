@@ -80,6 +80,24 @@ describe("ObjParams.read", function()
         })
     end)
 
+    it("gives the config name of the override item of a Struct", function()
+        local params = ObjParams.read(fakeConfig({
+            RECIPE_INGREDIENT_1_MULTIPLE = fakeConfig({ RECIPE_MULTI_OBJECT_OVERRIDE = fakeObj("STEEL_BAR") }),
+        }))
+
+        expectEqual(params, { RECIPE_INGREDIENT_1_MULTIPLE = { RECIPE_MULTI_OBJECT_OVERRIDE = "STEEL_BAR" } })
+    end)
+
+    -- A nil value is a missing param: decision on PR 92, 2026-10-25.
+    it("leaves out an Obj or Struct param that has no value", function()
+        local config = {
+            params = { { configName = "RECIPE_NON_DUMMY_OBJ" }, { configName = "RECIPE_INGREDIENT_1_MULTIPLE" } },
+            GetParamValue = function() end,
+        }
+
+        expectEqual(ObjParams.read(config), {})
+    end)
+
     it("gives an empty table for a config with no params", function()
         expectEqual(ObjParams.read({ GetParamValue = function() end }), {})
     end)

@@ -46,11 +46,13 @@ local SKILLS = {
 local UNLOCK_PREFIXES = { [61] = "QUEST", [63] = "BLUEPRINT" }
 
 -- Gives the alternatives of a Struct, in Struct order.
+-- When the Struct has RECIPE_MULTI_OBJECT_OVERRIDE, it gives only that item (PR 92, 2026-10-25).
 local function alternativesOf(struct)
+    local override = struct.RECIPE_MULTI_OBJECT_OVERRIDE
     local alternatives = {}
     for n = 1, MAX_INGREDIENTS do
         local item = struct["RECIPE_INGREDIENT_TYPE_" .. n]
-        if item ~= nil then
+        if item ~= nil and (override == nil or item == override) then
             alternatives[#alternatives + 1] = { item = item, count = struct["RECIPE_INGREDIENT_NUMBER_" .. n] or 0 }
         end
     end
@@ -117,7 +119,7 @@ local function requirementsOf(params)
     return skills, unlocks
 end
 
--- Gives the XP of one action. The value is XP x 10, with the skill codes of the requirements.
+-- Gives the XP of one action. The value is XP x 10. The skill codes are the same as the requirement codes.
 -- When XP_SCALE_STACK is false, the value is for each output item.
 local function xpOf(params, output)
     local xp = {}
@@ -218,14 +220,16 @@ function Scan:step(idCount)
         if self:isDone() then
             break
         end
-        local configName, params = self.read(self.nextID)
+        -- The next id is set before the read. So an id that raises an error has no Recipe (PR 92, 2026-10-25).
+        local id = self.nextID
+        self.nextID = id + 1
+        local configName, params = self.read(id)
         if configName ~= nil then
             self.missed = 0
             self.index:add(configName, params)
         else
             self.missed = self.missed + 1
         end
-        self.nextID = self.nextID + 1
     end
     return self:isDone()
 end

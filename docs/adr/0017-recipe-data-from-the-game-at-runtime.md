@@ -18,9 +18,9 @@ The plugin now builds the Recipes at runtime from the `RECIPE_*` params of each 
 - `actionTime`: `RECIPE_CYCLES`, in server ticks.
 - `xp`: `RECIPE_XP_TYPE_N` and `RECIPE_XP_VALUE_N` (N = 1, 2), for one action. The value is XP × 10. When `RECIPE_XP_SCALE_STACK_N` is false, the value is for each output item. `Plan.calculate` does not use `xp` yet.
 - `verb`: always "Make". The game gives no verb.
-- Alternatives: one Recipe for each combination of alternatives, in Struct order.
+- Alternatives: one Recipe for each combination of alternatives, in Struct order. A Struct with `RECIPE_MULTI_OBJECT_OVERRIDE` gives only that item (PR 92, 2026-10-25). The override is the item that the game shows, for example Steel bar, and it is always one of the alternatives. 180 of the 433 Structs have it. Without this rule, `PRIMAL_BAR` gave 3^10 = 59,049 Recipes, and Recipe 1 used `SMITHING_HOPPER_DUMMY` for all 10 metals.
 - More Recipes for an item: dummy Objs with `RECIPE_NON_DUMMY_OBJ`. The Recipes of the item's own Obj come first, then the dummy Objs by Obj id. A dummy Obj without `RECIPE_NON_DUMMY_OBJ` gives a Recipe for itself.
-- Dummy ingredients, for example `SMITHING_HOPPER_DUMMY`, stay as normal Input items.
+- A dummy item in an alternative, for example `SMITHING_HOPPER_DUMMY`, stays a normal Input.
 - Tools: not in this ADR. See #91.
 - Dose pools: the `POTION_STRUCT` param of each potion.
 

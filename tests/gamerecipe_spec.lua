@@ -180,7 +180,7 @@ describe("GameRecipe.fromParams", function()
         expectEqual(recipes[1].skills, {})
     end)
 
-    it("gives a requirement type that is not documented as an Unlock", function()
+    it("gives an UNLOCK<type> key for a requirement type with no named prefix", function()
         local _, recipes = GameRecipe.fromParams("X", {
             RECIPE_REQUIREMENT_TYPE_1 = 65,
             RECIPE_REQUIREMENT_VALUE_1 = 3,
@@ -234,6 +234,7 @@ describe("GameRecipe.fromParams", function()
     end)
 
     -- Alternatives: one Recipe for each combination, in Struct order (issue 24, 2026-10-25).
+    -- A Struct with an override item is different. See the next spec.
     it("gives one Recipe for each alternative of an ingredient, in Struct order", function()
         local _, recipes = GameRecipe.fromParams("STEEL_PLATEBODY", {
             RECIPE_INGREDIENT_1_MULTIPLE = {
@@ -252,6 +253,24 @@ describe("GameRecipe.fromParams", function()
             { item = "HAMMER_HEAD", count = 1 },
         })
         expectEqual(recipes[2].inputs, { { item = "STEEL_BAR", count = 5 }, { item = "HAMMER_HEAD", count = 1 } })
+    end)
+
+    -- Override item: decision on PR 92, 2026-10-25. PRIMAL_BAR gave 59,049 Recipes, and Recipe 1 used dummy items.
+    it("gives only the override item of a Struct that has RECIPE_MULTI_OBJECT_OVERRIDE", function()
+        local _, recipes = GameRecipe.fromParams("STEEL_BAR", {
+            RECIPE_INGREDIENT_1_MULTIPLE = {
+                RECIPE_INGREDIENT_TYPE_1 = "SMITHING_HOPPER_DUMMY",
+                RECIPE_INGREDIENT_NUMBER_1 = 1,
+                RECIPE_INGREDIENT_TYPE_2 = "IRON_ORE",
+                RECIPE_INGREDIENT_NUMBER_2 = 1,
+                RECIPE_INGREDIENT_TYPE_3 = "SMITHING_OREBOX_DUMMY",
+                RECIPE_INGREDIENT_NUMBER_3 = 1,
+                RECIPE_MULTI_OBJECT_OVERRIDE = "IRON_ORE",
+            },
+        })
+
+        expectEqual(#recipes, 1)
+        expectEqual(recipes[1].inputs, { { item = "IRON_ORE", count = 1 } })
     end)
 
     it("gives one Recipe for each combination of alternatives", function()
@@ -444,6 +463,24 @@ describe("GameRecipe.newScan", function()
         scan:step(2)
 
         expectEqual(scan:recipes(), nil)
+    end)
+
+    -- Read errors: decision on PR 92, 2026-10-25. An id that raises an error has no Recipe.
+    it("reads the next id after a read that raises an error", function()
+        local readIDs = {}
+        local scan = GameRecipe.newScan(function(id)
+            readIDs[#readIDs + 1] = id
+            if id == 1 then
+                error("The Obj config has no value.")
+            end
+            return read(id)
+        end, 2)
+
+        expectEqual(pcall(scan.step, scan, 100), false)
+        scan:step(100)
+
+        expectEqual(readIDs, { 0, 1, 2, 3, 4, 5 })
+        expectEqual(scan:recipes().VIAL_WATER ~= nil, true)
     end)
 
     it("reads no more ids after it is done", function()

@@ -9,6 +9,7 @@ local ObjParams = {}
 local KINDS = {
     { pattern = "^RECIPE_INGREDIENT_TYPE_%d+$", kind = "obj" },
     { pattern = "^RECIPE_NON_DUMMY_OBJ$", kind = "obj" },
+    { pattern = "^RECIPE_MULTI_OBJECT_OVERRIDE$", kind = "obj" },
     { pattern = "^RECIPE_INGREDIENT_%d+_MULTIPLE$", kind = "struct" },
     { pattern = "^RECIPE_INGREDIENT_NUMBER_%d+$", kind = "plain" },
     { pattern = "^RECIPE_INGREDIENT_%d+_SCALE_STACK$", kind = "plain" },
@@ -31,15 +32,16 @@ local function kindOf(name)
 end
 
 -- Gives { PARAM_NAME = value }. An Obj value becomes its config name. A Struct value becomes a table of its params.
+-- An Obj or Struct param with no value is a missing param (PR 92, 2026-10-25).
 function ObjParams.read(config)
     local values = {}
     for _, param in ipairs(config.params or {}) do
         local kind = kindOf(param.configName)
         if kind then
             local value = config:GetParamValue(param)
-            if kind == "obj" then
+            if value ~= nil and kind == "obj" then
                 value = value.configName
-            elseif kind == "struct" then
+            elseif value ~= nil and kind == "struct" then
                 value = ObjParams.read(value)
             end
             values[param.configName] = value
