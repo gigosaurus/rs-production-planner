@@ -2,6 +2,7 @@
 -- It does not use the game API. Tests run it outside the game client.
 -- states maps each displayName to the state of that character (ADR 0008).
 -- Each state is a plain table, so the plugin can save it with PersistentDB.
+local CountText = require("plan/counttext")
 local Validate = require("plan/validate")
 
 local Assumed = {}
@@ -109,6 +110,41 @@ function Assumed.lines(states, name)
         }
     end
     return lines
+end
+
+-- Gives the saved form of one state. Saved adds the version.
+function Assumed.encode(state)
+    local saved = {}
+    for index, entry in ipairs(state.entries) do
+        saved[index] = {
+            item = entry.item,
+            entered = CountText.text(entry.entered),
+            remaining = CountText.text(entry.remaining),
+            baseline = CountText.text(entry.baseline),
+        }
+    end
+    return { entries = saved }
+end
+
+-- Gives the state from its saved form, or nil when the data is bad.
+function Assumed.decode(value)
+    if type(value.entries) ~= "table" then
+        return nil
+    end
+    local state = Assumed.new()
+    for index, entry in ipairs(value.entries) do
+        if type(entry) ~= "table" or type(entry.item) ~= "string" then
+            return nil
+        end
+        local entered = CountText.count(entry.entered)
+        local remaining = CountText.count(entry.remaining)
+        local baseline = CountText.count(entry.baseline)
+        if not entered or not remaining or not baseline then
+            return nil
+        end
+        state.entries[index] = { item = entry.item, entered = entered, remaining = remaining, baseline = baseline }
+    end
+    return state
 end
 
 return Assumed

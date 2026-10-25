@@ -5,6 +5,7 @@
 -- It must have the state of each character that has saved data, also a character that is not logged in (ADR 0012).
 -- startTarget and stopTarget change only the states in it.
 -- Each state is a plain table, so the plugin can save it with PersistentDB.
+local CountText = require("plan/counttext")
 local Validate = require("plan/validate")
 
 local Made = {}
@@ -277,6 +278,58 @@ function Made.set(states, name, scope, target, count)
     end
     local state = character(states, name)
     state.starts[target.id] = (state.counts[target.item] or 0) - count
+end
+
+-- Gives the saved form of one state. Saved adds the version.
+-- Made.load clears the last Detected counts, so the plugin does not save them.
+function Made.encode(state)
+    local slots = {}
+    for slot, data in pairs(state.slots) do
+        slots[slot] =
+            { item = data.item, type = data.type, stage = data.stage, soldCount = CountText.text(data.soldCount) }
+    end
+    return {
+        counts = CountText.texts(state.counts),
+        starts = CountText.texts(state.starts),
+        slots = slots,
+        ge = CountText.texts(state.ge),
+    }
+end
+
+-- Gives the start values by Target id, or nil when an id or a start value is bad.
+local function startsOf(texts)
+    if type(texts) ~= "table" then
+        return nil
+    end
+    local starts = {}
+    for id, text in pairs(texts) do
+        local start = CountText.count(text)
+        if not Validate.isPositiveInteger(id) or not start then
+            return nil
+        end
+        starts[id] = start
+    end
+    return starts
+end
+
+-- Gives the state from its saved form, or nil when the data is bad.
+-- The GE amounts stay between sessions (issue 53). Data with no GE amounts gives GE amounts of 0.
+function Made.decode(value)
+    local state = Made.new()
+    state.counts = CountText.counts(value.counts)
+    state.starts = startsOf(value.starts)
+    state.ge = CountText.counts(value.ge or {})
+    if not state.counts or not state.starts or not state.ge or type(value.slots) ~= "table" then
+        return nil
+    end
+    for slot, data in pairs(value.slots) do
+        local soldCount = type(data) == "table" and CountText.count(data.soldCount)
+        if not soldCount then
+            return nil
+        end
+        state.slots[slot] = { item = data.item, type = data.type, stage = data.stage, soldCount = soldCount }
+    end
+    return state
 end
 
 return Made

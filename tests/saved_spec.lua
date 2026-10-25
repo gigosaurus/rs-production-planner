@@ -149,21 +149,66 @@ describe("Saved data", function()
             { "Reserves with no reserves", "char:Alice:reserves", { v = 1 } },
             { "a Reserve count that is not a number", "char:Alice:reserves", { v = 1, reserves = { COINS = "abc" } } },
             { "Unlocks with no unlocks", "char:Alice:unlocks", { v = 1 } },
-            { "Made counts with no slots", "char:Alice:made", { v = 1, counts = {} } },
-            { "a GE slot with no soldCount", "char:Alice:made", { v = 1, counts = {}, slots = slot(nil) } },
-            { "a Made count that is a number", "char:Alice:made", { v = 1, counts = { COINS = 5 }, slots = {} } },
+            { "Made counts with no slots", "char:Alice:made", { v = 1, counts = {}, starts = {} } },
+            { "Made counts with no start values", "char:Alice:made", { v = 1, counts = {}, slots = {} } },
+            {
+                "a start value that is a number",
+                "char:Alice:made",
+                { v = 1, counts = {}, starts = { [7] = 5 }, slots = {} },
+            },
+            {
+                "a start value with an id that is not a number",
+                "char:Alice:made",
+                { v = 1, counts = {}, starts = { SHARK = "5" }, slots = {} },
+            },
+            {
+                "a GE slot with no soldCount",
+                "char:Alice:made",
+                { v = 1, counts = {}, starts = {}, slots = slot(nil) },
+            },
+            {
+                "a Made count that is a number",
+                "char:Alice:made",
+                { v = 1, counts = { COINS = 5 }, starts = {}, slots = {} },
+            },
             {
                 "a GE amount that is a number",
                 "char:Alice:made",
-                { v = 1, counts = {}, slots = {}, ge = { COINS = 5 } },
+                { v = 1, counts = {}, starts = {}, slots = {}, ge = { COINS = 5 } },
             },
             { "a Plan with no Targets", "global:plan", { v = 1 } },
             {
                 "a Target count that is not an integer",
                 "global:plan",
-                { v = 1, targets = { { item = "COINS", count = "1.5" } } },
+                { v = 1, targets = { { id = 1, item = "COINS", count = "1.5", mode = "HAVE" } } },
             },
-            { "a global setting of the wrong type", "global:settings", { v = 1, targetMode = 5 } },
+            {
+                "a Target with no id",
+                "global:plan",
+                { v = 1, targets = { { item = "COINS", count = "1", mode = "HAVE" } } },
+            },
+            {
+                "a Target id that is not a whole number",
+                "global:plan",
+                { v = 1, targets = { { id = 1.5, item = "COINS", count = "1", mode = "HAVE" } } },
+            },
+            {
+                "two Targets with one id",
+                "global:plan",
+                {
+                    v = 1,
+                    targets = {
+                        { id = 1, item = "COINS", count = "1", mode = "HAVE" },
+                        { id = 1, item = "BREAD", count = "1", mode = "HAVE" },
+                    },
+                },
+            },
+            {
+                "a Target with an unknown mode",
+                "global:plan",
+                { v = 1, targets = { { id = 1, item = "COINS", count = "1", mode = "SELL" } } },
+            },
+            { "a global setting of the wrong type", "global:settings", { v = 1, madeCountScope = 5 } },
             { "characters with no list", "global:characters", { v = 1 } },
             { "a character name that is not a string", "global:characters", { v = 1, characters = { 5 } } },
         }
@@ -386,6 +431,7 @@ describe("Saved data", function()
         local function madeState()
             local state = Made.new()
             state.counts = { COINS = 20000001 }
+            state.starts = { [7] = 16777217, [8] = -3 }
             state.slots = { [0] = { item = "COINS", type = Made.BUY, stage = Made.ADDED, soldCount = 16777217 } }
             state.ge = { COINS = 16777219 }
             return state
@@ -413,14 +459,33 @@ describe("Saved data", function()
             expectEqual(store.values["char:Alice:made"], {
                 v = 1,
                 counts = { COINS = "20000001" },
+                starts = { [7] = "16777217", [8] = "-3" },
                 slots = { [0] = { item = "COINS", type = Made.BUY, stage = Made.ADDED, soldCount = "16777217" } },
                 ge = { COINS = "16777219" },
             })
         end)
 
+        it("gives the same Made count to each Make Target after a load, also for two Targets of one item", function()
+            local first = { id = 7, item = "SHARK", count = 100, mode = Plan.MAKE }
+            local second = { id = 8, item = "SHARK", count = 100, mode = Plan.MAKE }
+            local states = {}
+            Made.startTarget(states, "Alice", first, { SHARK = 5 }, {})
+            Made.observe(states, "Alice", { detected = { SHARK = 25 } })
+            Made.startTarget(states, "Alice", second, { SHARK = 25 }, {})
+            local store = fakeStore()
+            local saved = newSaved(store)
+            Saved.change(saved, "Alice", "made", states.Alice)
+            Saved.write(saved)
+
+            local parts = Saved.loadCharacter(Saved.new(store), "Alice")
+
+            local counts = Made.counts({ Alice = parts.made }, "Alice", Made.CHARACTER, { first, second })
+            expectEqual(counts, { [7] = 20, [8] = 0 })
+        end)
+
         it("gives GE amounts of 0 when the saved data has no GE amounts", function()
             local store = fakeStore()
-            store.values["char:Alice:made"] = { v = 1, counts = { COINS = "20" }, slots = {} }
+            store.values["char:Alice:made"] = { v = 1, counts = { COINS = "20" }, starts = {}, slots = {} }
 
             local parts = Saved.loadCharacter(Saved.new(store), "Alice")
 
@@ -455,7 +520,12 @@ describe("Saved data", function()
 
     describe("Plan", function()
         local function plan()
-            return { targets = { { item = "BREAD", count = 20000001 }, { item = "CAKE", count = 3 } } }
+            return {
+                targets = {
+                    { id = 7, item = "BREAD", count = 20000001, mode = Plan.MAKE },
+                    { id = 16777216, item = "CAKE", count = 3, mode = Plan.HAVE },
+                },
+            }
         end
 
         it("loads the Plan that it wrote", function()
@@ -469,6 +539,17 @@ describe("Saved data", function()
             expectEqual(globals.plan, plan())
         end)
 
+        it("gives each Target id as an integer, because the store gives back floats", function()
+            local store = fakeStore()
+            local saved = newSaved(store)
+            Saved.changeGlobal(saved, "plan", plan())
+            Saved.write(saved)
+
+            local globals = Saved.loadGlobal(Saved.new(store))
+
+            expectEqual(math.type(globals.plan.targets[1].id), "integer")
+        end)
+
         it("writes each Target count as a decimal string", function()
             local store = fakeStore()
             local saved = newSaved(store)
@@ -477,7 +558,10 @@ describe("Saved data", function()
 
             expectEqual(store.values["global:plan"], {
                 v = 1,
-                targets = { { item = "BREAD", count = "20000001" }, { item = "CAKE", count = "3" } },
+                targets = {
+                    { id = 7, item = "BREAD", count = "20000001", mode = Plan.MAKE },
+                    { id = 16777216, item = "CAKE", count = "3", mode = Plan.HAVE },
+                },
             })
         end)
 
@@ -509,39 +593,49 @@ describe("Saved data", function()
     end)
 
     describe("global settings", function()
-        it("starts in Have, with the Made counts of this character", function()
+        it("starts with the Made counts of this character", function()
             local globals = Saved.loadGlobal(Saved.new(fakeStore()))
 
-            expectEqual(globals.settings, { targetMode = Plan.HAVE, madeCountScope = Made.CHARACTER })
+            expectEqual(globals.settings, { madeCountScope = Made.CHARACTER })
         end)
 
         it("loads the settings that it wrote", function()
             local store = fakeStore()
             local saved = newSaved(store)
-            Saved.changeGlobal(saved, "settings", { targetMode = Plan.MAKE, madeCountScope = Made.ALL })
+            Saved.changeGlobal(saved, "settings", { madeCountScope = Made.ALL })
             Saved.write(saved)
 
             local globals = Saved.loadGlobal(Saved.new(store))
 
-            expectEqual(globals.settings, { targetMode = Plan.MAKE, madeCountScope = Made.ALL })
+            expectEqual(globals.settings, { madeCountScope = Made.ALL })
         end)
 
         it("writes the settings with a version", function()
             local store = fakeStore()
             local saved = newSaved(store)
-            Saved.changeGlobal(saved, "settings", { targetMode = Plan.MAKE, madeCountScope = Made.ALL })
+            Saved.changeGlobal(saved, "settings", { madeCountScope = Made.ALL })
             Saved.write(saved)
 
-            expectEqual(store.values["global:settings"], { v = 1, targetMode = Plan.MAKE, madeCountScope = Made.ALL })
+            expectEqual(store.values["global:settings"], { v = 1, madeCountScope = Made.ALL })
         end)
 
         it("gives the start value of a setting that the saved data does not have", function()
             local store = fakeStore()
-            store:Set("global:settings", { v = 1, targetMode = Plan.MAKE })
+            store:Set("global:settings", { v = 1 })
 
             local globals = Saved.loadGlobal(Saved.new(store))
 
-            expectEqual(globals.settings, { targetMode = Plan.MAKE, madeCountScope = Made.CHARACTER })
+            expectEqual(globals.settings, { madeCountScope = Made.CHARACTER })
+        end)
+
+        it("does not read the old Target mode setting, because each Target has its mode (ADR 0012)", function()
+            local store = fakeStore()
+            store:Set("global:settings", { v = 1, targetMode = Plan.MAKE, madeCountScope = Made.ALL })
+
+            local globals, problems = Saved.loadGlobal(Saved.new(store))
+
+            expectEqual(globals.settings, { madeCountScope = Made.ALL })
+            expectEqual(problems, {})
         end)
     end)
 
