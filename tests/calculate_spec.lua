@@ -570,57 +570,12 @@ describe("Plan.calculate", function()
         expectEqual(err:find("calculate_spec.lua:%d+: The Plan cannot calculate a Loop: ") ~= nil, true)
     end)
 
-    -- Each Recipe must have an Action limit (issue 2, section 1).
-    it("stops with an error that names the item when its Recipe has no Action limit", function()
-        local ok, err = pcall(Plan.calculate, {
-            targets = { { id = 1, item = "BREAD", count = 1, mode = Plan.HAVE } },
-            recipes = {
-                BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
-            },
-            detected = {},
-        })
-
-        expectEqual(ok, false)
-        expectEqual(err, "The Recipe for BREAD has no Action limit.")
-    end)
-
-    -- The check does not depend on stock. Thus a data error shows at once, not later in a session.
-    it("stops with an error when stock covers an item whose Recipe has no Action limit", function()
-        local ok, err = pcall(Plan.calculate, {
-            targets = { { id = 1, item = "BREAD", count = 1, mode = Plan.HAVE } },
-            recipes = {
-                BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
-            },
-            detected = { BREAD = 1 },
-        })
-
-        expectEqual(ok, false)
-        expectEqual(err, "The Recipe for BREAD has no Action limit.")
-    end)
-
-    it("gives the line of the caller in a Recipe error", function()
-        local ok, err = pcall(function()
-            Plan.calculate({
-                targets = { { id = 1, item = "BREAD", count = 1, mode = Plan.HAVE } },
-                recipes = {
-                    BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
-                },
-                detected = {},
-            })
-        end)
-
-        expectEqual(ok, false)
-        expectEqual(type(err), "string")
-        expectEqual(err:find("calculate_spec.lua:%d+: The Recipe for BREAD has no Action limit%.") ~= nil, true)
-    end)
-
-    -- The check covers only the Recipes that the Plan uses (issue 2, section 1).
-    it("does not stop when a Recipe that the Plan does not use has no Action limit", function()
+    -- The game data does not give an Action limit (issue 24, decision 2026-10-25).
+    it("calculates a Plan when its Recipe has no Action limit", function()
         local ok = pcall(Plan.calculate, {
             targets = { { id = 1, item = "BREAD", count = 1, mode = Plan.HAVE } },
             recipes = {
-                BREAD = { { verb = "Bake", output = 1, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
-                CAKE = { { verb = "Bake", output = 1, inputs = { { item = "BATTER", count = 1 } } } },
+                BREAD = { { verb = "Bake", output = 1, inputs = { { item = "DOUGH", count = 1 } } } },
             },
             detected = {},
         })
@@ -821,6 +776,31 @@ describe("Plan.calculate", function()
             )
 
             expectEqual(hint, 60)
+        end)
+
+        it("uses only the Inventory space when the Recipe has no Action limit", function()
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "POTION", count = 100, mode = Plan.HAVE } },
+                recipes = {
+                    POTION = { { verb = "Mix", output = 1, inputs = { { item = "GRIMY_RANARR", count = 1 } } } },
+                },
+                detected = {},
+            })
+
+            expectEqual(plan.steps[1].batchHint, 28)
+        end)
+
+        it("gives no Batch hint when all Inputs are stackable and the Recipe has no Action limit", function()
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "POTION", count = 100, mode = Plan.HAVE } },
+                recipes = {
+                    POTION = { { verb = "Mix", output = 1, inputs = { { item = "FIRE_RUNE", count = 5 } } } },
+                },
+                detected = {},
+                stackable = { FIRE_RUNE = true },
+            })
+
+            expectEqual(plan.steps[1].batchHint, nil)
         end)
 
         it("gives each Input for one full Inventory, with its Detected stock", function()

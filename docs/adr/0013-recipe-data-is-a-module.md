@@ -2,6 +2,7 @@
 
 Amends ADR 0001.
 Amended by ADR 0016.
+Amended by ADR 0017 (recipe data from the game at runtime).
 
 ADR 0001 puts the recipe data in `resources/`. The API reference says that plugin resources are only `.png` and `.ogg` files. We tested this in-game on 2026-10-21 with `probes/recipe-data-probe`:
 

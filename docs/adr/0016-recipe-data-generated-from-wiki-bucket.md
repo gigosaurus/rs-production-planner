@@ -1,6 +1,7 @@
 # The recipe data is generated from the wiki Bucket at development time
 
 Amends ADR 0001 and ADR 0013.
+Superseded by ADR 0017 (recipe data from the game at runtime).
 
 ADR 0001 says that we write the recipe data by hand. This is too slow for hundreds of Recipes. It also gives no way to find game updates (#46).
 

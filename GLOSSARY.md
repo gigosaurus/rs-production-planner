@@ -17,7 +17,7 @@ All the data that the plugin calculates a Plan from: the Targets, the Recipes, t
 _Avoid_: Request, input (an Input is a Recipe term)
 
 **Recipe**:
-One way to make items. It has Inputs, Outputs, requirements, an Action limit and an Action time. It can have Recipe tags.
+One way to make items. It has Inputs, Outputs and requirements. It can have an Action limit, an Action time and Recipe tags.
 _Avoid_: Formula, craft
 
 **Output**:
@@ -73,11 +73,11 @@ The number of actions of a Step that the player can do with one full Inventory. 
 _Avoid_: Inventory size, load
 
 **Action limit**:
-The largest number of actions of a Recipe that the game lets the player do at one time.
+The largest number of actions of a Recipe that the game lets the player do at one time. A Recipe can have no Action limit. Then only the Inventory space limits the Batch hint.
 _Avoid_: Batch size, batch limit (a batch Recipe is a different thing)
 
 **Action time**:
-The number of game ticks that one action of a Recipe takes.
+The number of game ticks that one action of a Recipe takes. When the game data does not give it, the Action time is unknown.
 _Avoid_: Duration, speed
 
 **Complete**:

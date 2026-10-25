@@ -1,0 +1,9 @@
+{
+    "name": "Production Planner",
+    "version": "0.1",
+    "contactEmailAddress": "rs-plugins@nne.rs",
+    "requiredDependencies": {},
+    "optionalDependencies": {},
+    "requiredPermissions": [],
+    "optionalPermissions": []
+}
