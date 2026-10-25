@@ -271,3 +271,126 @@ describe("GameRecipe.fromParams", function()
         expectEqual(recipes[1].unlocks ~= recipes[2].unlocks, true)
     end)
 end)
+
+describe("GameRecipe.newIndex", function()
+    local function recipeParams(input)
+        return { RECIPE_INGREDIENT_TYPE_1 = input, RECIPE_INGREDIENT_NUMBER_1 = 1 }
+    end
+
+    local function dummyParams(input, item)
+        local params = recipeParams(input)
+        params.RECIPE_NON_DUMMY_OBJ = item
+        return params
+    end
+
+    local function firstInputs(recipes)
+        local items = {}
+        for i, recipe in ipairs(recipes) do
+            items[i] = recipe.inputs[1].item
+        end
+        return items
+    end
+
+    it("gives the Recipes of each item", function()
+        local index = GameRecipe.newIndex()
+        index:add("RANARR", recipeParams("GRIMY_RANARR"))
+        index:add("LOGS", {})
+
+        local recipes = index:recipes()
+
+        expectEqual(firstInputs(recipes.RANARR), { "GRIMY_RANARR" })
+        expectEqual(recipes.LOGS, nil)
+    end)
+
+    -- Order: decision on issue 24, 2026-10-25.
+    it("puts the Recipes of the item's own Obj before the Recipes of dummy Objs", function()
+        local index = GameRecipe.newIndex()
+        index:add("ARROW_SHAFT_OAK", dummyParams("OAK_LOGS", "ARROW_SHAFT"))
+        index:add("ARROW_SHAFT", recipeParams("LOGS"))
+
+        expectEqual(firstInputs(index:recipes().ARROW_SHAFT), { "LOGS", "OAK_LOGS" })
+    end)
+
+    it("keeps the dummy Objs in the order that they were added", function()
+        local index = GameRecipe.newIndex()
+        index:add("ARROW_SHAFT_OAK", dummyParams("OAK_LOGS", "ARROW_SHAFT"))
+        index:add("ARROW_SHAFT_WILLOW", dummyParams("WILLOW_LOGS", "ARROW_SHAFT"))
+        index:add("ARROW_SHAFT_MAPLE", dummyParams("MAPLE_LOGS", "ARROW_SHAFT"))
+
+        expectEqual(firstInputs(index:recipes().ARROW_SHAFT), { "OAK_LOGS", "WILLOW_LOGS", "MAPLE_LOGS" })
+    end)
+
+    it("gives an item with only dummy Recipes", function()
+        local index = GameRecipe.newIndex()
+        index:add("ARROW_SHAFT_OAK", dummyParams("OAK_LOGS", "ARROW_SHAFT"))
+
+        expectEqual(firstInputs(index:recipes().ARROW_SHAFT), { "OAK_LOGS" })
+    end)
+end)
+
+-- The scan reads the Objs in parts, so that one call stays short.
+describe("GameRecipe.newScan", function()
+    local objs = {
+        [0] = { "GRIMY_RANARR", {} },
+        [1] = { "RANARR", { RECIPE_INGREDIENT_TYPE_1 = "GRIMY_RANARR", RECIPE_INGREDIENT_NUMBER_1 = 1 } },
+        [3] = { "VIAL_WATER", { RECIPE_INGREDIENT_TYPE_1 = "VIAL", RECIPE_INGREDIENT_NUMBER_1 = 1 } },
+    }
+
+    -- Gives the config name and the params of an Obj id, or nil when the id has no Obj.
+    local function read(id)
+        local obj = objs[id]
+        if obj then
+            return obj[1], obj[2]
+        end
+    end
+
+    local function recordingRead(readIDs)
+        return function(id)
+            readIDs[#readIDs + 1] = id
+            return read(id)
+        end
+    end
+
+    it("reads the given number of Obj ids in each part, from id 0", function()
+        local readIDs = {}
+        local scan = GameRecipe.newScan(recordingRead(readIDs), 3)
+
+        scan:step(2)
+
+        expectEqual(readIDs, { 0, 1 })
+    end)
+
+    it("is not done until it has read the last Obj id", function()
+        local scan = GameRecipe.newScan(read, 3)
+
+        expectEqual(scan:step(3), false)
+        expectEqual(scan:step(1), true)
+    end)
+
+    it("gives the Recipes when it is done", function()
+        local scan = GameRecipe.newScan(read, 3)
+        scan:step(10)
+
+        local recipes = scan:recipes()
+
+        expectEqual(recipes.RANARR[1].inputs, { { item = "GRIMY_RANARR", count = 1 } })
+        expectEqual(recipes.VIAL_WATER[1].inputs, { { item = "VIAL", count = 1 } })
+        expectEqual(recipes.GRIMY_RANARR, nil)
+    end)
+
+    it("gives no Recipes before it is done", function()
+        local scan = GameRecipe.newScan(read, 3)
+        scan:step(2)
+
+        expectEqual(scan:recipes(), nil)
+    end)
+
+    it("reads no more ids after it is done", function()
+        local readIDs = {}
+        local scan = GameRecipe.newScan(recordingRead(readIDs), 1)
+        scan:step(5)
+        scan:step(5)
+
+        expectEqual(readIDs, { 0, 1 })
+    end)
+end)

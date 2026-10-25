@@ -148,4 +148,75 @@ function GameRecipe.fromParams(configName, params)
     return params.RECIPE_NON_DUMMY_OBJ or configName, recipes
 end
 
+local Index = {}
+Index.__index = Index
+
+-- Collects the Recipes of many Objs. Add the Objs in Obj id order.
+function GameRecipe.newIndex()
+    return setmetatable({ own = {}, dummies = {} }, Index)
+end
+
+function Index:add(configName, params)
+    local item, recipes = GameRecipe.fromParams(configName, params)
+    if item == nil then
+        return
+    end
+    local lists = item == configName and self.own or self.dummies
+    local list = lists[item] or {}
+    lists[item] = list
+    for _, recipe in ipairs(recipes) do
+        list[#list + 1] = recipe
+    end
+end
+
+-- Gives { ITEM = { recipe, ... } } in priority order (issue 24, 2026-10-25):
+-- the Recipes of the item's own Obj, then the Recipes of dummy Objs by Obj id.
+function Index:recipes()
+    local all = {}
+    for item, list in pairs(self.own) do
+        all[item] = { table.unpack(list) }
+    end
+    for item, list in pairs(self.dummies) do
+        local merged = all[item] or {}
+        all[item] = merged
+        for _, recipe in ipairs(list) do
+            merged[#merged + 1] = recipe
+        end
+    end
+    return all
+end
+
+local Scan = {}
+Scan.__index = Scan
+
+-- Reads Obj ids 0 to lastID in parts. read(id) gives the config name and the params, or nil.
+function GameRecipe.newScan(read, lastID)
+    return setmetatable({ read = read, lastID = lastID, nextID = 0, index = GameRecipe.newIndex() }, Scan)
+end
+
+-- Reads the next idCount Obj ids. Gives true when the scan is done.
+function Scan:step(idCount)
+    local last = math.min(self.nextID + idCount - 1, self.lastID)
+    for id = self.nextID, last do
+        local configName, params = self.read(id)
+        if configName ~= nil then
+            self.index:add(configName, params)
+        end
+    end
+    self.nextID = math.max(self.nextID, last + 1)
+    return self:isDone()
+end
+
+function Scan:isDone()
+    return self.nextID > self.lastID
+end
+
+-- Gives the Recipes, or nil before the scan is done.
+function Scan:recipes()
+    if not self:isDone() then
+        return nil
+    end
+    return self.index:recipes()
+end
+
 return GameRecipe
