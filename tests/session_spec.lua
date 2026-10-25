@@ -25,6 +25,15 @@ local function newSession(targets)
     return loaded(globals(targets), {})
 end
 
+-- Calls fn from this file. Gives the error message without its position, or nil when the error is not at this file.
+local function errorOf(fn, ...)
+    local args = table.pack(...)
+    local ok, message = pcall(function()
+        fn(table.unpack(args, 1, args.n))
+    end)
+    return not ok and tostring(message):match("session_spec%.lua:%d+: (.*)$") or nil
+end
+
 local SHARK = { id = 1, item = "SHARK", count = 10, mode = Plan.MAKE }
 local ROCKTAIL = { id = 2, item = "ROCKTAIL", count = 10, mode = Plan.MAKE }
 local FACTS = { recipes = {}, detected = {} }
@@ -216,10 +225,7 @@ describe("Session", function()
         end)
 
         it("gives an error for a Target id that does not exist", function()
-            local ok, message = pcall(Session.removeTarget, newSession(), 7)
-
-            expectEqual(ok, false)
-            expectEqual(message:find("The Target 7 does not exist.", 1, true) ~= nil, true)
+            expectEqual(errorOf(Session.removeTarget, newSession(), 7), "The Target 7 does not exist.")
         end)
     end)
 
@@ -296,11 +302,13 @@ describe("Session", function()
             expectEqual(made.Bob.slots[0].soldCount, 3)
         end)
 
-        it("gives an error for a Make edit before a character is loaded", function()
-            local ok, message = pcall(Session.addTarget, Session.new(globals(), {}), "SHARK", 10, Plan.MAKE, NO_FACTS)
+        it("gives an error at the caller for a Make edit before a character is loaded", function()
+            local ok, message = pcall(function()
+                Session.addTarget(Session.new(globals(), {}), "SHARK", 10, Plan.MAKE, NO_FACTS)
+            end)
 
             expectEqual(ok, false)
-            expectEqual(message:find("Load a character before a Make edit.", 1, true) ~= nil, true)
+            expectEqual(message:find("session_spec.lua:%d+: Load a character before this edit.") ~= nil, true)
         end)
     end)
 
@@ -395,10 +403,7 @@ describe("Session", function()
         it("gives an error for a Made count edit of a Have Target", function()
             local session = newSession({ { id = 1, item = "SHARK", count = 10, mode = Plan.HAVE } })
 
-            local ok, message = pcall(Session.setMade, session, 1, 3)
-
-            expectEqual(ok, false)
-            expectEqual(message:find("The Target 1 is not a Make Target.", 1, true) ~= nil, true)
+            expectEqual(errorOf(Session.setMade, session, 1, 3), "The Target 1 is not a Make Target.")
         end)
 
         it("sets the count of a Target", function()
@@ -444,11 +449,13 @@ describe("Session", function()
         -- Saves the changed parts, as the adapter does.
         local function save(session, saved)
             local changes = Session.changes(session)
-            if changes.plan then
-                Saved.changeGlobal(saved, "plan", changes.plan)
+            for _, part in ipairs({ "plan", "settings" }) do
+                if changes[part] then
+                    Saved.changeGlobal(saved, part, changes[part])
+                end
             end
             for part, byName in pairs(changes) do
-                if part ~= "plan" then
+                if part ~= "plan" and part ~= "settings" then
                     for name, value in pairs(byName) do
                         Saved.change(saved, name, part, value)
                     end
@@ -469,6 +476,118 @@ describe("Session", function()
 
             expectEqual(Session.basis(again, FACTS).targets, Session.basis(session, FACTS).targets)
             expectEqual(Plan.calculate(Session.basis(again, FACTS)), Plan.calculate(Session.basis(session, FACTS)))
+        end)
+
+        it("gives the same Basis after edits of each part, a save and a load", function()
+            local db = store()
+            local session, saved = load(db, "Alice")
+            Session.addTarget(session, "SHARK", 10, Plan.MAKE, { detected = { SHARK = 10 }, offers = {} })
+            Session.observe(session, { detected = { SHARK = 15 } })
+            Session.setScope(session, Made.ALL)
+            Session.setReserve(session, "ROCKTAIL", 4)
+            Session.setUnlock(session, "LUNAR_SPELLBOOK", true)
+            Session.addAssumed(session, "RAW_SHARK", 6, { RAW_SHARK = 1 })
+            save(session, saved)
+
+            local again = load(db, "Alice")
+
+            expectEqual(Session.basis(again, FACTS), Session.basis(session, FACTS))
+        end)
+    end)
+
+    describe("character edits", function()
+        it("sets a Reserve of the logged-in character", function()
+            local session = newSession()
+
+            Session.setReserve(session, "SHARK", 3)
+
+            expectEqual(Session.basis(session, FACTS).reserves, { SHARK = 3 })
+            expectEqual(Session.changes(session).reserves, { Alice = { SHARK = 3 } })
+        end)
+
+        it("deletes a Reserve that is set to 0", function()
+            local session = newSession()
+            Session.setReserve(session, "SHARK", 3)
+
+            Session.setReserve(session, "SHARK", 0)
+
+            expectEqual(Session.basis(session, FACTS).reserves, {})
+        end)
+
+        it("gives an error for a Reserve that is not a whole number of 0 or more", function()
+            expectEqual(
+                errorOf(Session.setReserve, newSession(), "SHARK", 1.5),
+                "The Reserve of SHARK must be a whole number of 0 or more."
+            )
+        end)
+
+        it("sets and clears an Unlock of the logged-in character", function()
+            local session = newSession()
+
+            Session.setUnlock(session, "LUNAR_SPELLBOOK", true)
+            Session.setUnlock(session, "ANCIENT_CURSES", true)
+            Session.setUnlock(session, "ANCIENT_CURSES", false)
+
+            expectEqual(Session.basis(session, FACTS).unlocks, { LUNAR_SPELLBOOK = true })
+            expectEqual(Session.changes(session).unlocks, { Alice = { LUNAR_SPELLBOOK = true } })
+        end)
+
+        it("adds and removes Assumed stock of the logged-in character", function()
+            local session = newSession()
+
+            Session.addAssumed(session, "SHARK", 5, { SHARK = 2 })
+            Session.addAssumed(session, "ROCKTAIL", 3, {})
+            Session.removeAssumed(session, "ROCKTAIL")
+
+            expectEqual(Session.basis(session, FACTS).assumed, { SHARK = 5 })
+            expectEqual(Session.changes(session).assumed.Alice.entries, {
+                { item = "SHARK", entered = 5, remaining = 5, baseline = 2 },
+            })
+        end)
+
+        it("gives an error at the caller for each character edit before a character is loaded", function()
+            local edits = {
+                function(session)
+                    Session.setMade(session, 1, 2)
+                end,
+                function(session)
+                    Session.setReserve(session, "SHARK", 3)
+                end,
+                function(session)
+                    Session.setUnlock(session, "LUNAR_SPELLBOOK", true)
+                end,
+                function(session)
+                    Session.addAssumed(session, "SHARK", 5, {})
+                end,
+                function(session)
+                    Session.removeAssumed(session, "SHARK")
+                end,
+            }
+            for _, edit in ipairs(edits) do
+                local ok, message = pcall(edit, Session.new(globals({ SHARK }), {}))
+
+                expectEqual(ok, false)
+                expectEqual(message:find("session_spec.lua:%d+: Load a character before this edit.") ~= nil, true)
+            end
+        end)
+    end)
+
+    describe("setScope", function()
+        it("gives the Made counts of the new Made count scope, and the settings to save", function()
+            local parts = { Alice = madeParts(5, { [1] = 2 }), Bob = madeParts(4, { [1] = 0 }) }
+            local session = loaded(globals({ SHARK }), parts)
+
+            Session.setScope(session, Made.ALL)
+
+            expectEqual(madeOf(session, 1), 7)
+            expectEqual(Session.changes(session).settings, { madeCountScope = Made.ALL })
+        end)
+
+        it("gives an error for an unknown Made count scope", function()
+            expectEqual(
+                errorOf(Session.setScope, newSession(), "EVERYONE"),
+                "The Made count scope EVERYONE is unknown."
+            )
         end)
     end)
 
