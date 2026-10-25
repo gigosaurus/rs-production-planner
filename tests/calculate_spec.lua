@@ -790,7 +790,7 @@ describe("Plan.calculate", function()
             expectEqual(plan.steps[1].batchHint, 28)
         end)
 
-        it("gives no hint when all Inputs are stackable and the Recipe has no Action limit", function()
+        it("gives no Batch hint when all Inputs are stackable and the Recipe has no Action limit", function()
             local plan = Plan.calculate({
                 targets = { { id = 1, item = "POTION", count = 100, mode = Plan.HAVE } },
                 recipes = {

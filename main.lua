@@ -7,7 +7,8 @@ local ObjParams = require("plan/objparams")
 local IDS_PER_TICK = 250
 local GAP = 1000
 
--- The first set of issue 24: the Super restore (4) Plan. The plugin logs their Recipes for a check in game.
+-- The items of the first set of issue 24, the Super restore (4) Plan.
+-- The plugin logs the Recipes of these items. A person compares them with the game.
 local FIRST_SET =
     { "UNIDENTIFIED_RANARR", "RANARR_WEED", "RANARRVIAL", "SNAPDRAGONVIAL", "_3DOSE2RESTORE", "_4DOSE2RESTORE" }
 
