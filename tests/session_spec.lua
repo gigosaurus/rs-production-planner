@@ -46,7 +46,7 @@ local function stateOf(counts, starts)
     return parts
 end
 
--- Gives the parts of a character that saw made SHARK.
+-- Gives the parts of a character with a Made state for SHARK: its item count and its start values.
 local function madeParts(made, starts)
     return stateOf({ SHARK = made }, starts)
 end
@@ -260,6 +260,35 @@ describe("Session", function()
             expectEqual(Session.changes(session).made.Alice.starts, { [2] = 1 })
         end)
 
+        it("deletes the counts of an item that no Make Target is for, on each character", function()
+            local starts = { [1] = 0, [2] = 0 }
+            local parts = { Alice = stateOf({ SHARK = 2, ROCKTAIL = 3 }, starts), Bob = stateOf({ SHARK = 4 }, starts) }
+            local session = loaded(globals({ SHARK, ROCKTAIL }), parts)
+
+            Session.removeTarget(session, 1)
+
+            local made = Session.changes(session).made
+            expectEqual(made.Alice.counts, { ROCKTAIL = 3 })
+            expectEqual(made.Bob.counts, {})
+        end)
+
+        it("deletes the GE amount of an item that no Make Target is for", function()
+            local session = newSession()
+            Session.addTarget(session, "SHARK", 10, Plan.MAKE, NO_FACTS)
+            Session.addTarget(session, "ROCKTAIL", 10, Plan.MAKE, NO_FACTS)
+            Session.observe(session, {
+                detected = {},
+                ge = {
+                    { slot = 0, item = "SHARK", type = Made.BUY, stage = Made.ADDED, soldCount = 4, itemCount = 9 },
+                    { slot = 1, item = "ROCKTAIL", type = Made.BUY, stage = Made.ADDED, soldCount = 1, itemCount = 9 },
+                },
+            })
+
+            Session.removeTarget(session, 1)
+
+            expectEqual(Session.changes(session).made.Alice.ge, { ROCKTAIL = 1 })
+        end)
+
         it("does not change the Made states when a Have Target is removed", function()
             local have = { id = 2, item = "ROCKTAIL", count = 5, mode = Plan.HAVE }
             local session = loaded(globals({ SHARK, have }), { Alice = madeParts(5, { [1] = 2 }) })
@@ -369,7 +398,7 @@ describe("Session", function()
             expectEqual(madeOf(session, 1), 3)
         end)
 
-        it("saves counts only for the items of the Make Targets", function()
+        it("gives counts to save only for the items of the Make Targets", function()
             local session = newSession()
             Session.addTarget(session, "SHARK", 10, Plan.MAKE, { detected = { SHARK = 10 }, offers = {} })
             Session.observe(session, { detected = { SHARK = 10, VIAL_OF_WATER = 5 } })
@@ -378,7 +407,7 @@ describe("Session", function()
             expectEqual(Session.changes(session).made.Alice.counts, { SHARK = 3 })
         end)
 
-        it("saves no GE amount for an item that is in Detected stock but is not a Make Target", function()
+        it("gives no GE amount to save for an item that is in Detected stock but is not a Make Target", function()
             local session = newSession()
             Session.addTarget(session, "SHARK", 10, Plan.MAKE, { detected = { SHARK = 10 }, offers = {} })
             local offer =
@@ -431,18 +460,6 @@ describe("Session", function()
 
             Session.observe(session, { detected = { ROCKTAIL = 2 } })
             expectEqual(Session.changes(session).assumed.Alice.entries[1].remaining, 3)
-        end)
-
-        it("deletes the saved counts of an item that no Make Target is for, on each character", function()
-            local starts = { [1] = 0, [2] = 0 }
-            local parts = { Alice = stateOf({ SHARK = 2, ROCKTAIL = 3 }, starts), Bob = stateOf({ SHARK = 4 }, starts) }
-            local session = loaded(globals({ SHARK, ROCKTAIL }), parts)
-
-            Session.removeTarget(session, 1)
-
-            local made = Session.changes(session).made
-            expectEqual(made.Alice.counts, { ROCKTAIL = 3 })
-            expectEqual(made.Bob.counts, {})
         end)
     end)
 

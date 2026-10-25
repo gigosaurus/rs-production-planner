@@ -1,4 +1,4 @@
--- Keeps the Targets, the Made states, the Assumed states, the Reserves, the Unlocks and the Made count scope (issue 79).
+-- Keeps the Targets, the Made states, the Assumed stock, the Reserves, the Unlocks and the Made count scope (issue 79).
 -- It gives the Basis of Plan.calculate and the parts to save. The adapter calls Saved with these parts.
 -- It does not use the game API. Tests run it outside the game client.
 local Assumed = require("plan/assumed")
@@ -10,7 +10,7 @@ local Session = {}
 
 local MODES = { [Plan.HAVE] = true, [Plan.MAKE] = true }
 
--- Gives the marks of no changed part. plan and settings are true when they changed.
+-- Gives the marks with no changed part. The marks plan and settings become true when those parts change.
 local function unmarked()
     return { made = {}, assumed = {}, reserves = {}, unlocks = {} }
 end
@@ -107,7 +107,7 @@ local function markIfChanged(session, part, module, name, change)
 end
 
 -- Call this when a character logs in. parts is its Saved.loadCharacter result. offers are all its GE offers now.
--- The parts of a character that Session has already are kept.
+-- Session keeps the parts that it already has for a character.
 -- While a Make Target exists, Made.load makes the next observation the starting point.
 function Session.loadCharacter(session, name, parts, offers)
     if not session.characters[name] then
@@ -130,7 +130,7 @@ local function checkCharacter(session, level, action)
 end
 
 -- tick has the facts of one server tick of the logged-in character, as Made.observe takes them.
--- Gives the result of Assumed.observe. A part is changed only when its saved form changes.
+-- Gives the result of Assumed.observe. It marks a part only when the saved form of the part changes.
 function Session.observe(session, tick)
     checkCharacter(session, 2, "observation")
     markIfChanged(session, "made", Made, session.name, function()
@@ -209,7 +209,7 @@ local function checkTarget(item, count, mode)
 end
 
 -- Adds a Target and gives its id. A Make Target needs facts, as start describes.
--- A Make Target that cannot start is not added.
+-- It does not add a Make Target that cannot start.
 function Session.addTarget(session, item, count, mode, facts)
     checkTarget(item, count, mode)
     local target = { id = nextId(session.targets), item = item, count = count, mode = mode }
@@ -320,7 +320,7 @@ function Session.removeAssumed(session, item)
 end
 
 -- Gives the parts that changed since the last call, and clears the marks.
--- plan is the global Targets and settings the global settings, or nil.
+-- plan is the global Targets, or nil. settings is the global settings, or nil.
 -- made, assumed, reserves and unlocks map each changed character to its part.
 function Session.changes(session)
     local changes = { made = {}, assumed = {}, reserves = {}, unlocks = {} }

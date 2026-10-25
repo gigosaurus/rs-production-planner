@@ -132,7 +132,7 @@ function Made.startTarget(states, name, target, detected, offers)
     end
 end
 
--- Changes the GE amount of an item. An amount of 0 is not kept, so the saved form changes only when an amount changes.
+-- Changes the GE amount of an item. It does not keep an amount of 0, so the saved form changes only when an amount changes.
 local function addGE(state, item, amount)
     local total = (state.ge[item] or 0) + amount
     state.ge[item] = total ~= 0 and total or nil
