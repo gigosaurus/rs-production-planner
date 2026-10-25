@@ -7,4 +7,7 @@ max_line_length = false
 files["tests/"] = { globals = { "describe", "it", "expectEqual" } }
 
 -- The game client gives these globals. The client calls PluginShutdown when it stops the plugin.
-files["main.lua"] = { read_globals = { "config", "Event", "log" }, globals = { "PluginShutdown" } }
+files["main.lua"] = {
+    read_globals = { "config", "Event", "GameState", "Inventory", "log", "PersistentDB", "Player", "SkillType", "var" },
+    globals = { "PluginShutdown" },
+}
