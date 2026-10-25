@@ -52,8 +52,13 @@ local function character(states, name)
     return state
 end
 
+-- Gives true when scope is a Made count scope: Made.CHARACTER or Made.ALL.
+function Made.isScope(scope)
+    return Validate.isOneOf(scope, SCOPES)
+end
+
 local function checkScope(scope)
-    if not Validate.isOneOf(scope, SCOPES) then
+    if not Made.isScope(scope) then
         error("The Made count scope " .. tostring(scope) .. " is unknown.", 3)
     end
 end
@@ -127,6 +132,12 @@ function Made.startTarget(states, name, target, detected, offers)
     end
 end
 
+-- Changes the GE amount of an item. It does not keep an amount of 0, so the saved form changes only when an amount changes.
+local function addGE(state, item, amount)
+    local total = (state.ge[item] or 0) + amount
+    state.ge[item] = total ~= 0 and total or nil
+end
+
 -- Items that the GE gives to the player add to the GE amount of the character.
 -- items has a key for the item of each Make Target.
 local function observeOffer(state, offer, items)
@@ -145,7 +156,7 @@ local function observeOffer(state, offer, items)
         amount = offer.itemCount - offer.soldCount
     end
     if items[offer.item] then
-        state.ge[offer.item] = (state.ge[offer.item] or 0) + amount
+        addGE(state, offer.item, amount)
     end
     saveSlot(state, offer)
 end
@@ -215,7 +226,7 @@ function Made.observe(states, name, tick)
         rise = rise - ((tick.groundDecrease or {})[item] or 0)
         -- The rest of the rise uses up the GE amount first.
         local fromGE = math.max(0, math.min(rise, state.ge[item] or 0))
-        state.ge[item] = (state.ge[item] or 0) - fromGE
+        addGE(state, item, -fromGE)
         rise = rise - fromGE
         if rise > 0 then
             state.counts[item] = (state.counts[item] or 0) + rise

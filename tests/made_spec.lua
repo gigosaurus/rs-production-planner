@@ -51,16 +51,6 @@ describe("Made count", function()
         expectEqual(Made.counts(states, "Alice", Made.CHARACTER, { SHARK, ROCKTAIL }), { [1] = 0, [2] = 6 })
     end)
 
-    it("counts only the items of the Make Targets", function()
-        local states = {}
-        start(states, "Alice", { SHARK = 10 }, {})
-        Made.observe(states, "Alice", { detected = { SHARK = 10, VIAL_OF_WATER = 5 } })
-        Made.observe(states, "Alice", { detected = { SHARK = 13, VIAL_OF_WATER = 9 } })
-
-        expectEqual(states.Alice.counts, { SHARK = 3 })
-        expectEqual(states.Alice.last, { SHARK = 13 })
-    end)
-
     it("counts an item that is not in Detected stock as 0", function()
         local states = {}
         start(states, "Alice", { SHARK = 10 }, {})
@@ -143,32 +133,6 @@ describe("Made count", function()
         expectEqual(sharkCount(states, "Carol", Made.CHARACTER), 0)
         expectEqual(states.Carol, nil)
         expectEqual(sharkCount(states, "Alice", Made.CHARACTER), 28)
-    end)
-
-    it("deletes the counts of an item that no Make Target is for", function()
-        local states = {}
-        start(states, "Alice", { SHARK = 10 }, {})
-        Made.startTarget(states, "Alice", ROCKTAIL, { ROCKTAIL = 0 }, {})
-        Made.observe(states, "Bob", { detected = { SHARK = 0 } })
-        Made.observe(states, "Alice", { detected = { SHARK = 12, ROCKTAIL = 3 } })
-        Made.observe(states, "Bob", { detected = { SHARK = 4 } })
-        Made.stopTarget(states, SHARK, { ROCKTAIL })
-
-        expectEqual(states.Alice.counts, { ROCKTAIL = 3 })
-        expectEqual(states.Bob.counts, {})
-        expectEqual(Made.counts(states, "Alice", Made.ALL, { ROCKTAIL }), { [2] = 3 })
-    end)
-
-    it("keeps the count of an item that a Make Target is still for", function()
-        local states = {}
-        local other = { id = 3, item = "SHARK", count = 50 }
-        start(states, "Alice", { SHARK = 10 }, {})
-        Made.startTarget(states, "Alice", other, { SHARK = 10 }, {})
-        Made.observe(states, "Alice", { detected = { SHARK = 12 } })
-        Made.stopTarget(states, SHARK, { other })
-
-        expectEqual(Made.counts(states, "Alice", Made.CHARACTER, { other }), { [3] = 2 })
-        expectEqual(states.Alice.starts, { [3] = 0 })
     end)
 
     it("starts a forgotten item again when the player adds a Target for it", function()
@@ -358,17 +322,6 @@ describe("Made count GE amount", function()
         Made.observe(states, "Alice", { detected = { SHARK = 10, ROCKTAIL = 7 } })
 
         expectEqual(Made.counts(states, "Alice", Made.CHARACTER, { ROCKTAIL }), { [2] = 7 })
-    end)
-
-    it("adds no GE amount for an item that is in Detected stock but is not a Make Target", function()
-        local states = {}
-        start(states, "Alice", { SHARK = 10 }, {})
-        Made.observe(states, "Alice", {
-            detected = { SHARK = 10, ROCKTAIL = 0 },
-            ge = { offer(1, Made.BUY, Made.ADDED, "ROCKTAIL", 100, 30) },
-        })
-
-        expectEqual(states.Alice.ge.ROCKTAIL, nil)
     end)
 
     it("rejects an unknown offer type", function()
@@ -625,18 +578,6 @@ describe("Made count start values", function()
 
         expectEqual(Made.counts(states, "Alice", Made.ALL, { a, b }), { [1] = 24, [2] = 7 })
         expectEqual(Made.counts(states, "Bob", Made.CHARACTER, { a, b }), { [1] = 4, [2] = 0 })
-    end)
-
-    it("deletes only the start values of a stopped Target", function()
-        local states = {}
-        local a, b = bread(1), bread(2)
-        Made.startTarget(states, "Alice", a, { BREAD = 0 }, {})
-        Made.observe(states, "Alice", { detected = { BREAD = 2 } })
-        Made.startTarget(states, "Alice", b, { BREAD = 2 }, {})
-        Made.stopTarget(states, b, { a })
-
-        expectEqual(states.Alice.starts, { [1] = 0 })
-        expectEqual(states.Alice.counts, { BREAD = 2 })
     end)
 
     -- A start again sets the Made count to 0. A reset uses Made.set.

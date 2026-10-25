@@ -120,6 +120,10 @@ _Avoid_: Intermediate demand, Intermediate part
 The setting of a Plan that decides which Made counts the Plan uses. Its options are This character and All characters. All characters adds the Made counts of all characters together.
 _Avoid_: Count mode, tracking mode
 
+**Session**:
+The one module that keeps the Targets, the Made states, the Assumed stock, the Reserves, the Unlocks and the Made count scope while the plugin runs. It gives the Basis and the parts to save.
+_Avoid_: Controller, manager, state, store
+
 ## Counted stock
 
 **Counted stock**:
