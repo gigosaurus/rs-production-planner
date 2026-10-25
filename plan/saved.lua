@@ -112,7 +112,8 @@ local plan = moduleCodec(Targets)
 
 -- Gives a codec for a table of settings. Each setting that the saved data does not have gets its start value.
 -- Then a new setting needs no new version.
-local function settingsCodec(startValues)
+-- checks can give a function for a setting. The function gives false for a bad value, and then the data is bad.
+local function settingsCodec(startValues, checks)
     local codec = { version = 1, versionOf = tableVersionOf }
     function codec.start()
         local settings = {}
@@ -134,6 +135,9 @@ local function settingsCodec(startValues)
             if value[name] ~= nil and type(value[name]) ~= type(startValue) then
                 return nil
             end
+            if value[name] ~= nil and checks[name] and not checks[name](value[name]) then
+                return nil
+            end
             if value[name] ~= nil then
                 settings[name] = value[name]
             end
@@ -153,7 +157,7 @@ local CODECS = {
 
 local GLOBAL_CODECS = {
     plan = plan,
-    settings = settingsCodec({ madeCountScope = Made.CHARACTER }),
+    settings = settingsCodec({ madeCountScope = Made.CHARACTER }, { madeCountScope = Made.isScope }),
 }
 
 local function globalKey(part)

@@ -8,7 +8,6 @@ local Validate = require("plan/validate")
 
 local Session = {}
 
-local SCOPES = { [Made.CHARACTER] = true, [Made.ALL] = true }
 local MODES = { [Plan.HAVE] = true, [Plan.MAKE] = true }
 
 -- Gives the marks of no changed part. plan and settings are true when they changed.
@@ -276,7 +275,7 @@ function Session.setMade(session, id, count)
 end
 
 function Session.setScope(session, scope)
-    if not Validate.isOneOf(scope, SCOPES) then
+    if not Made.isScope(scope) then
         error("The Made count scope " .. tostring(scope) .. " is unknown.", 2)
     end
     session.scope = scope

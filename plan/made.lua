@@ -52,8 +52,13 @@ local function character(states, name)
     return state
 end
 
+-- Gives true when scope is a Made count scope: Made.CHARACTER or Made.ALL.
+function Made.isScope(scope)
+    return Validate.isOneOf(scope, SCOPES)
+end
+
 local function checkScope(scope)
-    if not Validate.isOneOf(scope, SCOPES) then
+    if not Made.isScope(scope) then
         error("The Made count scope " .. tostring(scope) .. " is unknown.", 3)
     end
 end

@@ -209,6 +209,7 @@ describe("Saved data", function()
                 { v = 1, targets = { { id = 1, item = "COINS", count = "1", mode = "SELL" } } },
             },
             { "a global setting of the wrong type", "global:settings", { v = 1, madeCountScope = 5 } },
+            { "an unknown Made count scope", "global:settings", { v = 1, madeCountScope = "CHAR" } },
             { "characters with no list", "global:characters", { v = 1 } },
             { "a character name that is not a string", "global:characters", { v = 1, characters = { 5 } } },
         }
