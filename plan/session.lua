@@ -29,31 +29,99 @@ local function makeTargets(targets)
     return make
 end
 
+-- Gives true when the two values are the same, also for tables.
+local function same(a, b)
+    if type(a) ~= "table" or type(b) ~= "table" then
+        return a == b
+    end
+    for key, value in pairs(a) do
+        if not same(value, b[key]) then
+            return false
+        end
+    end
+    for key in pairs(b) do
+        if a[key] == nil then
+            return false
+        end
+    end
+    return true
+end
+
+local function hasMake(session)
+    return #makeTargets(session.targets) > 0
+end
+
+-- Adds the saved parts of one character.
+-- With no Make Target, Made must have no state (made.lua). Saved gives a start state to each character, so Session drops it.
+local function addParts(session, name, parts)
+    session.made[name] = hasMake(session) and parts.made or nil
+    session.assumed[name] = parts.assumed
+    session.reserves[name] = parts.reserves
+    session.unlocks[name] = parts.unlocks
+    session.characters[name] = true
+end
+
 -- globals is the result of Saved.loadGlobal. parts maps each name in globals.characters to its Saved.loadCharacter result.
--- name is the logged-in character.
--- With no Make Target, Made must have no state (made.lua). Saved gives a start state to each character, so Session drops them.
-function Session.new(globals, parts, name)
+-- Call Session.loadCharacter before the first Make edit.
+function Session.new(globals, parts)
     local session = {
-        name = name,
         targets = {},
         scope = globals.settings.madeCountScope,
         made = {},
         assumed = {},
         reserves = {},
         unlocks = {},
-        changed = { made = {} },
+        characters = {},
+        changed = { made = {}, assumed = {} },
     }
     for index, target in ipairs(globals.plan.targets) do
         session.targets[index] = copyOf(target)
     end
-    local hasMake = #makeTargets(session.targets) > 0
-    for partName, part in pairs(parts) do
-        session.made[partName] = hasMake and part.made or nil
-        session.assumed[partName] = part.assumed
-        session.reserves[partName] = part.reserves
-        session.unlocks[partName] = part.unlocks
+    for name, part in pairs(parts) do
+        addParts(session, name, part)
     end
     return session
+end
+
+-- Gives the saved form of the state of one character, or nil when it has no state.
+local function savedForm(module, states, name)
+    return states[name] and module.encode(states[name])
+end
+
+-- Calls change, then marks the part of the character when its saved form changed.
+local function markIfChanged(session, part, module, name, change)
+    local before = savedForm(module, session[part], name)
+    local result = change()
+    if not same(before, savedForm(module, session[part], name)) then
+        session.changed[part][name] = true
+    end
+    return result
+end
+
+-- Call this when a character logs in. parts is its Saved.loadCharacter result. offers are all its GE offers now.
+-- The parts of a character that Session has already are kept.
+-- While a Make Target exists, Made.load makes the next observation the starting point.
+function Session.loadCharacter(session, name, parts, offers)
+    if not session.characters[name] then
+        addParts(session, name, parts)
+    end
+    session.name = name
+    if hasMake(session) then
+        markIfChanged(session, "made", Made, name, function()
+            Made.load(session.made, name, offers)
+        end)
+    end
+end
+
+-- tick has the facts of one server tick of the logged-in character, as Made.observe takes them.
+-- Gives the result of Assumed.observe. A part is changed only when its saved form changes.
+function Session.observe(session, tick)
+    markIfChanged(session, "made", Made, session.name, function()
+        Made.observe(session.made, session.name, tick)
+    end)
+    return markIfChanged(session, "assumed", Assumed, session.name, function()
+        return Assumed.observe(session.assumed, session.name, tick)
+    end)
 end
 
 -- Gives the Basis of Plan.calculate. facts has the game facts: recipes, detected, levels, stackable and pools.
@@ -98,8 +166,15 @@ local function markMade(session)
     end
 end
 
+local function checkCharacter(session)
+    if not session.name then
+        error("Load a character before a Make edit.", 4)
+    end
+end
+
 -- facts has detected, the Detected stock now, and offers, all the GE offers of the character now.
 local function start(session, target, facts)
+    checkCharacter(session)
     Made.startTarget(session.made, session.name, target, facts.detected, facts.offers)
     markMade(session)
 end
@@ -145,6 +220,21 @@ function Session.setMode(session, id, mode, facts)
     session.changed.plan = true
 end
 
+function Session.setCount(session, id, count)
+    session.targets[indexOf(session, id)].count = count
+    session.changed.plan = true
+end
+
+-- Sets the Made count of a Make Target in the Made count scope. A reset sets it to 0.
+function Session.setMade(session, id, count)
+    local target = session.targets[indexOf(session, id)]
+    if not isMake(target) then
+        error("The Target " .. tostring(id) .. " is not a Make Target.", 2)
+    end
+    Made.set(session.made, session.name, session.scope, target, count)
+    markMade(session)
+end
+
 -- Gives the parts that changed since the last call, and clears the marks.
 -- plan is the global Targets, or nil. made, assumed, reserves and unlocks map each changed character to its part.
 function Session.changes(session)
@@ -155,7 +245,10 @@ function Session.changes(session)
     for name in pairs(session.changed.made) do
         changes.made[name] = session.made[name] or Made.new()
     end
-    session.changed = { made = {} }
+    for name in pairs(session.changed.assumed) do
+        changes.assumed[name] = session.assumed[name]
+    end
+    session.changed = { made = {}, assumed = {} }
     return changes
 end
 
