@@ -3,6 +3,8 @@
 -- Steps: pon in the game. Log out to the lobby. Log in again. Then log out to the login screen and log in again.
 -- The probe logs each GameStateChanged event, and each change of Player.IsAvailable() or of the player name.
 -- Do not put the character "<" in log text (docs/client-behaviour.md).
+-- Second run: after the login, walk for 10 s, then prl. The load line gives the last tick that the old run saved.
+-- If that tick is after the logout tick, the plugin ran after the login, but its log did not show.
 
 local serverTick = 0
 
@@ -22,6 +24,7 @@ local function nameNow()
 end
 
 Event.GameStateChanged.Subscribe("gameStateProbe", function(e)
+    PersistentDB:Set("stateTick", serverTick)
     say(
         "GameStateChanged old=",
         e.oldState,
@@ -49,6 +52,7 @@ end
 
 Event.ServerLogic.Subscribe("gameStateProbe", function()
     serverTick = serverTick + 1
+    PersistentDB:Set("lastTick", serverTick)
     watch("ServerLogic")
 end)
 
@@ -57,5 +61,8 @@ Event.Logic.Subscribe("gameStateProbe", function()
     watch("Logic")
 end)
 
+say("Last run: last ServerLogic tick", PersistentDB:Get("lastTick"), "| tick of last GameStateChanged", PersistentDB:Get("stateTick"))
+PersistentDB:Delete("lastTick")
+PersistentDB:Delete("stateTick")
 say("Game state probe running. GameState.GAME =", GameState.GAME, "LOBBY =", GameState.LOBBY)
 watch("load")
