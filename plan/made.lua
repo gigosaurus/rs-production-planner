@@ -195,7 +195,12 @@ end
 
 -- tick has the facts of one server tick for one character. Assumed.observe takes the same record.
 -- An item that is not in tick.detected has a Detected stock of 0.
+-- With no Make Target, it makes no state, so startTarget reads the GE offers (issue 78).
 function Made.observe(states, name, tick)
+    checkOffers(tick.ge or {})
+    if next(states) == nil then
+        return
+    end
     local state = character(states, name)
     local items = targetItems(states)
     for _, offer in ipairs(tick.ge or {}) do
