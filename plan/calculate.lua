@@ -221,6 +221,7 @@ local INVENTORY_SLOTS = 28
 
 -- Finds how many actions of a Recipe the player can do with one full Inventory.
 -- It gives nil (no hint) when one action does not fit in the Inventory.
+-- A Recipe can have no Action limit (issue 24). Then only the Inventory space limits the actions.
 local function batchHintFor(basis, recipe)
     -- A stackable Input takes one slot, whatever its amount.
     local slots, perAction = INVENTORY_SLOTS, 0
@@ -241,7 +242,7 @@ local function batchHintFor(basis, recipe)
     if fit < 1 then
         return nil
     end
-    return math.min(fit, recipe.actionLimit)
+    return math.min(fit, recipe.actionLimit or fit)
 end
 
 -- Lists the requirements of a Recipe that the player does not meet.
@@ -413,17 +414,6 @@ local function itemsInPlan(basis)
         find(target.item)
     end
     return order
-end
-
--- Each Recipe that the Plan uses must have an Action limit (issue 2, section 1).
--- The check does not depend on stock, so that a data error shows at once.
-local function checkActionLimits(basis, order)
-    for _, item in ipairs(order) do
-        local recipe = recipeFor(basis, item)
-        if recipe and not recipe.actionLimit then
-            error("The Recipe for " .. item .. " has no Action limit.", 3)
-        end
-    end
 end
 
 -- Finds the Planning level of each item (ADR 0002).
@@ -1114,7 +1104,6 @@ end
 function Plan.calculate(basis)
     basis = withDefaults(basis, checkBasis(basis))
     local order = itemsInPlan(basis)
-    checkActionLimits(basis, order)
     local levels, loopOf = planningLevels(basis, order)
     local steps, extraOf, usedSupply, shortBy, poolLeftoversOf = stepsFor(basis, levels, loopOf, order)
     markWaiting(basis, steps)
