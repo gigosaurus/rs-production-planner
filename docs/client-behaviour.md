@@ -24,6 +24,16 @@ Game client version for these tests: 950-1.
 - Bit 12 was set in each test. We do not know what it means.
 - A `VarTransmit` event comes after each change. A new login is not necessary.
 
+## Configs
+
+Tested on client 951-1 with the plugin at the repo root (`main.lua`, #24):
+
+- `config.Obj.FromID(id)` works. The ObjType page gives it, but `api-signatures.md` does not list it.
+- An ObjType has `isValid`. The ObjType page does not list it. A full scan of ids 0 to 64,356 with `obj.isValid == true` found the same Objs as the 2026-10-24 export.
+- `obj.params` and `struct.params` list the ParamTypes that the config has. `GetParamValue` on each listed param gives the value. An OBJ value is an ObjType with `configName`. A STRUCT value is a StructType.
+- `config.Param[name]` gives the ParamType by config name. (`probes/recipe-scan-timer-probe`)
+- `GetParamValue` on an AREA param logs a client error that `pcall` does not catch. Read only the params that you need. (`probes/recipe-scan-timer-probe`, `docs/recipe-params.md`)
+
 ## Inventory API
 
 ADR 0007 gives the Inventory API facts: `isValid` and not `valid`, empty slots with id -1, Noted items as `CERT_<name>`, and the bank in one `InventoryAdded` event. (`probes/bank-probe`, `probes/stack-probe`)
