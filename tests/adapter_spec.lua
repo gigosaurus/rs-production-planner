@@ -1,4 +1,5 @@
 local Adapter = require("plan/adapter")
+local Assumed = require("plan/assumed")
 local Plan = require("plan/calculate")
 local Saved = require("plan/saved")
 
@@ -27,11 +28,20 @@ local function fakeStore()
 end
 
 -- Gives a store that holds the given Targets as the saved plan.
-local function storeWith(targets)
+-- assumed maps each item to the Assumed stock of Alice, added when she had no Detected stock.
+local function storeWith(targets, assumed)
     local store = fakeStore()
     local saved = Saved.new(store)
     Saved.loadGlobal(saved)
     Saved.changeGlobal(saved, "plan", { targets = targets })
+    if assumed then
+        local states = { Alice = Assumed.new() }
+        for item, amount in pairs(assumed) do
+            Assumed.add(states, "Alice", item, amount, {})
+        end
+        Saved.loadCharacter(saved, "Alice")
+        Saved.change(saved, "Alice", "assumed", states.Alice)
+    end
     Saved.write(saved)
     return store
 end
@@ -51,8 +61,8 @@ local function slot(configName, count)
 end
 
 -- Gives an Adapter on a store with the BREAD Target, with Alice logged in.
-local function loggedIn()
-    local adapter = Adapter.new(storeWith({ BREAD }))
+local function loggedIn(assumed)
+    local adapter = Adapter.new(storeWith({ BREAD }, assumed))
     Adapter.login(adapter, "Alice")
     return adapter
 end
@@ -104,6 +114,38 @@ describe("Adapter", function()
             Adapter.bank(adapter, {})
 
             expectEqual({ before, Adapter.bankSeen(adapter) }, { false, true })
+        end)
+    end)
+
+    describe("Assumed stock", function()
+        it("is used up by a rise in the Inventory", function()
+            local adapter = loggedIn({ DOUGH = 2 })
+            Adapter.tick(adapter, facts({}))
+
+            local result = Adapter.tick(adapter, facts({ slot("DOUGH", 2) }))
+
+            expectEqual(result.plan.shortages, { { item = "DOUGH", count = 1 } })
+        end)
+
+        it("is not used up by the first Bank snapshot", function()
+            local adapter = loggedIn({ DOUGH = 2 })
+            Adapter.tick(adapter, facts({}))
+
+            Adapter.bank(adapter, { slot("DOUGH", 2) })
+            local result = Adapter.tick(adapter, facts({}))
+
+            expectEqual(result.plan.shortages, {})
+        end)
+
+        it("is used up by a rise in a later Bank snapshot", function()
+            local adapter = loggedIn({ DOUGH = 2 })
+            Adapter.bank(adapter, {})
+            Adapter.tick(adapter, facts({}))
+
+            Adapter.bank(adapter, { slot("DOUGH", 2) })
+            local result = Adapter.tick(adapter, facts({}))
+
+            expectEqual(result.plan.shortages, { { item = "DOUGH", count = 1 } })
         end)
     end)
 end)

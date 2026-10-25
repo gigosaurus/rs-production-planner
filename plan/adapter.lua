@@ -68,7 +68,11 @@ end
 
 -- slots are all the slots of the bank, from InventoryAdded or InventoryUpdated.
 -- The Bank snapshot never becomes stale (issue 1).
+-- The first Bank snapshot of a character makes the next tick record a first Bank tick (ADR 0004).
 function Adapter.bank(adapter, slots)
+    if adapter.banks[adapter.name] == nil then
+        adapter.firstBank = true
+    end
     adapter.banks[adapter.name] = snapshotOf(slots)
 end
 
@@ -81,6 +85,9 @@ end
 -- Gives the Plan.
 function Adapter.tick(adapter, facts)
     local detected = Detected.count(itemSlots(facts.inventory), bankSlots(adapter))
+    -- tick.detected holds all items. Made.observe counts only the items of the Make Targets.
+    Session.observe(adapter.session, { detected = detected, firstBank = adapter.firstBank })
+    adapter.firstBank = nil
     local basis = Session.basis(adapter.session, {
         recipes = facts.recipes,
         detected = detected,
