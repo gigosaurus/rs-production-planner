@@ -119,6 +119,37 @@ describe("Session", function()
 
             expectEqual(Session.addTarget(session, "ROCKTAIL", 2, Plan.HAVE), 6)
         end)
+
+        it("gives an error for an unknown Target mode, and adds no Target", function()
+            local session = newSession()
+
+            expectEqual(
+                errorOf(Session.addTarget, session, "SHARK", 10, "make"),
+                "The Target mode make of SHARK is unknown."
+            )
+            expectEqual(Session.basis(session, FACTS).targets, {})
+        end)
+
+        it("gives an error for a Target count that is not a whole number more than 0, and adds no Target", function()
+            local session = newSession()
+
+            for _, count in ipairs({ 0, 2.5 }) do
+                expectEqual(
+                    errorOf(Session.addTarget, session, "SHARK", count, Plan.HAVE),
+                    "The Target count of SHARK must be a whole number more than 0."
+                )
+            end
+            expectEqual(Session.basis(session, FACTS).targets, {})
+        end)
+
+        it("adds no Make Target that cannot start", function()
+            local session = Session.new(globals(), {})
+
+            pcall(Session.addTarget, session, "SHARK", 10, Plan.MAKE, NO_FACTS)
+
+            expectEqual(Session.basis(session, FACTS).targets, {})
+            expectEqual(Session.changes(session).plan, nil)
+        end)
     end)
 
     describe("Make Targets", function()
@@ -188,6 +219,22 @@ describe("Session", function()
             local changes = Session.changes(session)
             expectEqual(changes.plan.targets[1].mode, Plan.HAVE)
             expectEqual(changes.made, { Alice = Made.new() })
+        end)
+
+        it("keeps the Target mode Have when the change to Make cannot start", function()
+            local session = Session.new(globals({ { id = 1, item = "SHARK", count = 10, mode = Plan.HAVE } }), {})
+
+            pcall(Session.setMode, session, 1, Plan.MAKE, NO_FACTS)
+
+            expectEqual(Session.basis(session, FACTS).targets[1].mode, Plan.HAVE)
+        end)
+
+        it("gives an error for an unknown Target mode, and keeps the mode", function()
+            local session = newSession({ { id = 1, item = "SHARK", count = 10, mode = Plan.HAVE } })
+
+            expectEqual(errorOf(Session.setMode, session, 1, "make"), "The Target mode make of SHARK is unknown.")
+            expectEqual(Session.basis(session, FACTS).targets[1].mode, Plan.HAVE)
+            expectEqual(Session.changes(session).plan, nil)
         end)
 
         it("changes nothing when the mode is the same", function()
@@ -415,6 +462,17 @@ describe("Session", function()
             expectEqual(changes.plan.targets[1].count, 40)
             expectEqual(changes.made, {})
             expectEqual(madeOf(session, 1), 3)
+        end)
+
+        it("gives an error for a Target count that is not a whole number more than 0, and keeps the count", function()
+            local session = newSession({ { id = 1, item = "SHARK", count = 10, mode = Plan.HAVE } })
+
+            expectEqual(
+                errorOf(Session.setCount, session, 1, 2.5),
+                "The Target count of SHARK must be a whole number more than 0."
+            )
+            expectEqual(Session.basis(session, FACTS).targets[1].count, 10)
+            expectEqual(Session.changes(session).plan, nil)
         end)
     end)
 

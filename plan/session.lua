@@ -9,6 +9,7 @@ local Validate = require("plan/validate")
 local Session = {}
 
 local SCOPES = { [Made.CHARACTER] = true, [Made.ALL] = true }
+local MODES = { [Plan.HAVE] = true, [Plan.MAKE] = true }
 
 -- Gives the marks of no changed part. plan and settings are true when they changed.
 local function unmarked()
@@ -195,13 +196,26 @@ local function stop(session, target)
     Made.stopTarget(session.made, target, makeTargets(session.targets))
 end
 
+-- Stops with an error at the caller of the Session function when the count or the mode is bad.
+-- Plan.calculate uses the same rules, and Saved does not load a Target that breaks them.
+local function checkTarget(item, count, mode)
+    if not Validate.isOneOf(mode, MODES) then
+        error("The Target mode " .. tostring(mode) .. " of " .. tostring(item) .. " is unknown.", 3)
+    end
+    if not Validate.isPositiveInteger(count) then
+        error("The Target count of " .. tostring(item) .. " must be a whole number more than 0.", 3)
+    end
+end
+
 -- Adds a Target and gives its id. A Make Target needs facts, as start describes.
+-- A Make Target that cannot start is not added.
 function Session.addTarget(session, item, count, mode, facts)
+    checkTarget(item, count, mode)
     local target = { id = nextId(session.targets), item = item, count = count, mode = mode }
-    session.targets[#session.targets + 1] = target
     if isMake(target) then
         start(session, target, facts)
     end
+    session.targets[#session.targets + 1] = target
     session.changed.plan = true
     return target.id
 end
@@ -215,22 +229,27 @@ function Session.removeTarget(session, id)
 end
 
 -- A change to Make needs facts, as start describes. The same mode changes nothing.
+-- When the Target cannot start, its mode stays Have.
 function Session.setMode(session, id, mode, facts)
     local target = session.targets[indexOf(session, id)]
     if target.mode == mode then
         return
     end
-    target.mode = mode
-    if isMake(target) then
+    checkTarget(target.item, target.count, mode)
+    if mode == Plan.MAKE then
         start(session, target, facts)
+        target.mode = mode
     else
+        target.mode = mode
         stop(session, target)
     end
     session.changed.plan = true
 end
 
 function Session.setCount(session, id, count)
-    session.targets[indexOf(session, id)].count = count
+    local target = session.targets[indexOf(session, id)]
+    checkTarget(target.item, count, target.mode)
+    target.count = count
     session.changed.plan = true
 end
 
