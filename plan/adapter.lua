@@ -1,6 +1,7 @@
 -- The part of the adapter that does not use the game API (issue 25).
 -- main.lua reads the game and gives plain tables to it. Tests run it outside the game client.
 local Detected = require("plan/detected")
+local Diff = require("plan/diff")
 local Plan = require("plan/calculate")
 local Saved = require("plan/saved")
 local Session = require("plan/session")
@@ -81,8 +82,53 @@ function Adapter.bankSeen(adapter)
     return adapter.banks[adapter.name] ~= nil
 end
 
+-- Gives true when the two values are the same, also for tables.
+local function same(a, b)
+    if type(a) ~= "table" or type(b) ~= "table" then
+        return a == b
+    end
+    for key, value in pairs(a) do
+        if not same(value, b[key]) then
+            return false
+        end
+    end
+    for key in pairs(b) do
+        if a[key] == nil then
+            return false
+        end
+    end
+    return true
+end
+
+-- The Recipes and stackable are large, so the Basis compares them as tables, not by their contents.
+local BY_TABLE = { recipes = true, stackable = true }
+
+local function sameBasis(a, b)
+    if a == nil then
+        return false
+    end
+    for key in pairs(BY_TABLE) do
+        if a[key] ~= b[key] then
+            return false
+        end
+    end
+    for key, value in pairs(a) do
+        if not BY_TABLE[key] and not same(value, b[key]) then
+            return false
+        end
+    end
+    for key in pairs(b) do
+        if a[key] == nil then
+            return false
+        end
+    end
+    return true
+end
+
 -- facts has the Inventory slots of this tick, and the recipes, levels and stackable of Plan.calculate.
--- Gives the Plan.
+-- Give the same recipes and stackable tables until they change.
+-- Gives the Plan and the diff from the previous Plan, or nil when the Basis did not change (ADR 0003).
+-- The first Plan has no diff.
 function Adapter.tick(adapter, facts)
     local detected = Detected.count(itemSlots(facts.inventory), bankSlots(adapter))
     -- tick.detected holds all items. Made.observe counts only the items of the Make Targets.
@@ -94,7 +140,13 @@ function Adapter.tick(adapter, facts)
         levels = facts.levels,
         stackable = facts.stackable,
     })
-    return { plan = Plan.calculate(basis) }
+    if sameBasis(adapter.basis, basis) then
+        return nil
+    end
+    local plan = Plan.calculate(basis)
+    local diff = adapter.plan and Diff.compare(adapter.plan, plan)
+    adapter.basis, adapter.plan = basis, plan
+    return { plan = plan, diff = diff }
 end
 
 return Adapter

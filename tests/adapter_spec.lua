@@ -51,9 +51,11 @@ local RECIPES = {
     BREAD = { { verb = "Bake", output = 2, actionLimit = 60, inputs = { { item = "DOUGH", count = 1 } } } },
 }
 
+local STACKABLE = {}
+
 -- Gives the facts of one tick with the given Inventory slots.
 local function facts(inventory)
-    return { inventory = inventory, recipes = RECIPES, levels = {}, stackable = {} }
+    return { inventory = inventory, recipes = RECIPES, levels = {}, stackable = STACKABLE }
 end
 
 local function slot(configName, count)
@@ -85,6 +87,41 @@ describe("Adapter", function()
             local result = Adapter.tick(adapter, facts({ empty, slot("DOUGH", 1), placeholder }))
 
             expectEqual(result.plan.shortages, { { item = "DOUGH", count = 2 } })
+        end)
+
+        it("gives no diff for the first Plan", function()
+            local adapter = loggedIn()
+
+            local result = Adapter.tick(adapter, facts({}))
+
+            expectEqual(result.diff, nil)
+        end)
+
+        it("gives nothing when the Basis did not change", function()
+            local adapter = loggedIn()
+            Adapter.tick(adapter, facts({ slot("DOUGH", 1) }))
+
+            expectEqual(Adapter.tick(adapter, facts({ slot("DOUGH", 1) })), nil)
+        end)
+
+        it("calculates again when Counted stock changed, and gives the diff", function()
+            local adapter = loggedIn()
+            Adapter.tick(adapter, facts({ slot("DOUGH", 1) }))
+
+            local result = Adapter.tick(adapter, facts({ slot("DOUGH", 3) }))
+
+            expectEqual({ result.plan.shortages, result.diff.covered }, { {}, { "DOUGH" } })
+        end)
+
+        it("calculates again when a level changed", function()
+            local adapter = loggedIn()
+            local before = facts({})
+            before.levels = { COOKING = 1 }
+            Adapter.tick(adapter, before)
+            local after = facts({})
+            after.levels = { COOKING = 2 }
+
+            expectEqual(Adapter.tick(adapter, after) ~= nil, true)
         end)
     end)
 
