@@ -1,0 +1,4 @@
+# Export output. The receiver writes these files.
+*.sqlite3
+*.json
+*.tmp
