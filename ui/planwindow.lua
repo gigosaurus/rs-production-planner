@@ -48,10 +48,13 @@ local function marked(text, word, colour)
     return text, colour
 end
 
+-- getParent gives the component that holds the window. The plugin can load before the game interface exists,
+-- so the window asks for it each time it draws.
 -- actions has onOpen, onClose and onDismiss. The plugin calls them when the player uses the window or the layer.
-function PlanWindow.new(parent, actions)
+-- actions.onProblem gets the text of each problem, for the log.
+function PlanWindow.new(getParent, actions)
     return {
-        parent = parent,
+        getParent = getParent,
         actions = actions,
         place = { x = 60, y = 80, width = WIDTH, height = HEIGHT, scrollY = 0 },
         -- Issue 26: Production order starts open. Leftovers and the Planning assumptions start collapsed.
@@ -271,9 +274,14 @@ function draw(pw)
     if not pw.isOpen then
         return
     end
+    local parent = pw.getParent()
+    if parent == nil then
+        pw.actions.onProblem("The window has no parent component.")
+        return
+    end
     local place = pw.place
     pw.panels = {}
-    pw.window = prettyui.Window.new(pw.parent, {
+    pw.window = prettyui.Window.new(parent, {
         title = TITLE,
         x = place.x,
         y = place.y,
@@ -323,7 +331,8 @@ function drawLayer(pw)
         height = layer.height > 0 and layer.height or LAYER_HEIGHT,
     })
     if not ok then
-        -- The client removed the layer.
+        -- Possibly the client removed the layer.
+        pw.actions.onProblem("The ribbon layer did not draw: " .. tostring(view))
         pw.layer, pw.layerView = nil, nil
         return
     end

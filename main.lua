@@ -183,7 +183,11 @@ local function newsState()
     return { plan = last.plan, assumed = last.assumed }
 end
 
-planWindow = PlanWindow.new(ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2__PLUGIN_BUILD_LAYER_TOP), {
+local function windowParent()
+    return ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2__PLUGIN_BUILD_LAYER_TOP)
+end
+
+planWindow = PlanWindow.new(windowParent, {
     onOpen = function()
         if last then
             News.open(news, newsState(), nameOf)
@@ -197,6 +201,9 @@ planWindow = PlanWindow.new(ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2_
     onDismiss = function()
         News.dismiss(news)
         render()
+    end,
+    onProblem = function(text)
+        say("Plan window problem: " .. text)
     end,
 })
 
@@ -266,7 +273,9 @@ Event.InventoryAdded.Subscribe(EVENT_NAME, onInventory)
 Event.InventoryUpdated.Subscribe(EVENT_NAME, onInventory)
 
 -- The client shows the layer when the player selects the Ribbon Icon of the plugin in the Plugins window.
+-- The size of the layer is not known yet (issue 26), so the plugin logs it.
 Event.ContentLayerReady.Subscribe(EVENT_NAME, function(e)
+    say("Ribbon layer ready: " .. e.component.width .. "x" .. e.component.height .. ".")
     PlanWindow.mountLayer(planWindow, e.component)
 end)
 
