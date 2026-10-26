@@ -308,9 +308,9 @@ describe("Diff.compare", function()
 
             local result = diff.compare(decant, mix)
 
-            expectEqual(result.former, { "SUPER_RESTORE_4" })
+            expectEqual(result.former, { "decant:SUPER_RESTORE_4" })
             expectEqual(result.back, { "SUPER_RESTORE_4" })
-            expectEqual(result.next, { from = "SUPER_RESTORE_4", to = "SUPER_RESTORE_4", backwards = false })
+            expectEqual(result.next, { from = "decant:SUPER_RESTORE_4", to = "SUPER_RESTORE_4", backwards = false })
         end)
 
         -- The verb of a Recipe can also be "Decant". Only the decant field identifies a Decant step.

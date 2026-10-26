@@ -8,6 +8,21 @@ files["tests/"] = { globals = { "describe", "it", "expectEqual" } }
 
 -- The game client gives these globals. The client calls PluginShutdown when it stops the plugin.
 files["main.lua"] = {
-    read_globals = { "config", "Event", "GameState", "Inventory", "log", "PersistentDB", "Player", "SkillType", "var" },
+    read_globals = {
+        "config",
+        "Event",
+        "GameState",
+        "id",
+        "Inventory",
+        "log",
+        "PersistentDB",
+        "Player",
+        "SkillType",
+        "ui",
+        "var",
+    },
     globals = { "PluginShutdown" },
 }
+
+-- ui/ draws with PrettyUI. The client gives prettyui as the alias of the dependency (plugin.json).
+files["ui/"] = { read_globals = { "config", "prettyui" } }

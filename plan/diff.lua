@@ -9,10 +9,11 @@ end
 -- A Step in one Plan is the same Step in the other when it has the same key.
 -- The key of a Decant step is different from the key of a Step that makes the same item (issue 29).
 -- The field decant identifies a Decant step, because the verb of a Recipe can also be "Decant".
--- The reports give the item.
+-- The reports give the key of each Step. The view and the "Just now" message use the same key.
 local function keyOf(step)
     return step.decant and "decant:" .. step.item or step.item
 end
+Diff.keyOf = keyOf
 
 local function stepsByKey(plan)
     local byKey = {}
@@ -28,10 +29,6 @@ end
 
 local function nextKey(plan)
     return nextStep(plan) and keyOf(nextStep(plan))
-end
-
-local function nextItem(plan)
-    return nextStep(plan) and nextStep(plan).item
 end
 
 local function positionOf(plan, key)
@@ -53,20 +50,20 @@ function Diff.compare(before, after)
     local former, back, ready = {}, {}, {}
     for _, step in ipairs(before.steps) do
         if not afterSteps[keyOf(step)] then
-            former[#former + 1] = step.item
+            former[#former + 1] = keyOf(step)
         end
     end
     for _, step in ipairs(after.steps) do
         local earlier = beforeSteps[keyOf(step)]
         if not earlier then
-            back[#back + 1] = step.item
+            back[#back + 1] = keyOf(step)
         elseif isFlaggedOrWaiting(earlier) and not isFlaggedOrWaiting(step) then
-            ready[#ready + 1] = step.item
+            ready[#ready + 1] = keyOf(step)
         end
     end
     local nextChange
     if nextKey(before) ~= nextKey(after) then
-        nextChange = { from = nextItem(before), to = nextItem(after), backwards = movedBackwards(before, after) }
+        nextChange = { from = nextKey(before), to = nextKey(after), backwards = movedBackwards(before, after) }
     end
 
     local stillShort, covered = {}, {}

@@ -1,5 +1,6 @@
 -- The part of the adapter that does not use the game API (issue 25).
 -- main.lua reads the game and gives plain tables to it. Tests run it outside the game client.
+local Assumed = require("plan/assumed")
 local Detected = require("plan/detected")
 local Diff = require("plan/diff")
 local Plan = require("plan/calculate")
@@ -141,7 +142,7 @@ end
 -- facts has the Inventory slots of this tick, and the recipes, levels and stackable of Plan.calculate.
 -- Give the same recipes and stackable tables until they change.
 -- Gives the Plan and the diff from the previous Plan, or nil when the Basis did not change (ADR 0003).
--- The first Plan has no diff.
+-- The first Plan has no diff. For the view, it also gives the Detected stock and the Assumed lines (issue 26).
 function Adapter.tick(adapter, facts)
     if adapter.name == nil then
         return nil
@@ -162,7 +163,12 @@ function Adapter.tick(adapter, facts)
     local plan = Plan.calculate(basis)
     local diff = adapter.plan and Diff.compare(adapter.plan, plan)
     adapter.basis, adapter.plan = basis, plan
-    return { plan = plan, diff = diff }
+    return {
+        plan = plan,
+        diff = diff,
+        detected = detected,
+        assumed = Assumed.lines(adapter.session.assumed, adapter.name),
+    }
 end
 
 -- Call this one time in each Logic tick. It gives each changed part to Saved, and gives the problems of Saved.write.

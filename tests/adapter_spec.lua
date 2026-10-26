@@ -79,6 +79,23 @@ describe("Adapter", function()
             expectEqual(result.plan.shortages, { { item = "DOUGH", count = 2 } })
         end)
 
+        it("gives the Detected stock for the view", function()
+            local adapter = loggedIn()
+
+            local result = Adapter.tick(adapter, facts({ slot("DOUGH", 1) }))
+
+            expectEqual(result.detected, { DOUGH = 1 })
+        end)
+
+        it("gives the Assumed lines of the character for the view", function()
+            local adapter = loggedIn({ DOUGH = 2 })
+            Adapter.tick(adapter, facts({}))
+
+            local result = Adapter.tick(adapter, facts({ slot("DOUGH", 1) }))
+
+            expectEqual(result.assumed, { { item = "DOUGH", remaining = 1, arrived = 1, entered = 2 } })
+        end)
+
         it("does not count empty slots and placeholder slots", function()
             local adapter = loggedIn()
             local empty = { id = -1, configName = "", count = 0 }
