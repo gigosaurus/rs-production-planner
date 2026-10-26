@@ -183,7 +183,7 @@ local function addAssumed(pw, view, highlights)
         local text, colour = marked(line.text, highlights.assumed[line.item], MUTED)
         lines[index] = { text = text, colour = colour }
     end
-    addPanel(pw, "assumed", lines, "The plan counts these items until they come to your backpack or bank.", 240)
+    addPanel(pw, "assumed", lines, "The plan counts these items until they come to your inventory or bank.", 240)
 end
 
 local STEP_COLOURS = { next = NEXT, flagged = FLAGGED, waiting = WAITING }
@@ -194,7 +194,7 @@ local function addSteps(pw, view, highlights)
         return
     end
     for _, row in ipairs(view.steps) do
-        local word = row.kind == "next" and highlights.next or highlights.steps[row.item]
+        local word = row.kind == "next" and highlights.next or highlights.steps[row.key]
         window:AddItemSlot(obj(row.item), { quantity = quantity(row.have), tooltip = row.tooltip })
         -- A Flagged row gives its reason on the same row (issue 1). The highlight word comes last.
         local caption = row.kind == "flagged" and row.caption .. "  -  " .. row.reason or row.caption
@@ -315,7 +315,7 @@ function draw(pw)
     pw.window:SetScrollPosition(place.scrollY or 0)
 end
 
--- The size of the content layer is not known (issue 26). These sizes are for a layer with no size.
+-- The player sets the size of the content layer. These sizes are for a layer with a width or height of 0.
 local LAYER_WIDTH, LAYER_HEIGHT = 300, 120
 
 -- Draws the ribbon layer again: one button and the status.

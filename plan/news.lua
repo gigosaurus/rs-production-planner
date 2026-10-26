@@ -9,26 +9,26 @@ local News = {}
 local COMPLETE = "Plan complete. You have all the items that you wanted to make."
 local SINCE = "Since you looked: "
 
--- Gives the first Step of plan for item. The Diff reports a Step by its item.
-local function stepOf(plan, item)
+-- Gives the Step of plan with the key. The Diff reports a Step by its key.
+local function stepOf(plan, key)
     for _, step in ipairs(plan.steps) do
-        if step.item == item then
+        if Diff.keyOf(step) == key then
             return step
         end
     end
 end
 
-local function stepNames(plan, items, nameOf)
+local function stepNames(plan, keys, nameOf)
     local names = {}
-    for index, item in ipairs(items) do
-        names[index] = View.stepName(nameOf, stepOf(plan, item))
+    for index, key in ipairs(keys) do
+        names[index] = View.stepName(nameOf, stepOf(plan, key))
     end
     return View.joined(names)
 end
 
 -- Gives "is" for one Step and "are" for more.
-local function verbFor(items, one, more)
-    return #items == 1 and one or more
+local function verbFor(keys, one, more)
+    return #keys == 1 and one or more
 end
 
 local function remainingOf(assumed)
@@ -92,11 +92,11 @@ local function describe(before, after, nameOf)
     if #diff.ready > 0 then
         say(stepNames(after.plan, diff.ready, nameOf) .. " can start now.", true)
     end
-    for _, item in ipairs(diff.back) do
-        highlights.steps[item] = "back"
+    for _, key in ipairs(diff.back) do
+        highlights.steps[key] = "back"
     end
-    for _, item in ipairs(diff.ready) do
-        highlights.steps[item] = "ready now"
+    for _, key in ipairs(diff.ready) do
+        highlights.steps[key] = "ready now"
     end
 
     -- When no Step can be the Next step, the message says nothing about Next (issue 26). Do next shows the text.
@@ -114,7 +114,8 @@ local function describe(before, after, nameOf)
 end
 
 -- Gives a News. message is the "Just now" message, or nil. milestone tells if the message has a milestone (issue 5).
--- highlights are the row highlights of the last change: next, steps (by item), targets (by id) and assumed (by item).
+-- highlights are the row highlights of the last change: next, steps (by the key of the Step, Diff.keyOf),
+-- targets (by id) and assumed (by item).
 function News.new()
     return { open = false, highlights = { steps = {}, targets = {}, assumed = {} } }
 end

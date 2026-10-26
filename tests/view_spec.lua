@@ -234,6 +234,7 @@ describe("View.build", function()
             })
             expectEqual(view.steps, {
                 {
+                    key = "RANARR",
                     item = "RANARR",
                     have = 3,
                     caption = "1. Clean Ranarr weed",

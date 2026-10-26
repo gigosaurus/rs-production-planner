@@ -1,5 +1,7 @@
 -- Makes the text of each section of the Plan view from a Plan (issue 26, layout F of issue 1).
 -- It does not use the game API. Tests run it outside the game client. ui/planwindow.lua draws the result.
+local Diff = require("plan/diff")
+
 local View = {}
 
 local NOT_READY = "No step is ready yet."
@@ -170,7 +172,7 @@ end
 local function stepRow(context, plan, position)
     local step = plan.steps[position]
     local caption = position .. ". " .. shortText(context, step)
-    local row = { item = step.item, have = context.have(step.item), caption = caption }
+    local row = { key = Diff.keyOf(step), item = step.item, have = context.have(step.item), caption = caption }
     if position == plan.next then
         row.kind, row.caption = "next", "NEXT  " .. caption
         row.tooltip = detailText(context, step)

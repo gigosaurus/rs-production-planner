@@ -275,9 +275,8 @@ Event.InventoryAdded.Subscribe(EVENT_NAME, onInventory)
 Event.InventoryUpdated.Subscribe(EVENT_NAME, onInventory)
 
 -- The game client shows the layer when the player selects the Ribbon Icon of the plugin in the Plugins window.
--- The size of the layer is not known yet (issue 26), so the plugin logs it.
+-- The player sets the size of the layer.
 Event.ContentLayerReady.Subscribe(EVENT_NAME, function(e)
-    say("Ribbon layer ready: " .. e.component.width .. "x" .. e.component.height .. ".")
     PlanWindow.mountLayer(planWindow, e.component)
 end)
 

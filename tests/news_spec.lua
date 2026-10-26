@@ -27,6 +27,8 @@ local MAKE = step("RANARR_UNF", "Make")
 local SNAPDRAGON = step("SNAPDRAGON_UNF", "Make")
 local MIX = step("SUPER_RESTORE_3", "Mix")
 local SNAPDRAGON_WAITS = step("SNAPDRAGON_UNF", "Make", { waitsOn = 2 })
+local MIX_4 = step("SUPER_RESTORE_4", "Mix")
+local DECANT_4 = step("SUPER_RESTORE_4", "Decant", { decant = true })
 local MIX_FLAGGED = step("SUPER_RESTORE_3", "Mix", { flags = { { skill = "HERBLORE", level = 63, current = 61 } } })
 
 -- Gives a state as News takes it: a Plan and the Assumed lines.
@@ -73,6 +75,12 @@ describe("News", function()
         it("joins two Former steps", function()
             local news = change(seen({ steps = { CLEAN, MAKE, MIX } }), seen({ steps = { MIX } }))
             expectEqual(news.message, "Clean Ranarr weed and Make Ranarr potion (unf) are done.")
+        end)
+
+        -- A Decant step and a Step that makes the same item are different Steps (issue 29).
+        it("names the Former step when a Decant step makes the same item", function()
+            local news = change(seen({ steps = { DECANT_4, MIX_4 } }), seen({ steps = { DECANT_4 } }))
+            expectEqual(news.message, "Mix Super restore (4) is done.")
         end)
 
         it("gives the cause first: a Target used, then the Step that comes back", function()
@@ -184,6 +192,11 @@ describe("News", function()
                 targets = { [1] = "down" },
                 assumed = {},
             })
+        end)
+
+        it("gives the highlight of a Step by the key of the Step", function()
+            local news = change(seen({ steps = { MIX_4 } }), seen({ steps = { DECANT_4, MIX_4 } }))
+            expectEqual(news.highlights.steps, { ["decant:SUPER_RESTORE_4"] = "back" })
         end)
 
         it("gives arrived for an Assumed line with less remaining", function()
