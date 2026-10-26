@@ -2,7 +2,9 @@
     "name": "Production Planner",
     "version": "0.1",
     "contactEmailAddress": "rs-plugins@nne.rs",
-    "requiredDependencies": {},
+    "requiredDependencies": {
+        "prettyui": 6398181
+    },
     "optionalDependencies": {},
     "requiredPermissions": [],
     "optionalPermissions": []
