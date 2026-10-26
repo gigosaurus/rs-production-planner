@@ -24,4 +24,22 @@ function Validate.isOneOf(value, set)
     return set[value] == true
 end
 
+-- Gives true when the two values are the same, also for tables.
+function Validate.same(a, b)
+    if type(a) ~= "table" or type(b) ~= "table" then
+        return a == b
+    end
+    for key, value in pairs(a) do
+        if not Validate.same(value, b[key]) then
+            return false
+        end
+    end
+    for key in pairs(b) do
+        if a[key] == nil then
+            return false
+        end
+    end
+    return true
+end
+
 return Validate

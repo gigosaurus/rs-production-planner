@@ -37,24 +37,6 @@ local function makeTargets(targets)
     return make
 end
 
--- Gives true when the two values are the same, also for tables.
-local function same(a, b)
-    if type(a) ~= "table" or type(b) ~= "table" then
-        return a == b
-    end
-    for key, value in pairs(a) do
-        if not same(value, b[key]) then
-            return false
-        end
-    end
-    for key in pairs(b) do
-        if a[key] == nil then
-            return false
-        end
-    end
-    return true
-end
-
 local function hasMake(session)
     return #makeTargets(session.targets) > 0
 end
@@ -100,7 +82,7 @@ end
 local function markIfChanged(session, part, module, name, change)
     local before = savedForm(module, session[part], name)
     local result = change()
-    if not same(before, savedForm(module, session[part], name)) then
+    if not Validate.same(before, savedForm(module, session[part], name)) then
         session.changed[part][name] = true
     end
     return result

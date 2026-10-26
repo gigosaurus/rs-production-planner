@@ -92,3 +92,26 @@ describe("Validate.isOneOf", function()
         end)
     end
 end)
+
+describe("Validate.same", function()
+    for _, case in ipairs({
+        { name = "the same numbers", a = 1, b = 1 },
+        { name = "tables with the same contents", a = { x = { 1, 2 } }, b = { x = { 1, 2 } } },
+    }) do
+        it("gives true for " .. case.name, function()
+            expectEqual(Validate.same(case.a, case.b), true)
+        end)
+    end
+
+    for _, case in ipairs({
+        { name = "different numbers", a = 1, b = 2 },
+        { name = "a table and a number", a = {}, b = 1 },
+        { name = "a different value in a table in a table", a = { x = { 1 } }, b = { x = { 2 } } },
+        { name = "a key that only the first table has", a = { x = 1 }, b = {} },
+        { name = "a key that only the second table has", a = {}, b = { x = 1 } },
+    }) do
+        it("gives false for " .. case.name, function()
+            expectEqual(Validate.same(case.a, case.b), false)
+        end)
+    end
+end)
