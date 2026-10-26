@@ -223,7 +223,7 @@ local function addMessage(pw, message)
     end
 end
 
--- The buttons need editing (issue 27). Until then, they show but are disabled.
+-- The buttons need editing (issue 27). Until then, the window shows them, but the player cannot use them.
 local function addLaterButton(window, text, options)
     options.disabled = true
     options.tooltip = NOT_YET
@@ -332,7 +332,7 @@ function drawLayer(pw)
         height = layer.height > 0 and layer.height or LAYER_HEIGHT,
     })
     if not ok then
-        -- Possibly the client removed the layer.
+        -- The game client can remove the layer.
         pw.actions.onProblem("The ribbon layer did not draw: " .. tostring(view))
         pw.layer, pw.layerView = nil, nil
         return
@@ -367,7 +367,7 @@ function PlanWindow.close(pw)
     drawLayer(pw)
 end
 
--- Call this on each ContentLayerReady event. The client clears the layer before the event.
+-- Call this on each ContentLayerReady event. The game client clears the layer before the event.
 function PlanWindow.mountLayer(pw, component)
     pw.layer, pw.layerView = component, nil
     drawLayer(pw)

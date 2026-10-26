@@ -95,13 +95,13 @@ end
 local function doNextOf(context, plan)
     local step = plan.next and plan.steps[plan.next]
     if not step then
-        local blocked = #plan.steps > 0
+        local noneReady = #plan.steps > 0
         for _, other in ipairs(plan.steps) do
             if #other.flags == 0 and not other.waitsOn then
-                blocked = false
+                noneReady = false
             end
         end
-        return { text = blocked and NOT_READY or GET_SHORTAGES, inputs = {} }
+        return { text = noneReady and NOT_READY or GET_SHORTAGES, inputs = {} }
     end
     local doNext = { text = stepText(context, step), inputs = {} }
     if step.decant then
