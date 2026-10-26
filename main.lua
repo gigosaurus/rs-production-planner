@@ -218,7 +218,9 @@ end
 local function login()
     local name = Player.GetEntity().displayName
     report(Adapter.login(adapter, name))
+    -- The last Plan is the Plan of the previous character. The next tick gives the Plan of this character.
     News.reset(news)
+    last, highlightTicks = nil, 0
     loggedIn = true
     readAccountMode()
     readBank()

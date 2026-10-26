@@ -51,6 +51,7 @@ end
 -- getParent gives the component that holds the window. The plugin can load before the game interface exists,
 -- so the window asks for it each time it draws.
 -- actions has onOpen, onClose and onDismiss. The plugin calls them when the player uses the window or the layer.
+-- onOpen must call PlanWindow.show. Only that call draws the window that opens.
 -- actions.onProblem gets the text of each problem, for the log.
 function PlanWindow.new(getParent, actions)
     return {
@@ -342,7 +343,8 @@ function drawLayer(pw)
             PlanWindow.close(pw)
             pw.actions.onClose()
         else
-            PlanWindow.open(pw)
+            -- actions.onOpen calls PlanWindow.show, which draws the window and the layer.
+            pw.isOpen = true
             pw.actions.onOpen()
         end
     end)
@@ -356,12 +358,6 @@ function PlanWindow.show(pw, view, message, highlights)
     if pw.isOpen then
         draw(pw)
     end
-    drawLayer(pw)
-end
-
-function PlanWindow.open(pw)
-    pw.isOpen = true
-    draw(pw)
     drawLayer(pw)
 end
 

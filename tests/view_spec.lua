@@ -185,6 +185,19 @@ describe("View.build", function()
             local view = build({ plan = plan({ complete = true, targets = { target("RANARR_UNF", 28, 30) } }) })
             expectEqual(view.targets[1].text, "Ranarr potion (unf)   28 of 28")
         end)
+
+        it("gives the Made count of a Make Target, not Counted stock", function()
+            local line = { id = 1, item = "RANARR_UNF", count = 28, have = 80, made = 10, mode = "MAKE" }
+            local view = build({ plan = plan({ targets = { line } }) })
+            expectEqual(view.targets[1].text, "Ranarr potion (unf)   10 of 28")
+        end)
+
+        -- ADR 0012: the Made count shows up to the count of the Target.
+        it("gives a Made count that is more than the count as the count", function()
+            local line = { id = 1, item = "RANARR_UNF", count = 28, have = 0, made = 40, mode = "MAKE" }
+            local view = build({ plan = plan({ targets = { line } }) })
+            expectEqual(view.targets[1].text, "Ranarr potion (unf)   28 of 28")
+        end)
     end)
 
     describe("Buy or gather", function()

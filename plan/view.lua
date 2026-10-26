@@ -120,10 +120,18 @@ local function doNextOf(context, plan)
     return doNext
 end
 
+-- A line has a Made count only in Make. It shows up to the count (ADR 0012). Have shows Counted stock.
+local function progressOf(plan, line)
+    if plan.complete then
+        return line.count
+    end
+    return line.made and math.min(line.made, line.count) or line.have
+end
+
 local function targetsOf(context, plan)
     local targets = {}
     for index, line in ipairs(plan.targets) do
-        local have = plan.complete and line.count or line.have
+        local have = progressOf(plan, line)
         targets[index] = {
             id = line.id,
             item = line.item,

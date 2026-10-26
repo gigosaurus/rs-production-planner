@@ -146,8 +146,10 @@ function News.open(news, now, nameOf)
 end
 
 -- Call this when the window closes. The News keeps the state that the player saw last.
+-- A closed window shows no highlights. The next open gives new highlights.
 function News.close(news)
     news.open = false
+    news.highlights = { steps = {}, targets = {}, assumed = {} }
 end
 
 -- Gives true when the last change gives a highlight to a row.

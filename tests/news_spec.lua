@@ -225,6 +225,13 @@ describe("News", function()
             expectEqual(news.message, nil)
         end)
 
+        it("has no highlights", function()
+            local news = change(seen({ targets = have(12) }), seen({ targets = have(20) }))
+            News.close(news)
+            News.see(news, seen({ targets = have(30) }), nameOf)
+            expectEqual(News.hasHighlights(news), false)
+        end)
+
         it("gives the changes since the window closed when it opens, with their highlights", function()
             local news = News.new()
             News.open(news, seen({ targets = have(12), steps = { CLEAN, MAKE, MIX } }), nameOf)
