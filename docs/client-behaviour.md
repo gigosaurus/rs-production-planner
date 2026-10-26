@@ -8,7 +8,7 @@ Game client version for these tests: 950-1.
 
 - The game client stops a Lua call after 1000 ms. The error is `Maximum function execution time of 1000 ms exceeded`. The limit is for the total time of one call. Do slow work in parts, for example one part in each `Logic` tick. (`probes/persistentdb-probe`)
 - `require` returns `nil` for a module that returns a function. Every module must return a table. (`probes/require-probe`)
-- `log` cuts text at `<`. The client possibly reads `<` as the start of a text tag. `log("count<1 5")` showed `count`. Do not put `<` in log text. (`probes/bank-placeholder-probe`)
+- `log` cuts text at `<`. The game client possibly reads `<` as the start of a text tag. `log("count<1 5")` showed `count`. Do not put `<` in log text. (`probes/bank-placeholder-probe`)
 
 ## Vars
 
@@ -49,6 +49,8 @@ Tested on client 951-1 with the plugin at the repo root (`main.lua`, #24):
 
 ADR 0007 gives the Inventory API facts: `isValid` and not `valid`, empty slots with id -1, Noted items as `CERT_<name>`, and the bank in one `InventoryAdded` event. (`probes/bank-probe`, `probes/stack-probe`)
 
+- `Inventory.Find` gives one `Inv`, not a list as the docs say. (`probes/drop-shop-probe`, `probes/production-recorder-probe`, `docs/recipe-params.md`)
+
 ### Bank placeholders
 
 Tested on 2026-10-25 with `probes/bank-placeholder-probe` (#25):
@@ -57,7 +59,7 @@ Tested on 2026-10-25 with `probes/bank-placeholder-probe` (#25):
 - `GetTotal` gives 0 for the item of a placeholder.
 - `usedSlotCount` includes the placeholders. `freeSlotCount` is the number of empty slots (id -1).
 - When "Withdraw All" leaves a placeholder, an `InventoryUpdated` event gives the slot. `GetSlot` on that index gives the item with count 0.
-- `slotsUpdated` indexes start at 1, as `GetSlot` indexes do. Use them as they come.
+- `slotsUpdated` indexes start at 1, as `GetSlot` indexes do. Do not add 1 to them.
 
 ## Vars
 
