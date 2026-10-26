@@ -88,16 +88,16 @@ end
 local draw
 
 -- Adds a heading that the player can open and close. Gives true when it is open.
--- The section of a CollapseButton cannot hold item slots, so the rows go below the heading.
+-- All headings use the same title style (issue 1), so a Hide or Show button follows the title on its row.
+-- The rows of the section go below the heading.
 local function addSection(pw, key, text)
-    pw.window:AddCollapseButton(text, {
-        expanded = pw.expanded[key],
-        onToggle = function(_, expanded)
-            pw.expanded[key] = expanded
-            draw(pw)
-        end,
-    })
-    return pw.expanded[key]
+    local expanded = pw.expanded[key]
+    pw.window:AddTitle(text)
+    pw.window:AddSimpleButton(expanded and "Hide" or "Show", function()
+        pw.expanded[key] = not expanded
+        draw(pw)
+    end, { inline = true })
+    return expanded
 end
 
 -- Adds a panel that can pop out, so the player can keep it on screen at the GE or the bank (issue 1).
