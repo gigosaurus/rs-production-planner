@@ -125,6 +125,7 @@ local function targetsOf(context, plan)
     for index, line in ipairs(plan.targets) do
         local have = plan.complete and line.count or line.have
         targets[index] = {
+            id = line.id,
             item = line.item,
             have = context.have(line.item),
             text = context.name(line.item) .. "   " .. have .. " of " .. line.count,
@@ -212,5 +213,12 @@ function View.build(input)
     end
     return view
 end
+
+-- Gives the caption of a Step with no number and no action count, for example "Mix Super restore (3)".
+function View.stepName(nameOf, step)
+    return shortText(newContext({ nameOf = nameOf }), step)
+end
+
+View.joined = joined
 
 return View

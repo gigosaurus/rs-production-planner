@@ -175,7 +175,10 @@ describe("View.build", function()
     describe("Targets", function()
         it("gives the item, Counted stock and the count, with Detected stock for the icon", function()
             local view = build({ plan = plan({}), detected = { RANARR_UNF = 9 } })
-            expectEqual(view.targets, { { item = "RANARR_UNF", have = 9, text = "Ranarr potion (unf)   0 of 28" } })
+            expectEqual(
+                view.targets,
+                { { id = 1, item = "RANARR_UNF", have = 9, text = "Ranarr potion (unf)   0 of 28" } }
+            )
         end)
 
         it("gives the count as the Counted stock in the Complete state", function()
