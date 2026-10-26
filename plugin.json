@@ -7,5 +7,6 @@
     },
     "optionalDependencies": {},
     "requiredPermissions": [],
-    "optionalPermissions": []
+    "optionalPermissions": [],
+    "hasRibbonIcon": true
 }

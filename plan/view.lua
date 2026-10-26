@@ -211,6 +211,14 @@ function View.build(input)
     if #view.leftovers > 0 then
         view.leftOver = "Left over: " .. table.concat(view.leftovers, ", ")
     end
+    -- The one-line status of the ribbon layer (issue 26).
+    if view.state == "noTargets" then
+        view.status = "No targets yet."
+    elseif view.state == "complete" then
+        view.status = "Plan complete."
+    else
+        view.status = (plan.next and "Next: " or "") .. view.doNext.text
+    end
     return view
 end
 

@@ -336,6 +336,25 @@ describe("View.build", function()
         end)
     end)
 
+    describe("status", function()
+        it("gives the Next step after 'Next: '", function()
+            local view = build({ plan = plan({ steps = { step("RANARR", "Clean", 54) }, next = 1 }) })
+            expectEqual(view.status, "Next: Clean 54x Ranarr weed")
+        end)
+
+        it("gives the Do next text when there is no Next step", function()
+            expectEqual(build({ plan = plan({}) }).status, "Get the items under Buy or gather first.")
+        end)
+
+        it("gives the Complete state", function()
+            expectEqual(build({ plan = plan({ complete = true }) }).status, "Plan complete.")
+        end)
+
+        it("gives the noTargets state", function()
+            expectEqual(build({ plan = plan({ targets = {} }) }).status, "No targets yet.")
+        end)
+    end)
+
     it("gives the Planning assumptions", function()
         local view =
             build({ plan = plan({ assumptions = { "The Plan assumes that you have the empty vials to decant." } }) })

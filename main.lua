@@ -1,14 +1,22 @@
 -- Production Planner. The adapter between the game client and the plan/ modules.
--- Only this file uses the game API. It reads the game and gives plain tables to plan/adapter (issue 25).
--- It builds the Recipes from the game at runtime (ADR 0017).
+-- This file and ui/ use the game API. It reads the game and gives plain tables to plan/adapter (issue 25).
+-- It builds the Recipes from the game at runtime (ADR 0017). ui/planwindow.lua shows the Plan (issue 26).
 local Account = require("plan/account")
 local Adapter = require("plan/adapter")
 local GameRecipe = require("plan/gamerecipe")
+local News = require("plan/news")
 local ObjParams = require("plan/objparams")
+local PlanWindow = require("ui/planwindow")
+local UnlockName = require("plan/unlockname")
+local View = require("plan/view")
+local unlockData = require("data/unlocks")
 
 -- Decisions on issue 24, 2026-10-25.
 local IDS_PER_TICK = 250
 local GAP = 1000
+
+-- Issue 5: a changed row shows its highlight for approximately 4 seconds. A server tick is 0.6 seconds.
+local HIGHLIGHT_TICKS = 7
 
 -- ObjStackType ALWAYS. SOMETIMES stacks only in the bank, so it is not stackable (issue 2, section 1).
 local STACK_ALWAYS = 1
@@ -132,23 +140,78 @@ local function readAccountMode()
     end
 end
 
--- The view comes in issue 26. Until then, the plugin logs a short line for each new Plan.
+-- The names of items. config.Obj gives nil for an unknown config name.
+local names = {}
+local function nameOf(item)
+    if names[item] == nil then
+        local obj = config.Obj[item]
+        names[item] = obj ~= nil and obj.name or false
+    end
+    return names[item] or nil
+end
+
+local function unlockName(unlock)
+    return UnlockName.of(unlockData, unlock)
+end
+
+local news = News.new()
+-- The last result of Adapter.tick, or nil before the first Plan.
+local last = nil
+local highlightTicks = 0
+
+local planWindow
+
+-- Draws the Plan view again. The highlights show only while highlightTicks is more than 0.
+local function render()
+    local view = last
+        and View.build({
+            plan = last.plan,
+            detected = last.detected,
+            bankSeen = Adapter.bankSeen(adapter),
+            assumed = last.assumed,
+            nameOf = nameOf,
+            unlockName = unlockName,
+        })
+    PlanWindow.show(planWindow, view, news.message, highlightTicks > 0 and news.highlights or nil)
+end
+
+local function startHighlights()
+    highlightTicks = News.hasHighlights(news) and HIGHLIGHT_TICKS or 0
+end
+
+local function newsState()
+    return { plan = last.plan, assumed = last.assumed }
+end
+
+planWindow = PlanWindow.new(ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2__PLUGIN_BUILD_LAYER_TOP), {
+    onOpen = function()
+        if last then
+            News.open(news, newsState(), nameOf)
+            startHighlights()
+        end
+        render()
+    end,
+    onClose = function()
+        News.close(news)
+    end,
+    onDismiss = function()
+        News.dismiss(news)
+        render()
+    end,
+})
+
 local function show(result)
-    say(
-        "New Plan: "
-            .. #result.plan.steps
-            .. " Steps, "
-            .. #result.plan.shortages
-            .. " Shortages. Bank seen: "
-            .. tostring(Adapter.bankSeen(adapter))
-            .. "."
-    )
+    last = result
+    News.see(news, newsState(), nameOf)
+    startHighlights()
+    render()
 end
 
 -- The first ServerLogic tick with the player available is the login (issue 25, 2026-10-25).
 local function login()
     local name = Player.GetEntity().displayName
     report(Adapter.login(adapter, name))
+    News.reset(news)
     loggedIn = true
     readAccountMode()
     readBank()
@@ -173,6 +236,12 @@ Event.ServerLogic.Subscribe(EVENT_NAME, function()
         end
         login()
     end
+    if highlightTicks > 0 then
+        highlightTicks = highlightTicks - 1
+        if highlightTicks == 0 then
+            render()
+        end
+    end
     local inventory = findInv(config.Inv.INV)
     if inventory == nil then
         return
@@ -196,6 +265,11 @@ end
 Event.InventoryAdded.Subscribe(EVENT_NAME, onInventory)
 Event.InventoryUpdated.Subscribe(EVENT_NAME, onInventory)
 
+-- The client shows the layer when the player selects the Ribbon Icon of the plugin in the Plugins window.
+Event.ContentLayerReady.Subscribe(EVENT_NAME, function(e)
+    PlanWindow.mountLayer(planWindow, e.component)
+end)
+
 Event.VarTransmit.Subscribe(EVENT_NAME, function(e)
     if loggedIn and e.var.id == IRONMAN.id then
         readAccountMode()
@@ -214,6 +288,8 @@ end)
 
 function PluginShutdown()
     report(Adapter.save(adapter))
+    PlanWindow.destroy(planWindow)
+    Event.ContentLayerReady.Unsubscribe(EVENT_NAME)
     Event.Logic.Unsubscribe(EVENT_NAME)
     Event.ServerLogic.Unsubscribe(EVENT_NAME)
     Event.InventoryAdded.Unsubscribe(EVENT_NAME)

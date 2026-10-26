@@ -41,8 +41,8 @@ Every module must return a table. The game client's `require` returns `nil` for 
 ### Checks
 CI (`.github/workflows/checks.yml`) runs these checks on each pull request. Run them before you commit:
 - `lua5.4 tests/run.lua`
-- `luacheck main.lua plan data tests` (config: `.luacheckrc`)
-- `stylua main.lua plan data tests` (config: `stylua.toml`). Run it two times. One pass does not always give stable output.
+- `luacheck main.lua plan data ui tests` (config: `.luacheckrc`)
+- `stylua main.lua plan data ui tests` (config: `stylua.toml`). Run it two times. One pass does not always give stable output.
 - `scripts/check-manifests.sh`
 
 ### Pull request titles

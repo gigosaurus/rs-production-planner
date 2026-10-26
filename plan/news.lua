@@ -150,6 +150,20 @@ function News.close(news)
     news.open = false
 end
 
+-- Gives true when the last change gives a highlight to a row.
+function News.hasHighlights(news)
+    local highlights = news.highlights
+    return highlights.next ~= nil
+        or next(highlights.steps) ~= nil
+        or next(highlights.targets) ~= nil
+        or next(highlights.assumed) ~= nil
+end
+
+-- Call this when the player presses Dismiss (issue 5).
+function News.dismiss(news)
+    news.message, news.milestone = nil, nil
+end
+
 -- Call this at a login. A change from the Plan of another character is not correct.
 function News.reset(news)
     news.seen, news.message, news.milestone = nil, nil, nil
