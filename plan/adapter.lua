@@ -5,34 +5,52 @@ local Diff = require("plan/diff")
 local Plan = require("plan/calculate")
 local Saved = require("plan/saved")
 local Session = require("plan/session")
+local Validate = require("plan/validate")
 
 local Adapter = {}
 
+-- Adds the problems of a Saved load to the list.
+local function addProblems(list, problems)
+    for _, problem in ipairs(problems) do
+        list[#list + 1] = problem
+    end
+end
+
+-- Loads the saved parts of one character, and keeps its Bank snapshot.
+local function loadCharacter(adapter, name, problems)
+    local parts, found = Saved.loadCharacter(adapter.saved, name)
+    addProblems(problems, found)
+    adapter.banks[name] = parts.bank
+    adapter.loaded[name] = true
+    return parts
+end
+
 -- store has Get and Set, for example PersistentDB.
+-- Gives the Adapter, and the problems of Saved.loadGlobal and Saved.loadCharacter.
+-- It loads each saved character, because Made needs the state of each character (ADR 0012).
 function Adapter.new(store)
     local saved = Saved.new(store)
-    local globals = Saved.loadGlobal(saved)
+    local globals, problems = Saved.loadGlobal(saved)
+    local adapter = { saved = saved, banks = {}, bankChanged = {}, loaded = {} }
     local parts = {}
     for _, name in ipairs(globals.characters) do
-        parts[name] = Saved.loadCharacter(saved, name)
+        parts[name] = loadCharacter(adapter, name, problems)
     end
-    local banks = {}
-    for name, part in pairs(parts) do
-        banks[name] = part.bank
-    end
-    return { saved = saved, session = Session.new(globals, parts), banks = banks, bankChanged = {} }
+    adapter.session = Session.new(globals, parts)
+    return adapter, problems
 end
 
 -- Call this on the first ServerLogic tick in which the player is available.
+-- Gives the problems of Saved.loadCharacter. A character that Adapter.new loaded gives none.
 function Adapter.login(adapter, name)
-    local parts = Saved.loadCharacter(adapter.saved, name)
+    local problems = {}
+    local parts = not adapter.loaded[name] and loadCharacter(adapter, name, problems) or nil
+    -- Make (issue 10) must give the GE offers here. An empty list removes the saved GE slots and GE amounts.
     Session.loadCharacter(adapter.session, name, parts, {})
     adapter.name = name
-    if adapter.banks[name] == nil then
-        adapter.banks[name] = parts.bank
-    end
     -- The first Plan after a login has no diff. A diff from the Plan of another character is not correct.
     adapter.basis, adapter.plan = nil, nil
+    return problems
 end
 
 -- Call this when the game state is not GAME. The adapter keeps the state of the character.
@@ -94,26 +112,19 @@ function Adapter.bankSeen(adapter)
     return adapter.banks[adapter.name] ~= nil
 end
 
--- Gives true when the two values are the same, also for tables.
-local function same(a, b)
-    if type(a) ~= "table" or type(b) ~= "table" then
-        return a == b
-    end
-    for key, value in pairs(a) do
-        if not same(value, b[key]) then
-            return false
-        end
-    end
-    for key in pairs(b) do
-        if a[key] == nil then
-            return false
-        end
-    end
-    return true
-end
-
 -- The Recipes and stackable are large, so the Basis compares them as tables, not by their contents.
 local BY_TABLE = { recipes = true, stackable = true }
+
+-- Gives a copy of the Basis with no Recipes and no stackable.
+local function withoutLarge(basis)
+    local copy = {}
+    for key, value in pairs(basis) do
+        if not BY_TABLE[key] then
+            copy[key] = value
+        end
+    end
+    return copy
+end
 
 local function sameBasis(a, b)
     if a == nil then
@@ -124,17 +135,7 @@ local function sameBasis(a, b)
             return false
         end
     end
-    for key, value in pairs(a) do
-        if not BY_TABLE[key] and not same(value, b[key]) then
-            return false
-        end
-    end
-    for key in pairs(b) do
-        if a[key] == nil then
-            return false
-        end
-    end
-    return true
+    return Validate.same(withoutLarge(a), withoutLarge(b))
 end
 
 -- facts has the Inventory slots of this tick, and the recipes, levels and stackable of Plan.calculate.

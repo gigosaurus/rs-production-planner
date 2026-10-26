@@ -261,11 +261,50 @@ describe("Adapter", function()
             )
         end)
 
-        it("gives no problems when the store saves each part", function()
-            local adapter = loggedIn()
+        it("gives a problem for a part that the store does not save", function()
+            local store = storeWith({ BREAD }, { DOUGH = 2 })
+            local adapter = Adapter.new(store)
+            Adapter.login(adapter, "Alice")
             Adapter.bank(adapter, { slot("DOUGH", 1) })
+            function store.Set()
+                return false
+            end
 
-            expectEqual(Adapter.save(adapter), {})
+            expectEqual(Adapter.save(adapter), { { key = "char:Alice:bank", kind = Saved.NOT_SAVED } })
+        end)
+    end)
+
+    describe("load", function()
+        it("gives a problem for a saved part with an unknown version", function()
+            local store = storeWith({ BREAD }, { DOUGH = 2 })
+            store.values["char:Alice:reserves"] = { v = 99 }
+
+            local _, problems = Adapter.new(store)
+
+            expectEqual(problems, { { key = "char:Alice:reserves", kind = Saved.UNKNOWN_VERSION } })
+        end)
+
+        it("gives a problem at the login of a new character with an unknown version", function()
+            local store = storeWith({ BREAD })
+            store.values["char:Bob:reserves"] = { v = 99 }
+            local adapter = Adapter.new(store)
+
+            expectEqual(Adapter.login(adapter, "Bob"), { { key = "char:Bob:reserves", kind = Saved.UNKNOWN_VERSION } })
+        end)
+
+        it("does not read a saved character again at its login", function()
+            local store = storeWith({ BREAD }, { DOUGH = 2 })
+            local adapter = Adapter.new(store)
+            local reads = 0
+            local get = store.Get
+            function store.Get(...)
+                reads = reads + 1
+                return get(...)
+            end
+
+            Adapter.login(adapter, "Alice")
+
+            expectEqual(reads, 0)
         end)
     end)
 end)

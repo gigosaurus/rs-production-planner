@@ -50,7 +50,6 @@ local EVENT_NAME = "productionPlanner"
 local BANK_ID = config.Inv.BANK.id
 local IRONMAN = var.VarPlayer.IRONMAN
 
-local adapter = Adapter.new(PersistentDB)
 local recipes = nil
 -- Each Obj config name that stacks everywhere. The scan fills it. Plan.calculate gets the same table each time.
 local stackable = {}
@@ -60,6 +59,16 @@ local ironman = nil
 local function say(text)
     log("[Production Planner] " .. text)
 end
+
+-- Logs each problem of a Saved load or write.
+local function report(problems)
+    for _, problem in ipairs(problems) do
+        say("Saved data problem: " .. problem.kind .. " for key " .. problem.key .. ".")
+    end
+end
+
+local adapter, loadProblems = Adapter.new(PersistentDB)
+report(loadProblems)
 
 -- Gives the config name and the recipe params of an Obj id, or nil when the id has no Obj.
 local function readObj(id)
@@ -75,7 +84,7 @@ end
 
 local scan = GameRecipe.newScan(readObj, GAP)
 
--- Inventory.Find gives one Inv in practice, although the docs give a list (docs/client-behaviour.md).
+-- Inventory.Find gives one Inv, although the docs give a list (docs/client-behaviour.md).
 local function findInv(invType)
     local found = Inventory.Find(invType)
     if found ~= nil and found.isValid == nil then
@@ -139,7 +148,7 @@ end
 -- The first ServerLogic tick with the player available is the login (issue 25, 2026-10-25).
 local function login()
     local name = Player.GetEntity().displayName
-    Adapter.login(adapter, name)
+    report(Adapter.login(adapter, name))
     loggedIn = true
     readAccountMode()
     readBank()
@@ -151,9 +160,7 @@ Event.Logic.Subscribe(EVENT_NAME, function()
         recipes = scan:recipes()
         say("The Recipe scan is done.")
     end
-    for _, problem in ipairs(Adapter.save(adapter)) do
-        say("Saved data problem: " .. problem.kind .. " for key " .. problem.key .. ".")
-    end
+    report(Adapter.save(adapter))
 end)
 
 Event.ServerLogic.Subscribe(EVENT_NAME, function()
@@ -201,12 +208,12 @@ Event.GameStateChanged.Subscribe(EVENT_NAME, function(e)
     if e.newState ~= GameState.GAME and loggedIn then
         Adapter.leave(adapter)
         loggedIn = false
-        Adapter.save(adapter)
+        report(Adapter.save(adapter))
     end
 end)
 
 function PluginShutdown()
-    Adapter.save(adapter)
+    report(Adapter.save(adapter))
     Event.Logic.Unsubscribe(EVENT_NAME)
     Event.ServerLogic.Unsubscribe(EVENT_NAME)
     Event.InventoryAdded.Unsubscribe(EVENT_NAME)
