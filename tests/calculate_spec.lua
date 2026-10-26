@@ -1910,6 +1910,32 @@ describe("Plan.calculate", function()
             expectEqual(plan.leftovers, { { item = "SUPER_RESTORE_3", count = 1 } })
         end)
 
+        it("decants Counted stock before the made containers of the same Dose size", function()
+            local plan = Plan.calculate({
+                targets = { { id = 1, item = "SUPER_RESTORE_4", count = 1, mode = Plan.HAVE } },
+                recipes = {
+                    SUPER_RESTORE_3 = {
+                        {
+                            verb = "Mix",
+                            output = 2,
+                            actionLimit = 14,
+                            inputs = { { item = "SNAPDRAGON_UNF", count = 1 } },
+                        },
+                    },
+                },
+                pools = restorePool,
+                detected = { SUPER_RESTORE_3 = 1, SNAPDRAGON_UNF = 1 },
+            })
+
+            expectEqual(plan.steps[1].actions, 1)
+            expectEqual(plan.steps[2].inputs, { { item = "SUPER_RESTORE_3", count = 2, detected = 1 } })
+            -- The Decant step uses the detected container and one made container. One made container remains.
+            expectEqual(plan.leftovers, {
+                { item = "SUPER_RESTORE_2", count = 1 },
+                { item = "SUPER_RESTORE_3", count = 1 },
+            })
+        end)
+
         it("decants for a Recipe Input that names a Dose size, before the Step that uses it", function()
             local plan = Plan.calculate({
                 targets = { { id = 1, item = "MIXED_DRINK", count = 3, mode = Plan.HAVE } },
