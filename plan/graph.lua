@@ -17,10 +17,9 @@ local function copyOf(source)
 end
 
 -- In a Dose pool, only the smallest Dose size with a Recipe has a Recipe (issue 29).
-local function poolRecipeItem(basis, pool)
-    for _, size in ipairs(basis.poolSizes[pool]) do
-        local item = basis.pools[pool][size]
-        if (basis.recipes[item] or {})[1] then
+local function poolRecipeItem(graph, pool)
+    for _, item in ipairs(graph.poolItemsOf[pool]) do
+        if (graph.recipes[item] or {})[1] then
             return item
         end
     end
@@ -33,9 +32,9 @@ end
 function Graph:recipe(item)
     local chosen = self.chosen
     if chosen[item] == nil then
-        local recipe = (self.basis.recipes[item] or {})[1]
+        local recipe = (self.recipes[item] or {})[1]
         local inPool = self.poolOf[item]
-        if inPool and poolRecipeItem(self.basis, inPool.pool) ~= item then
+        if inPool and poolRecipeItem(self, inPool.pool) ~= item then
             recipe = nil
         end
         -- false marks a Raw material, so that the next call does not look again.
@@ -51,12 +50,14 @@ function Graph:recipe(item)
 end
 
 -- Gives the Inputs of one action of the Recipe of an item. A Raw material has none.
+-- Callers must not change the list. The Basis and each Raw material share it.
 function Graph:inputs(item)
     local recipe = self:recipe(item)
     return recipe and recipe.inputs or NONE
 end
 
 -- Gives the other Outputs of the Recipe of an item. A Raw material has none.
+-- Callers must not change the list. The Basis and each Raw material share it.
 function Graph:otherOutputs(item)
     local recipe = self:recipe(item)
     return recipe and recipe.otherOutputs or NONE
@@ -93,19 +94,25 @@ function Graph:pool(item)
     return self.poolOf[item]
 end
 
--- Gives each item of a Dose pool, smallest Dose size first.
+-- Gives the Dose sizes of a pool, smallest first. Callers must not change the list.
+function Graph:doseSizes(pool)
+    return self.poolSizes[pool]
+end
+
+-- Gives each item of a Dose pool, smallest Dose size first. Callers must not change the list.
 function Graph:poolItems(pool)
-    local items = {}
-    for _, size in ipairs(self.poolSizes[pool]) do
-        items[#items + 1] = self.pools[pool][size]
-    end
-    return items
+    return self.poolItemsOf[pool]
 end
 
 -- Gives each item of the Dose pool of item, or only item when it is not in a pool.
+-- Callers must not change the list.
 function Graph:doseSizeItems(item)
     local inPool = self.poolOf[item]
-    return inPool and self:poolItems(inPool.pool) or { item }
+    if inPool then
+        return self.poolItemsOf[inPool.pool]
+    end
+    self.aloneOf[item] = self.aloneOf[item] or { item }
+    return self.aloneOf[item]
 end
 
 -- Gives the Planning level of an item (ADR 0002).
@@ -307,11 +314,6 @@ end
 -- items is in the order of the search. That order decides a tie.
 -- loop is all items of the Loop, also the items with no Step.
 function Graph:loopOrder(items, loop)
-    local inLoop = {}
-    for _, item in ipairs(loop) do
-        inLoop[item] = true
-    end
-
     -- A Step that turns an Input into a different item comes before a Step that makes only that Input.
     local function mustComeBefore(first, second)
         for _, input in ipairs(self:inputs(first)) do
@@ -323,13 +325,22 @@ function Graph:loopOrder(items, loop)
     end
 
     -- An Output goes toward the Target when it is a Target or an Input of a Recipe outside the Loop.
-    local usedOutside = {}
-    for _, item in ipairs(self.order) do
-        if not inLoop[item] then
-            for _, input in ipairs(self:inputs(item)) do
-                usedOutside[input.item] = true
+    -- The graph does not change, so the graph finds these Inputs one time for each Loop.
+    local usedOutside = self.usedOutsideOf[loop]
+    if not usedOutside then
+        local inLoop = {}
+        for _, item in ipairs(loop) do
+            inLoop[item] = true
+        end
+        usedOutside = {}
+        for _, item in ipairs(self.order) do
+            if not inLoop[item] then
+                for _, input in ipairs(self:inputs(item)) do
+                    usedOutside[input.item] = true
+                end
             end
         end
+        self.usedOutsideOf[loop] = usedOutside
     end
     local function goesOut(item)
         if self.targetItems[item] or usedOutside[item] then
@@ -382,13 +393,21 @@ end
 -- Stops with an error at the line of the caller of Plan.calculate.
 function Graph.build(basis)
     local graph = setmetatable({
-        basis = basis,
+        recipes = basis.recipes,
         chosen = {},
-        pools = basis.pools,
         poolOf = basis.poolOf,
         poolSizes = basis.poolSizes,
+        poolItemsOf = {},
+        aloneOf = {},
+        usedOutsideOf = {},
         targetItems = {},
     }, Graph)
+    for pool, sizes in pairs(basis.poolSizes) do
+        graph.poolItemsOf[pool] = {}
+        for _, size in ipairs(sizes) do
+            table.insert(graph.poolItemsOf[pool], basis.pools[pool][size])
+        end
+    end
     for _, target in ipairs(basis.targets) do
         graph.targetItems[target.item] = true
     end

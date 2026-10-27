@@ -1697,6 +1697,59 @@ describe("Plan.calculate", function()
 
             expectEqual(itemsOf(plan), { "C", "B", "T" })
         end)
+
+        -- The Plan calculates the Loop of K first. X is A2 + B2 -> K + C2. W is C2 -> A2.
+        -- The second Loop is the Loop of the test before. Y uses B outside the first Loop, but in the second Loop.
+        it("finds the Inputs that are used outside each Loop when the Plan has two Loops", function()
+            local plan = Plan.calculate({
+                targets = {
+                    { id = 1, item = "K", count = 10, mode = Plan.HAVE },
+                    { id = 2, item = "T", count = 5, mode = Plan.HAVE },
+                },
+                recipes = {
+                    K = {
+                        {
+                            verb = "X",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "A2", count = 1 }, { item = "B2", count = 1 } },
+                            otherOutputs = { { item = "C2", count = 1 } },
+                        },
+                    },
+                    A2 = { { verb = "W", output = 1, actionLimit = 60, inputs = { { item = "C2", count = 1 } } } },
+                    T = {
+                        {
+                            verb = "Use",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "Z", count = 1 }, { item = "C", count = 1 } },
+                        },
+                    },
+                    Z = { { verb = "R", output = 1, actionLimit = 60, inputs = { { item = "B", count = 1 } } } },
+                    B = {
+                        {
+                            verb = "P",
+                            output = 2,
+                            actionLimit = 60,
+                            inputs = { { item = "C", count = 1 } },
+                            otherOutputs = { { item = "E", count = 1 } },
+                        },
+                    },
+                    C = {
+                        {
+                            verb = "Y",
+                            output = 1,
+                            actionLimit = 60,
+                            inputs = { { item = "B", count = 1 }, { item = "D", count = 1 } },
+                            otherOutputs = { { item = "Z", count = 1 } },
+                        },
+                    },
+                },
+                detected = { A2 = 1, B2 = 10, Z = 5, B = 1, D = 20 },
+            })
+
+            expectEqual(itemsOf(plan), { "C", "B", "K", "A2", "T" })
+        end)
     end)
 
     describe("Have and Make Targets together", function()

@@ -32,11 +32,7 @@ local POOL_SOURCES = { "counted", "supplied", "made" }
 -- - last: the last Step of the pool, or nil. leftovers: the Leftovers of the pool, after that Step.
 function Pools.plan(graph, pool, totals, newStep)
     -- The Dose sizes of a pool are 1 to N with no gap, so the index of an item is its Dose size.
-    local items = graph:poolItems(pool)
-    local sizes = {}
-    for size in ipairs(items) do
-        sizes[size] = size
-    end
+    local items, sizes = graph:poolItems(pool), graph:doseSizes(pool)
     local result = { decants = {}, used = {}, leftovers = {} }
     -- spare gives the containers of each source and Dose size that the demand does not use.
     local balance, short, doses = {}, {}, 0
